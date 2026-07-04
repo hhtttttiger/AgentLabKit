@@ -1,0 +1,100 @@
+# web(backend) 与 worker 共享的应用配置：同一份镜像、同一套基础设施依赖。
+# 调整这里的变量时两个角色同时生效——体现"一镜像多角色"。
+x-app-env: &app-env
+  APP_DB_HOST: ${APP_DB_HOST:-postgres}
+  APP_DB_PORT: ${APP_DB_PORT:-5432}
+  APP_DB_USER: ${APP_DB_USER:-app}
+  APP_DB_PASSWORD: ${APP_DB_PASSWORD:-devpassword}
+  APP_DB_NAME: ${APP_DB_NAME:-agentlabkit}
+  APP_JWT_SECRET_KEY: ${APP_JWT_SECRET_KEY:-change-me-in-production}
+  APP_JWT_ISSUER: ${APP_JWT_ISSUER:-agentlabkit}
+  APP_JWT_AUDIENCE: ${APP_JWT_AUDIENCE:-agentlabkit}
+  APP_JWT_EXPIRES_MINUTES: ${APP_JWT_EXPIRES_MINUTES:-480}
+  APP_DEBUG: ${APP_DEBUG:-true}
+  APP_RETRIEVAL__ENABLED: ${APP_RETRIEVAL__ENABLED:-true}     # web 需要 retrieval_service 才能构造 doc_queue 用于 enqueue
+  APP_REDIS__ENABLED: ${APP_REDIS__ENABLED:-true}             # 开启队列：web enqueue → worker 消费
+  APP_EMBEDDING_MODEL: ${APP_EMBEDDING_MODEL:-text-embedding-3-small}
+  APP_EMBEDDING_DIMENSIONS: ${APP_EMBEDDING_DIMENSIONS:-1536}
+  APP_REDIS_URL: ${APP_REDIS_URL:-redis://redis:6379/0}
+  APP_GATEWAY__CATALOG_DATABASE_URL: ${APP_GATEWAY__CATALOG_DATABASE_URL:-postgresql+asyncpg://app:devpassword@postgres:5432/agentlabkit}
+  APP_GATEWAY__CATALOG_ENCRYPT_KEY: ${APP_GATEWAY__CATALOG_ENCRYPT_KEY:-change-me-encrypt-key}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agentlabkit
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+    ports:
+      - "15432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d agentlabkit"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    # 生产者：只 enqueue 文档处理消息，索引消费由 worker 承担。
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *app-env
+      APP_FILE_STORAGE_LOCAL_BASE_PATH: /app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    # 消费者：复用 backend 同一镜像，仅入口不同（一镜像多角色）。
+    # 不映射端口——worker 不提供 HTTP 服务。
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["sh", "-c", "export PYTHONPATH=/app/src && python -m worker"]
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      # 多实例水平扩展时给每个副本不同的 consumer-name（Redis Streams 同组
+      # 内不同 consumer 才能并行消费；用 `docker compose up --scale worker=N`
+      # 时需配合生成的唯一名，如 hostname）。
+      APP_WORKER_CONSUMER_NAME: doc-worker-1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: admin/Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:

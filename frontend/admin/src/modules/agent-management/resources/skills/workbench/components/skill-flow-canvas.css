@@ -1,0 +1,45 @@
+.skill-flow-canvas .react-flow__renderer,
+.skill-flow-canvas .react-flow__pane,
+.skill-flow-canvas .react-flow__viewport {
+  background: transparent;
+}
+
+.skill-flow-canvas .react-flow__edge-path {
+  stroke: rgb(var(--color-border-strong));
+  stroke-width: 1.5;
+}
+
+.skill-flow-canvas .react-flow__edge.selected .react-flow__edge-path,
+.skill-flow-canvas .react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke: rgb(var(--color-primary));
+}
+
+.skill-flow-canvas .react-flow__controls {
+  border: 1px solid rgb(var(--color-border-default));
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgb(var(--color-surface-overlay));
+}
+
+.skill-flow-canvas .react-flow__controls-button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-bottom: 1px solid rgb(var(--color-border-subtle));
+  background: transparent;
+  color: rgb(var(--color-text-secondary));
+}
+
+.skill-flow-canvas .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+
+.skill-flow-canvas .react-flow__controls-button:hover {
+  background: rgb(var(--color-state-hover));
+  color: rgb(var(--color-text-default));
+}
+
+.skill-flow-canvas .react-flow__controls-button svg {
+  max-width: 14px;
+  max-height: 14px;
+}

@@ -1,0 +1,34 @@
+[project]
+name = "agentlabkit-agent-runtime"
+version = "0.1.0"
+description = "Agent orchestration runtime — execution, tools, MCP, skills"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.7.0",
+  "mcp>=1.0.0",
+  "agentlabkit-db>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+]
+memory = [
+  "tiktoken>=0.8.0",
+]
+tools = [
+  "jsonschema>=4.20.0",
+]
+
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,28 @@
+[project]
+name = "agentlabkit-evaluation"
+version = "0.1.0"
+description = "Evaluation framework for AgentLabKit — datasets, metrics, LLM-as-Judge"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.7.0",
+  "sqlalchemy[asyncio]>=2.0.0",
+  "agentlabkit-db>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+]
+
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

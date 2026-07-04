@@ -1,0 +1,54 @@
+/* ===== FormModal Animations (Windows Phone Metro style) ===== */
+@keyframes modal-scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-scrim-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes modal-panel-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes modal-panel-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(16px) scale(0.98); }
+}
+
+html.motion-enabled .form-modal--open {
+  animation: modal-scrim-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html.motion-enabled .form-modal--open > :first-child {
+  animation: modal-panel-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html.motion-enabled .form-modal--close {
+  animation: modal-scrim-out 180ms ease-in both;
+}
+
+html.motion-enabled .form-modal--close > :first-child {
+  animation: modal-panel-out 180ms ease-in both;
+}
+
+/* Motion off — just show/hide, no animation */
+.form-modal--open {
+  opacity: 1;
+}
+
+.form-modal--close {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.motion-enabled .form-modal--open,
+  html.motion-enabled .form-modal--open > :first-child,
+  html.motion-enabled .form-modal--close,
+  html.motion-enabled .form-modal--close > :first-child {
+    animation: none;
+  }
+}

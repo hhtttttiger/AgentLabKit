@@ -1,0 +1,67 @@
+/* ===== Box Enter Animations ===== */
+@keyframes box-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+html.motion-enabled .animate-box-enter {
+  animation: box-enter 200ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.motion-enabled .animate-box-enter {
+    animation: none;
+  }
+}
+
+/* ===== Refresh Progress Bar ===== */
+@keyframes refresh-bar-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(500%); }
+}
+
+.refresh-bar-comet {
+  animation: refresh-bar-sweep 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refresh-bar-comet {
+    animation: none;
+    transform: none;
+    width: 100% !important;
+    opacity: 0.5;
+  }
+}
+
+/* ===== Toast Animations ===== */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-removing] {
+    animation: none !important;
+  }
+}

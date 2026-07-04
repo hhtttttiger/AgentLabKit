@@ -1,0 +1,78 @@
+/* ===== 基础色板 ===== */
+/* 品牌主色 - 蓝色系 */
+:root {
+  --color-blue-50: 239 246 255;
+  --color-blue-100: 219 234 254;
+  --color-blue-200: 191 219 254;
+  --color-blue-300: 147 197 253;
+  --color-blue-400: 96 165 250;
+  --color-blue-500: 59 130 246;
+  --color-blue-600: 37 99 235;
+  --color-blue-700: 29 78 216;
+  --color-blue-800: 30 64 175;
+  --color-blue-900: 30 58 138;
+  --color-blue-950: 23 37 84;
+
+  /* 中性色 - Slate */
+  --color-slate-50: 248 250 252;
+  --color-slate-100: 241 245 249;
+  --color-slate-200: 226 232 240;
+  --color-slate-300: 203 213 225;
+  --color-slate-400: 148 163 184;
+  --color-slate-500: 100 116 139;
+  --color-slate-600: 71 85 105;
+  --color-slate-700: 51 65 85;
+  --color-slate-800: 30 41 59;
+  --color-slate-900: 15 23 42;
+  --color-slate-950: 2 6 23;
+
+  /* 功能色 */
+  --color-green-50: 240 253 244;
+  --color-green-100: 220 252 231;
+  --color-green-200: 187 247 208;
+  --color-green-300: 134 239 172;
+  --color-green-400: 74 222 128;
+  --color-green-500: 34 197 94;
+  --color-green-600: 22 163 74;
+  --color-green-700: 21 128 61;
+  --color-green-800: 22 101 52;
+  --color-green-900: 20 83 45;
+  --color-green-950: 5 46 22;
+
+  --color-yellow-50: 254 252 232;
+  --color-yellow-100: 254 249 195;
+  --color-yellow-200: 254 240 138;
+  --color-yellow-300: 253 224 71;
+  --color-yellow-400: 250 204 21;
+  --color-yellow-500: 234 179 8;
+  --color-yellow-600: 202 138 4;
+  --color-yellow-700: 161 98 7;
+  --color-yellow-800: 133 77 14;
+  --color-yellow-900: 113 63 18;
+  --color-yellow-950: 66 49 6;
+
+  --color-red-50: 254 242 242;
+  --color-red-100: 254 226 226;
+  --color-red-200: 254 202 202;
+  --color-red-300: 252 165 165;
+  --color-red-400: 248 113 113;
+  --color-red-500: 239 68 68;
+  --color-red-600: 220 38 38;
+  --color-red-700: 185 28 28;
+  --color-red-800: 153 27 27;
+  --color-red-900: 127 29 29;
+  --color-red-950: 69 10 10;
+
+  /* 橙色系 - 小米品牌橙 */
+  --color-orange-50: 255 247 237;
+  --color-orange-100: 255 237 213;
+  --color-orange-200: 254 215 170;
+  --color-orange-300: 253 186 116;
+  --color-orange-400: 251 146 60;
+  --color-orange-500: 249 115 22;
+  --color-orange-600: 255 105 0;   /* #FF6900 - 小米标志橙 */
+  --color-orange-700: 194 65 12;
+  --color-orange-800: 154 52 18;
+  --color-orange-900: 124 45 18;
+  --color-orange-950: 67 20 7;
+}

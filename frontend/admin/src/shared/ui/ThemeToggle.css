@@ -1,0 +1,41 @@
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgb(var(--color-border-default));
+  border-radius: 2px;
+  background: rgb(var(--color-surface-raised));
+  cursor: pointer;
+  transition: 150ms ease;
+  color: rgb(var(--color-text-secondary));
+}
+
+.theme-toggle:hover {
+  border-color: rgb(var(--color-border-default));
+  background: rgb(var(--color-state-hover));
+  color: rgb(var(--color-text-default));
+}
+
+.theme-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(var(--color-state-focus) / 0.4);
+}
+
+.theme-toggle--header {
+  background: rgb(var(--color-surface-raised));
+}
+
+.theme-toggle--inline {
+  width: 36px;
+  height: 36px;
+  border-radius: 2px;
+  background: rgb(var(--color-surface-default));
+}
+
+[data-theme="dark"] .theme-toggle {
+  border-color: rgb(var(--color-border-strong));
+  background: rgb(var(--color-surface-raised));
+  color: rgb(var(--color-text-default));
+}

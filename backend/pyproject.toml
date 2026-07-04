@@ -1,0 +1,75 @@
+[project]
+name = "agentlabkit-backend"
+version = "0.1.0"
+description = "Backend API for AgentLabKit — CRUD + AI Agent Gateway"
+requires-python = ">=3.12"
+dependencies = [
+    # Web framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-multipart>=0.0.20",
+    "sse-starlette>=2.0.0",
+
+    # Database
+    "agentlabkit-db>=0.1.0",
+    "agentlabkit-infra>=0.1.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "pgvector>=0.3.0",
+
+    # LLM Gateway & Agent Runtime
+    "agentlabkit-llm-gateway>=0.1.0",
+    "agentlabkit-agent-runtime>=0.1.0",
+
+    # Retrieval (RAG engine)
+    "agentlabkit-retrieval>=0.1.0",
+
+    # Cost analysis
+    "agentlabkit-cost-analysis>=0.1.0",
+
+    # Observability
+    "agentlabkit-observability>=0.1.0",
+
+    # Long-term memory
+    "agentlabkit-memory>=0.1.0",
+
+    # Evaluation
+    "agentlabkit-evaluation>=0.1.0",
+
+    # Auth
+    "pyjwt[crypto]>=2.10.0",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.0.0,<5.0.0",
+
+    # Settings & validation
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+
+    # Utilities
+    "loguru>=0.7.2",
+    "cryptography>=43.0.0,<44.0.0",
+    "aiofiles>=24.1.0",
+]
+
+[project.optional-dependencies]
+ai = [
+    "pydantic-ai>=1.69.0",
+    "openai>=1.68.0",
+    "websockets>=15.0.1",
+]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.28.0",
+]
+
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

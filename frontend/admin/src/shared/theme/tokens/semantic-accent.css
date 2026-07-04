@@ -1,0 +1,167 @@
+/* ===== 主题色预设（Accent）===== */
+/* blue 为默认色，已由 semantic-light/dark.css 定义，此处无需重复 */
+
+/* ───────────────── Violet ───────────────── */
+[data-accent="violet"] {
+  --color-primary: 124 58 237;              /* violet-600 */
+  --color-primary-hover: 109 40 217;        /* violet-700 */
+  --color-primary-active: 91 33 182;        /* violet-800 */
+  --color-primary-subtle: 237 233 254;      /* violet-100 */
+  --color-primary-muted: 196 181 253;       /* violet-300 */
+  --color-border-focus: 139 92 246;         /* violet-500 */
+  --color-state-focus: 139 92 246;          /* violet-500 */
+  --color-state-focus-ring: 196 181 253;    /* violet-300 */
+  --color-text-link: 124 58 237;            /* violet-600 */
+  --color-text-link-hover: 109 40 217;      /* violet-700 */
+  --color-info: 124 58 237;
+  --color-info-subtle: 237 233 254;
+  --color-info-text: 46 16 101;             /* violet-950 */
+}
+
+[data-theme="dark"][data-accent="violet"] {
+  --color-primary: 167 139 250;             /* violet-400 */
+  --color-primary-hover: 196 181 253;       /* violet-300 */
+  --color-primary-active: 221 214 254;      /* violet-200 */
+  --color-primary-subtle: 46 16 101;        /* violet-950 */
+  --color-primary-muted: 91 33 182;         /* violet-800 */
+  --color-border-focus: 167 139 250;        /* violet-400 */
+  --color-state-focus: 167 139 250;         /* violet-400 */
+  --color-state-focus-ring: 46 16 101;      /* violet-950 */
+  --color-text-link: 196 181 253;           /* violet-300 */
+  --color-text-link-hover: 221 214 254;     /* violet-200 */
+  --color-info: 167 139 250;
+  --color-info-subtle: 46 16 101;
+  --color-info-text: 221 214 254;           /* violet-200 */
+}
+
+/* ───────────────── Emerald ───────────────── */
+[data-accent="emerald"] {
+  --color-primary: 5 150 105;               /* emerald-600 */
+  --color-primary-hover: 4 120 87;          /* emerald-700 */
+  --color-primary-active: 6 95 70;          /* emerald-800 */
+  --color-primary-subtle: 209 250 229;      /* emerald-100 */
+  --color-primary-muted: 110 231 183;       /* emerald-300 */
+  --color-border-focus: 16 185 129;         /* emerald-500 */
+  --color-state-focus: 16 185 129;          /* emerald-500 */
+  --color-state-focus-ring: 110 231 183;    /* emerald-300 */
+  --color-text-link: 5 150 105;             /* emerald-600 */
+  --color-text-link-hover: 4 120 87;        /* emerald-700 */
+  --color-info: 5 150 105;
+  --color-info-subtle: 209 250 229;
+  --color-info-text: 2 44 34;               /* emerald-950 */
+}
+
+[data-theme="dark"][data-accent="emerald"] {
+  --color-primary: 52 211 153;              /* emerald-400 */
+  --color-primary-hover: 110 231 183;       /* emerald-300 */
+  --color-primary-active: 167 243 208;      /* emerald-200 */
+  --color-primary-subtle: 2 44 34;          /* emerald-950 */
+  --color-primary-muted: 6 95 70;           /* emerald-800 */
+  --color-border-focus: 52 211 153;         /* emerald-400 */
+  --color-state-focus: 52 211 153;          /* emerald-400 */
+  --color-state-focus-ring: 2 44 34;        /* emerald-950 */
+  --color-text-link: 110 231 183;           /* emerald-300 */
+  --color-text-link-hover: 167 243 208;     /* emerald-200 */
+  --color-info: 52 211 153;
+  --color-info-subtle: 2 44 34;
+  --color-info-text: 167 243 208;           /* emerald-200 */
+}
+
+/* ───────────────── Rose ───────────────── */
+[data-accent="rose"] {
+  --color-primary: 225 29 72;               /* rose-600 */
+  --color-primary-hover: 190 18 60;         /* rose-700 */
+  --color-primary-active: 159 18 57;        /* rose-800 */
+  --color-primary-subtle: 255 228 230;      /* rose-100 */
+  --color-primary-muted: 253 164 175;       /* rose-300 */
+  --color-border-focus: 244 63 94;          /* rose-500 */
+  --color-state-focus: 244 63 94;           /* rose-500 */
+  --color-state-focus-ring: 253 164 175;    /* rose-300 */
+  --color-text-link: 225 29 72;             /* rose-600 */
+  --color-text-link-hover: 190 18 60;       /* rose-700 */
+  --color-info: 225 29 72;
+  --color-info-subtle: 255 228 230;
+  --color-info-text: 67 7 26;               /* rose-950 */
+}
+
+[data-theme="dark"][data-accent="rose"] {
+  --color-primary: 251 113 133;             /* rose-400 */
+  --color-primary-hover: 253 164 175;       /* rose-300 */
+  --color-primary-active: 254 205 211;      /* rose-200 */
+  --color-primary-subtle: 67 7 26;          /* rose-950 */
+  --color-primary-muted: 159 18 57;         /* rose-800 */
+  --color-border-focus: 251 113 133;        /* rose-400 */
+  --color-state-focus: 251 113 133;         /* rose-400 */
+  --color-state-focus-ring: 67 7 26;        /* rose-950 */
+  --color-text-link: 253 164 175;           /* rose-300 */
+  --color-text-link-hover: 254 205 211;     /* rose-200 */
+  --color-info: 251 113 133;
+  --color-info-subtle: 67 7 26;
+  --color-info-text: 254 205 211;           /* rose-200 */
+}
+
+/* ───────────────── Amber ───────────────── */
+[data-accent="amber"] {
+  --color-primary: 217 119 6;               /* amber-600 */
+  --color-primary-hover: 180 83 9;          /* amber-700 */
+  --color-primary-active: 146 64 14;        /* amber-800 */
+  --color-primary-subtle: 254 243 199;      /* amber-100 */
+  --color-primary-muted: 252 211 77;        /* amber-300 */
+  --color-border-focus: 245 158 11;         /* amber-500 */
+  --color-state-focus: 245 158 11;          /* amber-500 */
+  --color-state-focus-ring: 252 211 77;     /* amber-300 */
+  --color-text-link: 217 119 6;             /* amber-600 */
+  --color-text-link-hover: 180 83 9;        /* amber-700 */
+  --color-info: 217 119 6;
+  --color-info-subtle: 254 243 199;
+  --color-info-text: 69 26 3;               /* amber-950 */
+}
+
+[data-theme="dark"][data-accent="amber"] {
+  --color-primary: 251 191 36;              /* amber-400 */
+  --color-primary-hover: 252 211 77;        /* amber-300 */
+  --color-primary-active: 253 230 138;      /* amber-200 */
+  --color-primary-subtle: 69 26 3;          /* amber-950 */
+  --color-primary-muted: 146 64 14;         /* amber-800 */
+  --color-border-focus: 251 191 36;         /* amber-400 */
+  --color-state-focus: 251 191 36;          /* amber-400 */
+  --color-state-focus-ring: 69 26 3;        /* amber-950 */
+  --color-text-link: 252 211 77;            /* amber-300 */
+  --color-text-link-hover: 253 230 138;     /* amber-200 */
+  --color-info: 251 191 36;
+  --color-info-subtle: 69 26 3;
+  --color-info-text: 253 230 138;           /* amber-200 */
+}
+
+/* ───────────────── Orange（小米品牌橙） ───────────────── */
+[data-accent="orange"] {
+  --color-primary: 255 105 0;               /* orange-600 #FF6900 */
+  --color-primary-hover: 194 65 12;         /* orange-700 */
+  --color-primary-active: 154 52 18;        /* orange-800 */
+  --color-primary-subtle: 255 237 213;      /* orange-100 */
+  --color-primary-muted: 253 186 116;       /* orange-300 */
+  --color-border-focus: 249 115 22;         /* orange-500 */
+  --color-state-focus: 249 115 22;          /* orange-500 */
+  --color-state-focus-ring: 253 186 116;    /* orange-300 */
+  --color-text-link: 255 105 0;             /* orange-600 */
+  --color-text-link-hover: 194 65 12;       /* orange-700 */
+  --color-info: 255 105 0;
+  --color-info-subtle: 255 237 213;
+  --color-info-text: 67 20 7;               /* orange-950 */
+}
+
+[data-theme="dark"][data-accent="orange"] {
+  --color-primary: 251 146 60;              /* orange-400 */
+  --color-primary-hover: 253 186 116;       /* orange-300 */
+  --color-primary-active: 254 215 170;      /* orange-200 */
+  --color-primary-subtle: 67 20 7;          /* orange-950 */
+  --color-primary-muted: 154 52 18;         /* orange-800 */
+  --color-border-focus: 251 146 60;         /* orange-400 */
+  --color-state-focus: 251 146 60;          /* orange-400 */
+  --color-state-focus-ring: 67 20 7;        /* orange-950 */
+  --color-text-link: 253 186 116;           /* orange-300 */
+  --color-text-link-hover: 254 215 170;     /* orange-200 */
+  --color-info: 251 146 60;
+  --color-info-subtle: 67 20 7;
+  --color-info-text: 254 215 170;           /* orange-200 */
+}

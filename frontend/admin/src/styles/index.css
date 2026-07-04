@@ -1,0 +1,38 @@
+:root {
+  background: rgb(var(--color-background-default));
+  font-family: "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  color: rgb(var(--color-text-default));
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+[data-theme="dark"] {
+  background: rgb(var(--color-background-default));
+}
+
+@layer components {
+  .mm-grid-pattern {
+    background: transparent;
+  }
+}
+
+.mm-code-block {
+  border: 1px solid rgb(var(--color-border-subtle));
+  border-radius: 2px;
+  background: rgb(var(--color-background-sunken));
+  color: rgb(var(--color-text-default));
+}

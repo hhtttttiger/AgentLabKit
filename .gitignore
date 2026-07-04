@@ -1,0 +1,39 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.venv/
+venv/
+.pytest_cache/
+
+# ===== Node =====
+node_modules/
+dist/
+
+# ===== Environment =====
+.env
+.env.local
+.env.development
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+
+# ===== Alembic =====
+_alembic_backup/
+_archived_versions/
+_squash_backup_*/
+
+# ===== Claude =====
+.claude/settings.local.json
+
+# ===== Misc =====
+*.log

@@ -1,0 +1,681 @@
+/* ── Login ── */
+.login-aurora {
+  background-color: rgb(var(--color-background-default));
+}
+
+.login-aurora__blob {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.08;
+  will-change: transform;
+  pointer-events: none;
+  /* Orbit centres – each blob circles the page centre at its own radius */
+  --cx: calc(50vw - var(--r));
+  --cy: calc(50vh - var(--r));
+  left: var(--cx);
+  top:  var(--cy);
+}
+
+/* Orbital keyframes: translate traces an ellipse (rx = ry = --r) → perfect circle */
+@keyframes orbit {
+  0%   { transform: translate(calc(var(--r)),              0)                  scale(1);    }
+  25%  { transform: translate(0,                            calc(var(--r)))     scale(1.08); }
+  50%  { transform: translate(calc(var(--r) * -1),          0)                  scale(0.95); }
+  75%  { transform: translate(0,                            calc(var(--r) * -1)) scale(1.04); }
+  100% { transform: translate(calc(var(--r)),               0)                  scale(1);    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-aurora__blob,
+  .login-robot__scene *,
+  .login-robot__belt::before {
+    animation: none !important;
+  }
+
+  .login-aurora__blob {
+    opacity: 0.03;
+  }
+}
+
+/* ── Login Robot Loop Animation ── */
+/* A robot picks up a box from the left platform, turns, carries it onto the
+   conveyor belt, turns back and returns — then a new box drops in. Loops. */
+.login-robot {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.login-robot__scene {
+  position: relative;
+  width: 360px;
+  max-width: 100%;
+  height: 84px;
+  overflow: hidden;
+}
+
+/* Conveyor belt (right side) */
+.login-robot__belt {
+  position: absolute;
+  bottom: 8px;
+  left: 196px;
+  width: 152px;
+  height: 8px;
+  background: rgb(var(--color-border-default));
+  border-radius: 2px;
+  opacity: 0.55;
+}
+
+.login-robot__belt::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgb(var(--color-border-strong)) 0px,
+    rgb(var(--color-border-strong)) 7px,
+    transparent 7px,
+    transparent 12px
+  );
+  opacity: 0.7;
+  animation: login-robot-belt 0.6s linear infinite;
+}
+
+@keyframes login-robot-belt {
+  to { background-position: 12px 0; }
+}
+
+.login-robot__belt-leg {
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  height: 8px;
+  background: rgb(var(--color-border-default));
+  opacity: 0.5;
+  border-radius: 0 0 1px 1px;
+}
+
+.login-robot__belt-leg--l { left: 204px; }
+.login-robot__belt-leg--r { left: 340px; }
+
+/* Drop platform (left side) */
+.login-robot__platform {
+  position: absolute;
+  bottom: 8px;
+  left: 20px;
+  width: 44px;
+  height: 8px;
+  background: rgb(var(--color-border-default));
+  border-radius: 1px;
+  opacity: 0.5;
+}
+
+/* Box being processed: rest → lifted → carried → on belt → slides off */
+.login-robot__box {
+  position: absolute;
+  left: 32px;
+  bottom: 16px;
+  width: 18px;
+  height: 16px;
+  background: #c0873a;
+  border-radius: 1px;
+  animation: login-robot-box 6s ease-in-out infinite;
+  z-index: 2;
+}
+
+.login-robot__box::before,
+.login-robot__box-new::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 6px;
+  width: 6px;
+  height: 100%;
+  background: #a06820;
+}
+
+.login-robot__box::after,
+.login-robot__box-new::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  background: #a06820;
+}
+
+@keyframes login-robot-box {
+  /* rests on the platform, is invisible while the robot carries it, then
+     reappears on the belt once set down */
+  0%, 26%   { left: 32px;  bottom: 16px; opacity: 1; }
+  30%       { left: 32px;  bottom: 16px; opacity: 0; }
+  50%       { left: 212px; bottom: 16px; opacity: 0; }
+  52%       { left: 212px; bottom: 16px; opacity: 1; }
+  78%       { left: 330px; bottom: 16px; opacity: 1; }
+  80%, 100% { left: 330px; bottom: 16px; opacity: 0; }
+}
+
+/* The box in the robot's grip — a CHILD of .login-robot__bot, so it rides
+   along perfectly while the robot walks it over to the belt. Positioned at
+   the claw (robot faces right during the carry, so the hand is on the right). */
+.login-robot__box-carry {
+  position: absolute;
+  left: 22px;
+  bottom: 6px;
+  width: 18px;
+  height: 16px;
+  background: #c0873a;
+  border-radius: 1px;
+  animation: login-robot-box-carry 6s ease-in-out infinite;
+  z-index: 3;
+}
+
+.login-robot__box-carry::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 6px;
+  width: 6px;
+  height: 100%;
+  background: #a06820;
+}
+
+.login-robot__box-carry::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  background: #a06820;
+}
+
+@keyframes login-robot-box-carry {
+  0%, 30%   { opacity: 0; }
+  32%, 50%  { opacity: 1; }
+  52%, 100% { opacity: 0; }
+}
+
+/* Replacement box dropping from the sky */
+.login-robot__box-new {
+  position: absolute;
+  left: 32px;
+  bottom: 16px;
+  width: 18px;
+  height: 16px;
+  background: #c0873a;
+  border-radius: 1px;
+  opacity: 0;
+  z-index: 1;
+  animation: login-robot-box-drop 6s ease-in infinite;
+}
+
+@keyframes login-robot-box-drop {
+  0%, 72%   { transform: translateY(-60px); opacity: 0; }
+  78%       { transform: translateY(-60px); opacity: 1; }
+  86%       { transform: translateY(0); opacity: 1; }      /* lands */
+  88%       { transform: translateY(-4px); opacity: 1; }   /* bounce */
+  92%, 100% { transform: translateY(0); opacity: 1; }
+}
+
+/* ── Robot (styled as Mega Man X) ── */
+/* Same DOM + keyframes as before — only the visual treatment changes so the
+   carrier reads as X: blue armor, cyan forehead gem + chest core, peach face. */
+.login-robot__bot {
+  /* X palette (fixed — X stays blue in light & dark themes alike) */
+  --x-blue: #2e6fb5;
+  --x-blue-dark: #163e7a;
+  --x-blue-mid: #3a66a8;
+  --x-blue-light: #5aa0e0;
+  --x-cyan: #4fd1e5;
+  --x-cyan-bright: #9beef7;
+  --x-skin: #f2d2a8;
+  --x-white: #e8ecf2;
+  --x-outline: #122448;
+  position: absolute;
+  left: 44px;
+  bottom: 16px;
+  width: 34px;
+  height: 42px;
+  animation: login-robot-move 6s ease-in-out infinite;
+  z-index: 3;
+}
+
+/* Chest armor */
+.login-robot__bot-body {
+  position: absolute;
+  bottom: 4px;
+  left: 5px;
+  width: 24px;
+  height: 26px;
+  background: linear-gradient(180deg, var(--x-blue-light) 0%, var(--x-blue) 45%, var(--x-blue-dark) 100%);
+  border-radius: 6px 6px 4px 4px;
+  border: 1px solid var(--x-outline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+/* Central chest plate */
+.login-robot__bot-body::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 4px;
+  right: 4px;
+  height: 11px;
+  background: var(--x-blue-mid);
+  border-radius: 3px;
+  border: 1px solid var(--x-blue-dark);
+}
+
+/* Chest core light — pulses cyan while carrying */
+.login-robot__bot-body::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 5px;
+  height: 5px;
+  background: var(--x-cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 4px var(--x-cyan-bright);
+  animation: login-robot-lamp 6s ease-in-out infinite;
+}
+
+@keyframes login-robot-lamp {
+  0%, 24%   { background: var(--x-cyan); box-shadow: 0 0 3px var(--x-cyan-bright); }
+  30%, 78%  { background: var(--x-cyan-bright); box-shadow: 0 0 7px var(--x-cyan-bright); }
+  84%, 100% { background: var(--x-cyan); box-shadow: 0 0 3px var(--x-cyan-bright); }
+}
+
+/* Helmet dome */
+.login-robot__bot-head {
+  position: absolute;
+  bottom: 28px;
+  left: 3px;
+  width: 28px;
+  height: 19px;
+  background: linear-gradient(180deg, var(--x-blue-light) 0%, var(--x-blue) 55%, var(--x-blue-dark) 100%);
+  border-radius: 11px 11px 4px 4px;
+  border: 1px solid var(--x-outline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+/* Helmet side guards (X's iconic ear pieces) */
+.login-robot__bot-head::before,
+.login-robot__bot-head::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  width: 6px;
+  height: 9px;
+  background: var(--x-blue-dark);
+  border: 1px solid var(--x-outline);
+  border-radius: 1px;
+}
+
+.login-robot__bot-head::before { left: -4px; }
+.login-robot__bot-head::after { right: -4px; }
+
+/* Face opening in the lower helmet — peach skin with two eyes.
+   Centered so it reads as X's face whichever way the bot is flipped. */
+.login-robot__bot-visor {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 8px;
+  background: var(--x-skin);
+  border-radius: 0 0 5px 5px;
+  border: 1px solid var(--x-outline);
+  border-top: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.login-robot__bot-visor::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  width: 3px;
+  height: 3px;
+  background: var(--x-outline);
+  border-radius: 50%;
+  box-shadow: 8px 0 0 var(--x-outline);
+}
+
+/* Forehead gem (repurposed antenna) — cyan, set into the upper helmet */
+.login-robot__bot-antenna {
+  position: absolute;
+  bottom: 39px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 6px;
+  background: linear-gradient(180deg, var(--x-cyan-bright), var(--x-cyan));
+  border: 1px solid var(--x-blue-dark);
+  border-radius: 2px;
+  z-index: 2;
+}
+
+.login-robot__bot-antenna::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  opacity: 0.9;
+}
+
+/* Boots — blue armor with the bulbous rounded soles */
+.login-robot__bot-leg {
+  position: absolute;
+  bottom: -6px;
+  width: 8px;
+  height: 11px;
+  background: linear-gradient(180deg, var(--x-blue) 0%, var(--x-blue) 55%, var(--x-blue-dark) 100%);
+  border: 1px solid var(--x-outline);
+  border-top: none;
+  border-radius: 2px 2px 6px 6px;
+  transform-origin: top center;
+}
+
+/* Legs swing out of phase during the two walk windows (home→belt, belt→home)
+   and hold still during the grab / set-down / idle beats. */
+.login-robot__bot-leg--l { left: 6px;  animation: login-robot-walk-l 6s ease-in-out infinite; }
+.login-robot__bot-leg--r { left: 20px; animation: login-robot-walk-r 6s ease-in-out infinite; }
+
+@keyframes login-robot-walk-l {
+  0%, 31%   { transform: rotate(0deg); }
+  33%       { transform: rotate(-18deg); }
+  36%       { transform: rotate(16deg); }
+  40%       { transform: rotate(-18deg); }
+  44%       { transform: rotate(16deg); }
+  47%       { transform: rotate(0deg); }
+  48%, 56%  { transform: rotate(0deg); }
+  58%       { transform: rotate(-18deg); }
+  62%       { transform: rotate(16deg); }
+  66%       { transform: rotate(-18deg); }
+  70%       { transform: rotate(16deg); }
+  74%       { transform: rotate(0deg); }
+  76%, 100% { transform: rotate(0deg); }
+}
+
+@keyframes login-robot-walk-r {
+  0%, 31%   { transform: rotate(0deg); }
+  33%       { transform: rotate(16deg); }
+  36%       { transform: rotate(-18deg); }
+  40%       { transform: rotate(16deg); }
+  44%       { transform: rotate(-18deg); }
+  47%       { transform: rotate(0deg); }
+  48%, 56%  { transform: rotate(0deg); }
+  58%       { transform: rotate(16deg); }
+  62%       { transform: rotate(-18deg); }
+  66%       { transform: rotate(16deg); }
+  70%       { transform: rotate(-18deg); }
+  74%       { transform: rotate(0deg); }
+  76%, 100% { transform: rotate(0deg); }
+}
+
+/* Pickup arm (X's armored arm) — extends right; the bot flips via scaleX */
+.login-robot__bot-arm {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  width: 20px;
+  height: 5px;
+  background: linear-gradient(180deg, var(--x-blue-light), var(--x-blue) 60%, var(--x-blue-dark));
+  border: 1px solid var(--x-outline);
+  border-radius: 2px;
+  transform-origin: left center;
+  animation: login-robot-arm 6s ease-in-out infinite;
+  z-index: 4;
+}
+
+/* Wrist block at the end of the arm */
+.login-robot__bot-arm::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -3px;
+  width: 4px;
+  height: 10px;
+  background: var(--x-blue-dark);
+  border: 1px solid var(--x-outline);
+  border-radius: 1px;
+}
+
+/* Gripper fingers (white) clamping the box */
+.login-robot__bot-claw {
+  position: absolute;
+  right: -4px;
+  width: 4px;
+  height: 5px;
+  background: var(--x-white);
+  border: 1px solid var(--x-outline);
+  border-radius: 0 0 1px 1px;
+  animation: login-robot-claw 6s ease-in-out infinite;
+}
+
+.login-robot__bot-claw--l { top: -5px; }
+.login-robot__bot-claw--r { bottom: -5px; animation-name: login-robot-claw-r; }
+
+/* Arm: rest → reach down-left (grab) → hold (carry) → rest */
+@keyframes login-robot-arm {
+  0%, 20%   { transform: rotate(0deg); }
+  26%, 30%  { transform: rotate(35deg); }
+  38%, 50%  { transform: rotate(-6deg); }
+  58%, 100% { transform: rotate(0deg); }
+}
+
+@keyframes login-robot-claw {
+  0%, 24%   { transform: translateY(0); }
+  28%, 52%  { transform: translateY(1px); }
+  56%, 100% { transform: translateY(0); }
+}
+
+@keyframes login-robot-claw-r {
+  0%, 24%   { transform: translateY(0); }
+  28%, 52%  { transform: translateY(-1px); }
+  56%, 100% { transform: translateY(0); }
+}
+
+/*
+ * Robot movement + facing:
+ *   scaleX(-1) = face LEFT (toward the box)
+ *   scaleX(1)  = face RIGHT (toward the belt)
+ */
+@keyframes login-robot-move {
+  0%, 30%   { transform: translate(0, 0) scaleX(-1); }        /* home, face left */
+  32%       { transform: translate(0, 0) scaleX(1); }         /* turn right */
+  48%, 54%  { transform: translate(152px, 0) scaleX(1); }     /* at belt, face right */
+  56%       { transform: translate(152px, 0) scaleX(-1); }    /* turn left */
+  76%, 100% { transform: translate(0, 0) scaleX(-1); }        /* home */
+}
+
+/* Robot ground shadow */
+.login-robot__bot-shadow {
+  position: absolute;
+  bottom: 12px;
+  left: 48px;
+  width: 30px;
+  height: 4px;
+  background: rgb(0 0 0 / 0.25);
+  border-radius: 50%;
+  filter: blur(2px);
+  animation: login-robot-shadow 6s ease-in-out infinite;
+  z-index: 0;
+}
+
+@keyframes login-robot-shadow {
+  0%, 30%   { transform: translate(0, 0) scaleX(1); }
+  48%, 54%  { transform: translate(152px, 0) scaleX(1); }
+  76%, 100% { transform: translate(0, 0) scaleX(1); }
+}
+
+/* ── Login Preferences ── */
+.login-preferences {
+  position: relative;
+  padding-top: 16px;
+  border-top: 1px solid rgb(var(--color-border-default) / 0.56);
+}
+
+.login-preferences__trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 10px 0 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.login-preferences__trigger-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.login-preferences__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--color-text-muted));
+}
+
+.login-preferences__helper {
+  font-size: 13px;
+  color: rgb(var(--color-text-secondary));
+}
+
+.login-preferences__summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: rgb(var(--color-text-secondary));
+}
+
+.login-preferences__locale-chip {
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 2px;
+  border: 1px solid rgb(var(--color-border-default) / 0.58);
+  background: rgb(var(--color-surface-default));
+  font-size: 12px;
+  color: rgb(var(--color-text-secondary));
+}
+
+.login-preferences__accent-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.login-preferences__accent-swatch--blue { background: #0078D4; }
+.login-preferences__accent-swatch--violet { background: #8b5cf6; }
+.login-preferences__accent-swatch--emerald { background: #10b981; }
+.login-preferences__accent-swatch--rose { background: #f43f5e; }
+.login-preferences__accent-swatch--amber { background: #f59e0b; }
+.login-preferences__accent-swatch--orange { background: #ff6900; }
+
+.login-preferences__chevron {
+  opacity: 0.72;
+  transition: transform 150ms ease;
+}
+
+.login-preferences__chevron--open {
+  transform: rotate(180deg);
+}
+
+.login-preferences__panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  z-index: 10;
+  width: min(100%, 264px);
+  padding: 14px;
+  border-radius: 2px;
+  border: 1px solid rgb(var(--color-border-default));
+  background: rgb(var(--color-surface-default));
+  display: grid;
+  gap: 14px;
+}
+
+.login-preferences__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.login-preferences__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(var(--color-text-muted));
+}
+
+.login-preferences__language-picker {
+  flex-wrap: wrap;
+}
+
+.login-preferences__panel .login-preferences__language-picker .language-picker__option {
+  min-height: 28px;
+  padding: 6px 10px;
+  background: rgb(var(--color-surface-default));
+}
+
+.login-preferences__accent-picker {
+  padding: 0;
+  gap: 8px;
+}
+
+.login-preferences__panel .login-preferences__accent-picker .accent-picker__dot {
+  width: 16px;
+  height: 16px;
+}
+
+.login-preferences__panel .login-preferences__accent-picker .accent-picker__dot--active,
+.login-preferences__panel .login-preferences__accent-picker .accent-picker__dot:focus-visible {
+  box-shadow: 0 0 0 2px rgb(var(--color-background-default)), 0 0 0 4px var(--dot-color);
+}
+
+.login-preferences__panel .theme-toggle--inline {
+  align-self: flex-start;
+}
+
+@media (max-width: 520px) {
+  .login-preferences__trigger {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .login-preferences__summary {
+    justify-content: center;
+  }
+
+  .login-preferences__panel {
+    left: 0;
+    right: 0;
+    width: auto;
+    bottom: calc(100% + 10px);
+  }
+}

@@ -1,0 +1,71 @@
+/* ===== 语义化颜色 - 亮色模式 (Metro) ===== */
+:root {
+  /* ===== 主色调 - WP Blue ===== */
+  --color-primary: 0 120 212;                   /* #0078D4 */
+  --color-primary-hover: 0 100 180;             /* #0064B4 */
+  --color-primary-active: 0 80 150;             /* #005096 */
+  --color-primary-subtle: 218 235 253;          /* #DAFDFD adj */
+  --color-primary-muted: 135 185 240;           /* #87B9F0 */
+
+  /* ===== 背景色 - 纯白 Metro ===== */
+  --color-background-default: 255 255 255;
+  --color-background-subtle: 245 245 245;
+  --color-background-sunken: 238 238 238;
+  --color-background-elevated: 255 255 255;
+
+  /* ===== 表面色 ===== */
+  --color-surface-default: 255 255 255;
+  --color-surface-raised: 255 255 255;
+  --color-surface-overlay: 255 255 255;
+  --color-surface-scrim: 0 0 0;
+
+  /* ===== 边框色 ===== */
+  --color-border-default: 229 229 229;
+  --color-border-subtle: 240 240 240;
+  --color-border-strong: 204 204 204;
+  --color-border-focus: 0 120 212;
+
+  /* ===== 文字色 ===== */
+  --color-text-default: 0 0 0;
+  --color-text-secondary: 102 102 102;
+  --color-text-muted: 153 153 153;
+  --color-text-subtle: 187 187 187;
+  --color-text-inverse: 255 255 255;
+  --color-text-link: 0 120 212;
+  --color-text-link-hover: 0 100 180;
+
+  /* ===== 状态色 ===== */
+  --color-state-hover: 240 240 240;
+  --color-state-active: 229 229 229;
+  --color-state-focus: 0 120 212;
+  --color-state-focus-ring: 135 185 240;
+
+  /* ===== 反馈色 ===== */
+  --color-success: 22 163 74;
+  --color-success-subtle: 220 252 231;
+  --color-success-text: 20 83 45;
+  --color-warning: 202 138 4;
+  --color-warning-subtle: 254 249 195;
+  --color-warning-text: 113 63 18;
+  --color-error: 220 38 38;
+  --color-error-subtle: 254 226 226;
+  --color-error-text: 127 29 29;
+  --color-info: 0 120 212;
+  --color-info-subtle: 218 235 253;
+  --color-info-text: 0 80 150;
+
+  /* ===== 侧边栏 ===== */
+  --color-sidebar-bg: 245 245 245;
+  --color-sidebar-bg-hover: 238 238 238;
+  --color-sidebar-bg-active: 229 229 229;
+  --color-sidebar-text: 0 0 0;
+  --color-sidebar-text-muted: 102 102 102;
+  --color-sidebar-border: 229 229 229;
+
+  /* ===== 阴影 - Metro 无阴影 ===== */
+  --shadow-sm: none;
+  --shadow-DEFAULT: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+}

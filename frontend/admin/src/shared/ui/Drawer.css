@@ -1,0 +1,54 @@
+/* ===== Drawer Animations ===== */
+@keyframes drawer-slide-in {
+  from { background-color: transparent; }
+  to   { background-color: rgb(var(--color-surface-scrim) / 0.6); }
+}
+
+@keyframes drawer-slide-out {
+  from { background-color: rgb(var(--color-surface-scrim) / 0.6); }
+  to   { background-color: transparent; }
+}
+
+@keyframes drawer-panel-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes drawer-panel-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+
+html.motion-enabled .drawer--open {
+  animation: drawer-slide-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html.motion-enabled .drawer--open > :first-child {
+  animation: drawer-panel-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html.motion-enabled .drawer--close {
+  animation: drawer-slide-out 200ms ease-in both;
+}
+
+html.motion-enabled .drawer--close > :first-child {
+  animation: drawer-panel-out 200ms ease-in both;
+}
+
+/* Motion off — just show/hide, no animation */
+.drawer--open {
+  background-color: rgb(var(--color-surface-scrim) / 0.6);
+}
+
+.drawer--close {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.motion-enabled .drawer--open,
+  html.motion-enabled .drawer--open > :first-child,
+  html.motion-enabled .drawer--close,
+  html.motion-enabled .drawer--close > :first-child {
+    animation: none;
+  }
+}

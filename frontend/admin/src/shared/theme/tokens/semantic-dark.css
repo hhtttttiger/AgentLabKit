@@ -1,0 +1,71 @@
+/* ===== 语义化颜色 - 深色模式 (Metro) ===== */
+[data-theme="dark"] {
+  /* ===== 主色调 - WP Blue (亮化) ===== */
+  --color-primary: 80 160 255;
+  --color-primary-hover: 110 180 255;
+  --color-primary-active: 140 200 255;
+  --color-primary-subtle: 0 50 100;
+  --color-primary-muted: 0 80 160;
+
+  /* ===== 背景色 - 纯黑 Metro ===== */
+  --color-background-default: 0 0 0;
+  --color-background-subtle: 14 14 14;
+  --color-background-sunken: 30 30 30;
+  --color-background-elevated: 20 20 20;
+
+  /* ===== 表面色 ===== */
+  --color-surface-default: 15 15 15;
+  --color-surface-raised: 25 25 25;
+  --color-surface-overlay: 35 35 35;
+  --color-surface-scrim: 0 0 0;
+
+  /* ===== 边框色 ===== */
+  --color-border-default: 50 50 50;
+  --color-border-subtle: 35 35 35;
+  --color-border-strong: 70 70 70;
+  --color-border-focus: 80 160 255;
+
+  /* ===== 文字色 ===== */
+  --color-text-default: 255 255 255;
+  --color-text-secondary: 190 190 190;
+  --color-text-muted: 140 140 140;
+  --color-text-subtle: 100 100 100;
+  --color-text-inverse: 0 0 0;
+  --color-text-link: 80 160 255;
+  --color-text-link-hover: 110 180 255;
+
+  /* ===== 状态色 ===== */
+  --color-state-hover: 30 30 30;
+  --color-state-active: 45 45 45;
+  --color-state-focus: 80 160 255;
+  --color-state-focus-ring: 0 60 130;
+
+  /* ===== 反馈色 ===== */
+  --color-success: 34 197 94;
+  --color-success-subtle: 6 78 59;
+  --color-success-text: 134 239 172;
+  --color-warning: 234 179 8;
+  --color-warning-subtle: 66 50 6;
+  --color-warning-text: 253 224 71;
+  --color-error: 239 68 68;
+  --color-error-subtle: 69 10 10;
+  --color-error-text: 252 165 165;
+  --color-info: 80 160 255;
+  --color-info-subtle: 0 40 80;
+  --color-info-text: 179 219 255;
+
+  /* ===== 侧边栏 ===== */
+  --color-sidebar-bg: 10 10 10;
+  --color-sidebar-bg-hover: 30 30 30;
+  --color-sidebar-bg-active: 40 40 40;
+  --color-sidebar-text: 255 255 255;
+  --color-sidebar-text-muted: 140 140 140;
+  --color-sidebar-border: 40 40 40;
+
+  /* ===== 阴影 - Metro 无阴影 ===== */
+  --shadow-sm: none;
+  --shadow-DEFAULT: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+}

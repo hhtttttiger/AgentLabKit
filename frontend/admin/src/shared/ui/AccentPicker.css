@@ -1,0 +1,46 @@
+.accent-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+}
+
+.accent-picker__dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 2px;
+  border: 2px solid transparent;
+  background: var(--dot-color);
+  cursor: pointer;
+  transition: 140ms ease;
+  outline: none;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.accent-picker__dot:hover {
+  transform: scale(1.15);
+}
+
+.accent-picker__dot--active {
+  border-color: rgb(var(--color-text-default));
+  transform: scale(1.1);
+}
+
+.accent-picker__dot:focus-visible {
+  box-shadow: 0 0 0 2px rgb(var(--color-state-focus) / 0.4);
+}
+
+html.motion-enabled .accent-transition-target,
+html.motion-enabled .accent-transition-target * {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: ease;
+}
+
+html.motion-enabled .language-picker__option--active,
+html.motion-enabled .zoom-slider__thumb {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: ease;
+}

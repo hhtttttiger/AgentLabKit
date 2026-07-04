@@ -1,0 +1,21 @@
+[project]
+name = "agentlabkit-infra"
+version = "0.1.0"
+description = "Foundational infrastructure for AgentLabKit"
+requires-python = ">=3.12"
+dependencies = [
+    "redis[hiredis]>=5.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "loguru>=0.7.0",
+]
+
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

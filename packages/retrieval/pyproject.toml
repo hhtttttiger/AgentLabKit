@@ -1,0 +1,28 @@
+[project]
+name = "agentlabkit-retrieval"
+version = "0.1.0"
+description = "RAG / GraphRAG engine — document processing, indexing, and retrieval"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "pydantic>=2.10.0",
+    "loguru>=0.7.2",
+    "chonkie>=1.0.0",
+]
+
+[project.optional-dependencies]
+graph-age = ["psycopg[binary]>=3.1.0"]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

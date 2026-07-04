@@ -1,0 +1,46 @@
+@config '../tailwind.config.js';
+@import 'tailwindcss';
+@import './shared/theme/tokens/index.css';
+@import './styles/index.css';
+@import './shared/ui/Animations.css';
+
+/* Smooth theme transitions */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Disable transitions for elements that shouldn't animate */
+.no-transition,
+.no-transition *,
+[data-no-transition] {
+  transition: none !important;
+}
+
+/* Base styles */
+html {
+  font-family: "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  @apply bg-background text-text;
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* Focus styles */
+:focus-visible {
+  @apply outline-none ring-2 ring-state-focus/30 ring-offset-2 ring-offset-background;
+}
+
+/* Selection styles */
+::selection {
+  @apply bg-primary-subtle text-text;
+}
+
+/* Toast animations — moved to shared/ui/Animations.css */

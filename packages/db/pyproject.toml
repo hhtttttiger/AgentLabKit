@@ -1,0 +1,18 @@
+[project]
+name = "agentlabkit-db"
+version = "0.1.0"
+description = "Shared database infrastructure for AgentLabKit"
+requires-python = ">=3.12"
+dependencies = [
+    "sqlalchemy[asyncio]>=2.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=69.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
