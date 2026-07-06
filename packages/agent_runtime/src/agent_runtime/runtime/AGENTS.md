@@ -18,6 +18,7 @@
 | Phase 2 | **状态管理** | `state.py` 不可变状态 + copy-on-write |
 | Phase 3 | **Agent Loop (run_turn + stream_turn)** | `run_turn()` 迁移到自建 `run_agent_loop()`；`stream_turn()` 迁移到 `LlmAdapter.generate_stream()`；完全脱离 pydantic-ai 执行路径 |
 | Phase 5 | **引擎拆分** | engine.py 从 2600→1513 行，拆为 ~12 个协作模块 |
+| Phase 5b | **引擎进一步拆分** | engine.py 从 2105→1885 行，提取 factory / voice_stream_handler / workflow_runner |
 | Phase 6 | **取消支持** | `cancel.py` CancelToken + CancelScope |
 
 ### 进行中 🔄
@@ -38,7 +39,10 @@
 
 | File | Lines | Description |
 |------|-------|-------------|
-| `engine.py` | ~1513 | `AgentRuntime` 主编排类，瘦身后委托给子模块；`run_turn()` 和 `stream_turn()` 均使用 `LlmAdapter`（不依赖 pydantic-ai） |
+| `engine.py` | ~1885 | `AgentRuntime` 主编排类，委托给子模块；`run_turn()` 和 `stream_turn()` 均使用 `LlmAdapter`（不依赖 pydantic-ai） |
+| `factory.py` | ~130 | 工厂函数：`create_agent_runtime()` + 依赖构建（gateway / context_manager / session_store / guards_pipeline / mcp） |
+| `voice_stream_handler.py` | ~170 | `VoiceStreamHandler`：语音 guardrail 缓冲、逐句评估、handoff 判断 |
+| `workflow_runner.py` | ~90 | Workflow 共享构建逻辑：`resolve_workflow()` / `build_workflow_engine()` / `build_tool_context()` |
 | `loop.py` | ~750 | 自建 Agent Loop：双层循环、消息队列、事件发射、CancelToken 集成 |
 | `llm_adapter.py` | ~400 | 直接调用 `llm_gateway`，不经过 pydantic-ai；prompt 构建 + JSON 响应解析（从 `gateway_model.py` 迁移） |
 | `cancel.py` | ~60 | CancelToken + CancelScope（Python 版 AbortController/AbortSignal） |
@@ -112,7 +116,7 @@ create_agent_runtime(...) -> AgentRuntime
 ### Testing Requirements
 - 变更后运行：`PYTHONPATH=packages/agent_runtime/src python -m pytest packages/agent_runtime/tests/test_runtime.py`
 - 全套回归：`PYTHONPATH=packages/agent_runtime/src python -m pytest packages/agent_runtime/tests/ --ignore=packages/agent_runtime/tests/test_real_mcp.py`
-- 当前基线：**406/406 通过**
+- 当前基线：**481/481 通过**
 
 ### Common Patterns
 ```python

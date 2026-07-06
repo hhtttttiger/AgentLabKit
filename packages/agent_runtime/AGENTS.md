@@ -33,7 +33,10 @@ Agent 能力基于 [pi.dev](https://pi.dev/) 框架构建。
 |------|-------------|
 | `src/agent_runtime/__init__.py` | 统一公开 API 入口；所有对外使用的类/函数都从此处 import |
 | `src/agent_runtime/module.py` | `AgentModule`（顶层装配体）+ `create_agent_module()` + `load_agent_module()` |
-| `src/agent_runtime/runtime/engine.py` | `AgentRuntime`：核心编排引擎，`run_turn()` / `stream_turn()` / 事件订阅 / 生命周期管理（~1958 行） |
+| `src/agent_runtime/runtime/engine.py` | `AgentRuntime`：核心编排引擎，`run_turn()` / `stream_turn()` / 事件订阅 / 生命周期管理（~1885 行） |
+| `src/agent_runtime/runtime/factory.py` | 工厂函数：`create_agent_runtime()` + 依赖构建（gateway / context_manager / session_store / guards_pipeline / mcp） |
+| `src/agent_runtime/runtime/voice_stream_handler.py` | `VoiceStreamHandler`：语音 guardrail 缓冲、逐句评估、handoff 判断 |
+| `src/agent_runtime/runtime/workflow_runner.py` | Workflow 共享构建逻辑：`resolve_workflow()` / `build_workflow_engine()` / `build_tool_context()` |
 | `src/agent_runtime/runtime/loop.py` | 自建 Agent Loop：双层循环、消息队列、事件发射（~779 行） |
 | `src/agent_runtime/runtime/llm_adapter.py` | LLM 调用适配：直接调用 gateway，不经过 pydantic-ai |
 | `src/agent_runtime/runtime/turn_prep.py` | Turn 准备：definition 解析、settings 覆盖、skill prompt 合成 |

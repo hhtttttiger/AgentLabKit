@@ -32,7 +32,7 @@ class TestAgentModule:
         gateway_service = Mock()
         gateway_module = GatewayModule(settings=Mock(), service=gateway_service)
 
-        with patch("agent_runtime.runtime.engine.load_gateway_module", return_value=gateway_module):
+        with patch("agent_runtime.runtime.factory.load_gateway_module", return_value=gateway_module):
             module = load_agent_module()
 
         assert module.gateway is gateway_service

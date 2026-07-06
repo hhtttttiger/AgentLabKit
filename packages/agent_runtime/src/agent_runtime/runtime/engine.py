@@ -3,6 +3,7 @@
 This is the main public API of ``agent_runtime``.  The heavy lifting has been
 extracted into dedicated modules:
 
+- :mod:`factory` — runtime creation and dependency wiring
 - :mod:`turn_prep` — definition resolution, settings overrides, skill composition
 - :mod:`turn_guards` — input/output guardrails, global guardrails, voice evaluation
 - :mod:`turn_post` — post-turn processing (handoff, output guards, result building)
@@ -30,7 +31,7 @@ from uuid import uuid4
 if TYPE_CHECKING:
     from ..workflow.contracts import WorkflowDef, WorkflowResult, WorkflowStreamEvent
 
-from llm_gateway import GatewayModule, GatewayService, UsageInfo, load_gateway_module
+from llm_gateway import GatewayService, UsageInfo
 
 from ..config import AgentSettings
 from ..contracts.models import (
@@ -67,26 +68,18 @@ from ..guardrails import (
     GlobalGuardrailsRepository,
     GlobalGuardrailsSnapshot,
 )
-from ..guardrails.factory import build_guards_pipeline
 from ..guardrails.global_guard import GlobalGuardrailService
 from ..memory import (
     ContextManager,
     ContextWindow,
-    ContextWindowConfig,
-    GatewaySummarizer,
-    InMemorySessionStore,
     SessionSnapshot,
     SessionStore,
-    create_default_token_counter,
 )
-from ..mcp import McpClientManager
 from ..orchestration import DelegateToAgentTool, HandoffManager
 from ..prompts import build_system_prompt
 from ..skills import SkillRegistry, SkillComposer
 from ..skills.builtin import register_builtin_skills
 from ..tools import ToolBinding, ToolRegistry
-from ..tools.contracts import ToolResult
-from ..tools.executor import ToolExecutor
 
 from .cancel import CancelToken
 from .llm_adapter import FinalDirective, LlmAdapter, ReplyTextStreamParser, ToolDirective, ToolSchema
@@ -97,22 +90,20 @@ from .loop import (
     run_agent_loop,
     stream_agent_loop,
 )
+from .factory import create_agent_runtime as _create_agent_runtime_impl
 from .message_builder import MessageBuilder
 from .session import SessionManager
 from .tool_execution import ToolExecution
 from .turn_guards import InputGuardResult, TurnGuards
 from .turn_post import TurnOutput, TurnPostProcessor
 from .turn_prep import PreparedTurn, TurnPrep
+from .voice_stream_handler import VoiceStreamHandler
+from .workflow_runner import build_tool_context, build_workflow_engine, resolve_workflow
 
-# ── Legacy voice imports (kept for backward compat during migration) ─────
+# ── Voice imports (for _post_process_turn) ──────────────────────────────
 from ..channels.voice import (
     VoiceGuardrailEvaluator,
     VoiceSegmentOutcome,
-    split_flushable_voice_segments as _split_flushable_voice_segments,
-    voice_tool_timeout_seconds as _voice_tool_timeout_seconds,
-    voice_tool_fallback_output as _voice_tool_fallback_output,
-    VOICE_SAFE_FALLBACK_TEXT as _VOICE_SAFE_FALLBACK_TEXT,
-    VOICE_SUPPORTED_ACTIONS as _VOICE_SUPPORTED_ACTIONS,
 )
 
 _MAX_STREAM_TOOL_ROUNDS = 4
@@ -155,97 +146,11 @@ class AgentRunDeps:
     delegation_usage_list: list[UsageInfo] = field(default_factory=list)
 
 
-# ── Factory helpers ───────────────────────────────────────────────────────
+# ── Runtime factory (delegated to factory.py) ────────────────────────────
 
-
-def _resolve_gateway_service(
-    gateway: GatewayModule | GatewayService | None,
-) -> GatewayService:
-    if gateway is None:
-        return load_gateway_module().service
-    if isinstance(gateway, GatewayModule):
-        return gateway.service
-    return gateway
-
-
-def _build_context_manager(
-    settings: AgentSettings,
-    gateway: GatewayService,
-) -> ContextManager | None:
-    if not settings.memory.enabled:
-        return None
-    summarizer = None
-    if settings.memory.enable_summarization:
-        summarizer = GatewaySummarizer(gateway, model=settings.memory.summarization_model)
-    return ContextManager(
-        config=ContextWindowConfig(
-            max_total_tokens=settings.memory.max_total_tokens,
-            reserve_for_response=settings.memory.reserve_for_response,
-            reserve_for_system=settings.memory.reserve_for_system,
-            summarize_threshold_ratio=settings.memory.summarize_threshold_ratio,
-            min_recent_messages=settings.memory.min_recent_messages,
-            enable_summarization=settings.memory.enable_summarization,
-        ),
-        token_counter=create_default_token_counter(settings.memory.tokenizer_model),
-        summarizer=summarizer,
-    )
-
-
-def _build_session_store(settings: AgentSettings) -> SessionStore | None:
-    if not settings.memory.enabled or not settings.memory.persist_sessions:
-        return None
-    return InMemorySessionStore()
-
-
-def _build_guards_pipeline(settings: AgentSettings) -> GuardsPipeline | None:
-    if not settings.guardrails.enabled:
-        return None
-    return build_guards_pipeline(settings.guardrails)
-
-
-def _build_mcp_client_manager(settings: AgentSettings) -> McpClientManager | None:
-    if not settings.enable_mcp:
-        return None
-    return McpClientManager(settings.mcp_servers)
-
-
-# ── Runtime factory ───────────────────────────────────────────────────────
-
-
-def create_agent_runtime(
-    settings: AgentSettings | None = None,
-    gateway: GatewayModule | GatewayService | None = None,
-    tool_registry: ToolRegistry | None = None,
-    definition_loader: AgentDefinitionLoader | None = None,
-    context_manager: ContextManager | None = None,
-    session_store: SessionStore | None = None,
-    guards_pipeline: GuardsPipeline | None = None,
-    skill_registry: SkillRegistry | None = None,
-    mcp_client_manager: McpClientManager | None = None,
-    handoff_manager: HandoffManager | None = None,
-    global_guardrails_repository: GlobalGuardrailsRepository | None = None,
-    observability_bridge_factory: Any | None = None,
-    memory_module: Any | None = None,
-) -> AgentRuntime:
-    """Factory function — creates a fully wired :class:`AgentRuntime`."""
-    resolved_settings = settings or AgentSettings()
-    resolved_gateway = _resolve_gateway_service(gateway)
-    resolved_registry = tool_registry or ToolRegistry()
-    return AgentRuntime(
-        settings=resolved_settings,
-        gateway=resolved_gateway,
-        tool_registry=resolved_registry,
-        definition_loader=definition_loader,
-        context_manager=context_manager or _build_context_manager(resolved_settings, resolved_gateway),
-        session_store=session_store or _build_session_store(resolved_settings),
-        guards_pipeline=guards_pipeline or _build_guards_pipeline(resolved_settings),
-        skill_registry=skill_registry,
-        mcp_client_manager=mcp_client_manager or _build_mcp_client_manager(resolved_settings),
-        handoff_manager=handoff_manager,
-        global_guardrails_repository=global_guardrails_repository,
-        observability_bridge_factory=observability_bridge_factory,
-        memory_module=memory_module,
-    )
+#: Factory function — creates a fully wired :class:`AgentRuntime`.
+#: Implementation lives in :mod:`factory.py`.
+create_agent_runtime = _create_agent_runtime_impl
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -667,21 +572,16 @@ class AgentRuntime:
         stream_messages.append(AgentMessage(role=AgentRole.USER, content=resolved_request.user_message))
         stream_usage = UsageInfo()
 
-        _voice_buffer_mode = (
-            resolved_request.channel == "voice"
-            and definition is not None
-            and definition.voice_guardrails is not None
+        voice_handler = VoiceStreamHandler(
+            turn_guards=self._turn_guards,
+            request=resolved_request,
+            definition=definition,
         )
-        voice_visible_reply_parts: list[str] = []
-        voice_reply_modified = False
-        voice_handoff_reason: str | None = None
-        voice_handoff_outcome: VoiceSegmentOutcome | None = None
         pending_reply_deltas: list[str] = []
         for _ in range(_MAX_STREAM_TOOL_ROUNDS):
             accumulated = ""
             completed_text: str | None = None
             usage: UsageInfo | None = None
-            voice_sentence_buffer = ""
             conversation = self._messages_to_conversation_tuple(stream_messages)
             if _obs_bridge:
                 await self._event_bus.emit(MessageStartEvent(
@@ -696,63 +596,13 @@ class AgentRuntime:
                     if stream_delta.delta:
                         delta_text = stream_delta.delta
                         accumulated = stream_delta.full_text
-                        if _voice_buffer_mode:
-                            voice_sentence_buffer += delta_text
-                            segments, voice_sentence_buffer = _split_flushable_voice_segments(voice_sentence_buffer)
-                            for seg in segments:
-                                if voice_handoff_reason is not None:
-                                    continue
-                                voice_outcome = await self._turn_guards.evaluate_voice_segment(
-                                    request=resolved_request, definition=definition, segment=seg,
-                                )
-                                if voice_outcome is None:
-                                    continue
-                                voice_reply_modified = voice_reply_modified or voice_outcome.modified
-                                if voice_outcome.action == "handoff":
-                                    voice_handoff_reason = voice_outcome.handoff_reason
-                                    voice_handoff_outcome = voice_outcome
-                                    continue
-                                if voice_outcome.visible_text:
-                                    voice_visible_reply_parts.append(voice_outcome.visible_text)
-                                    pending_reply_deltas.append(voice_outcome.visible_text)
-                        else:
-                            pending_reply_deltas.append(delta_text)
+                        pending_reply_deltas.extend(
+                            await voice_handler.process_delta(delta_text),
+                        )
                     if stream_delta.is_done:
                         completed_text = stream_delta.full_text
                         usage = stream_delta.usage
-                        if (
-                            _voice_buffer_mode
-                            and voice_handoff_reason is None
-                            and voice_sentence_buffer.strip()
-                        ):
-                            segments, tail = _split_flushable_voice_segments(voice_sentence_buffer)
-                            for seg in segments:
-                                voice_outcome = await self._turn_guards.evaluate_voice_segment(
-                                    request=resolved_request, definition=definition, segment=seg,
-                                )
-                                if voice_outcome is None:
-                                    continue
-                                voice_reply_modified = voice_reply_modified or voice_outcome.modified
-                                if voice_outcome.action == "handoff":
-                                    voice_handoff_reason = voice_outcome.handoff_reason
-                                    voice_handoff_outcome = voice_outcome
-                                    break
-                                if voice_outcome.visible_text:
-                                    voice_visible_reply_parts.append(voice_outcome.visible_text)
-                                    pending_reply_deltas.append(voice_outcome.visible_text)
-                            if voice_handoff_reason is None and tail.strip():
-                                voice_outcome = await self._turn_guards.evaluate_voice_segment(
-                                    request=resolved_request, definition=definition, segment=tail.strip(),
-                                )
-                                if voice_outcome is not None:
-                                    voice_reply_modified = voice_reply_modified or voice_outcome.modified
-                                    if voice_outcome.action == "handoff":
-                                        voice_handoff_reason = voice_outcome.handoff_reason
-                                        voice_handoff_outcome = voice_outcome
-                                    elif voice_outcome.visible_text:
-                                        voice_visible_reply_parts.append(voice_outcome.visible_text)
-                                        pending_reply_deltas.append(voice_outcome.visible_text)
-                            voice_sentence_buffer = ""
+                        pending_reply_deltas.extend(await voice_handler.flush())
             except AgentError as exc:
                 if _obs_bridge:
                     _obs_bridge.set_error(exc.message or "AgentError")
@@ -884,16 +734,16 @@ class AgentRuntime:
             total_usage = self._merge_usage(stream_usage, usage)
 
             # Voice guardrail handoff takes precedence
-            if voice_handoff_reason is not None:
+            if voice_handler.should_handoff:
                 # Check if voice guardrail targets an agent (not just human)
                 if (
-                    voice_handoff_outcome is not None
-                    and voice_handoff_outcome.handoff_target_type == "agent"
+                    voice_handler.handoff_outcome is not None
+                    and voice_handler.handoff_outcome.handoff_target_type == "agent"
                     and self._handoff_manager is not None
                 ):
                     voice_handoff_target = HandoffTarget(
                         target_type="agent",
-                        reason=voice_handoff_reason,
+                        reason=voice_handler.handoff_reason,
                     )
                     definition_handoff_policy = (
                         dict(definition.handoff_policy) if definition else None
@@ -946,13 +796,13 @@ class AgentRuntime:
                                 session_id=resolved_request.session_id,
                                 trace_id=resolved_request.trace_id,
                                 reply_text=sub_reply_text,
-                                handoff_reason=voice_handoff_reason,
+                                handoff_reason=voice_handler.handoff_reason,
                                 usage=total_usage,
                                 raw_messages=sub_raw_messages,
                                 handoff_target=sub_handoff_target or HandoffTarget(
                                     target_type="agent",
                                     target_agent_key=resolution.target_agent_key,
-                                    reason=voice_handoff_reason,
+                                    reason=voice_handler.handoff_reason,
                                 ),
                                 applied_skills=applied_skills,
                                 agent_key=resolved_request.agent_key,
@@ -984,7 +834,7 @@ class AgentRuntime:
                             session_id=resolved_request.session_id,
                             trace_id=resolved_request.trace_id,
                             reply_text=handoff_result.reply_text,
-                            handoff_reason=voice_handoff_reason,
+                            handoff_reason=voice_handler.handoff_reason,
                             usage=total_usage,
                             raw_messages=list(handoff_result.raw_messages),
                             handoff_target=handoff_result.handoff_target,
@@ -1013,7 +863,7 @@ class AgentRuntime:
                     session_id=resolved_request.session_id,
                     trace_id=resolved_request.trace_id,
                     reply_text=effective_settings.default_handoff_message,
-                    handoff_reason=voice_handoff_reason,
+                    handoff_reason=voice_handler.handoff_reason,
                     usage=total_usage,
                     raw_messages=[
                         AgentMessage(
@@ -1026,7 +876,7 @@ class AgentRuntime:
                     agent_version=definition.version_number if definition else None,
                     handoff_target=HandoffTarget(
                         target_type="human",
-                        reason=voice_handoff_reason,
+                        reason=voice_handler.handoff_reason,
                     ),
                 )
                 await self._session_mgr.save_session_snapshot(
@@ -1199,9 +1049,9 @@ class AgentRuntime:
                 else directive.reply_text
             )
             suppress_reply_deltas = False
-            if _voice_buffer_mode and not handoff.should_handoff:
-                if voice_reply_modified:
-                    final_reply_text = "".join(voice_visible_reply_parts)
+            if voice_handler.is_active and not handoff.should_handoff:
+                if voice_handler.was_modified:
+                    final_reply_text = voice_handler.visible_reply
                     raw_messages = MessageBuilder.replace_terminal_assistant_message(
                         raw_messages, final_reply_text,
                     )
@@ -1274,7 +1124,7 @@ class AgentRuntime:
                 not handoff.should_handoff
                 and not suppress_reply_deltas
                 and final_reply_text
-                and not _voice_buffer_mode
+                and not voice_handler.is_active
                 and "".join(deltas_to_emit) != final_reply_text
             ):
                 deltas_to_emit = [final_reply_text]
@@ -1297,11 +1147,11 @@ class AgentRuntime:
                         )
                 handoff_reply_text = (
                     effective_settings.default_handoff_message
-                    if _voice_buffer_mode else final_reply_text
+                    if voice_handler.is_active else final_reply_text
                 )
                 handoff_raw_messages = (
                     [AgentMessage(role=AgentRole.ASSISTANT, content=effective_settings.default_handoff_message)]
-                    if _voice_buffer_mode else raw_messages
+                    if voice_handler.is_active else raw_messages
                 )
                 handoff_event = AgentTurnStreamEvent(
                     event_type="handoff",
@@ -1408,53 +1258,18 @@ class AgentRuntime:
         Returns:
             A ``WorkflowResult`` with the execution outcome.
         """
-        from ..workflow import WorkflowEngine, InMemoryWorkflowStateStore, StepExecutor
-        from ..orchestration.sub_agent_executor import SubAgentExecutor
-
-        # Resolve workflow definition
-        if workflow is None:
-            if request.agent_key and self.definition_loader:
-                definition = await self.definition_loader.load(request.agent_key)
-                if definition and definition.workflow:
-                    workflow = definition.workflow
-            if workflow is None:
-                raise AgentError(
-                    AgentErrorCode.INVALID_REQUEST,
-                    "No workflow definition found for this request.",
-                    trace_id=request.trace_id,
-                )
-
-        # Build workflow dependencies
-        sub_agent_executor = SubAgentExecutor(
+        resolved_workflow = await resolve_workflow(
+            request, self.definition_loader, workflow,
+        )
+        engine = build_workflow_engine(
             runner=self,
             definition_loader=self.definition_loader,
-        )
-        step_executor = StepExecutor(
-            tool_executor=ToolExecutor(),
-            tool_registry=self.tool_registry.dynamic_registry,
-            sub_agent_executor=sub_agent_executor,
-        )
-        state_store = InMemoryWorkflowStateStore()
-        engine = WorkflowEngine(
-            step_executor=step_executor,
-            state_store=state_store,
             event_bus=self._event_bus,
         )
-
-        # Build execution context
-        from ..tools.contracts import ToolExecutionContext
-        tool_context = ToolExecutionContext(
-            session_id=request.session_id,
-            trace_id=request.trace_id or "",
-            agent_key=request.agent_key,
-            agent_version=request.agent_version,
-            customer_id=request.customer_id,
-            locale=request.locale,
-            metadata=dict(request.metadata),
-        )
+        tool_context = build_tool_context(request)
 
         return await engine.run_workflow(
-            workflow=workflow,
+            workflow=resolved_workflow,
             user_input=request.user_message,
             context=tool_context,
         )
@@ -1477,53 +1292,18 @@ class AgentRuntime:
         Yields:
             ``WorkflowStreamEvent`` objects for real-time UI updates.
         """
-        from ..workflow import WorkflowEngine, InMemoryWorkflowStateStore, StepExecutor
-        from ..orchestration.sub_agent_executor import SubAgentExecutor
-
-        # Resolve workflow definition
-        if workflow is None:
-            if request.agent_key and self.definition_loader:
-                definition = await self.definition_loader.load(request.agent_key)
-                if definition and definition.workflow:
-                    workflow = definition.workflow
-            if workflow is None:
-                raise AgentError(
-                    AgentErrorCode.INVALID_REQUEST,
-                    "No workflow definition found for this request.",
-                    trace_id=request.trace_id,
-                )
-
-        # Build workflow dependencies
-        sub_agent_executor = SubAgentExecutor(
+        resolved_workflow = await resolve_workflow(
+            request, self.definition_loader, workflow,
+        )
+        engine = build_workflow_engine(
             runner=self,
             definition_loader=self.definition_loader,
-        )
-        step_executor = StepExecutor(
-            tool_executor=ToolExecutor(),
-            tool_registry=self.tool_registry.dynamic_registry,
-            sub_agent_executor=sub_agent_executor,
-        )
-        state_store = InMemoryWorkflowStateStore()
-        engine = WorkflowEngine(
-            step_executor=step_executor,
-            state_store=state_store,
             event_bus=self._event_bus,
         )
-
-        # Build execution context
-        from ..tools.contracts import ToolExecutionContext
-        tool_context = ToolExecutionContext(
-            session_id=request.session_id,
-            trace_id=request.trace_id or "",
-            agent_key=request.agent_key,
-            agent_version=request.agent_version,
-            customer_id=request.customer_id,
-            locale=request.locale,
-            metadata=dict(request.metadata),
-        )
+        tool_context = build_tool_context(request)
 
         async for event in engine.stream_workflow(
-            workflow=workflow,
+            workflow=resolved_workflow,
             user_input=request.user_message,
             context=tool_context,
         ):
