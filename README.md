@@ -115,6 +115,14 @@ Agent 循环直接调用 LLM Gateway，不依赖 LangChain / pydantic-ai / CrewA
 
 文档索引是 CPU/IO 密集型操作，独立为 worker 进程运行，与 web 服务通过 Redis Streams 异步解耦。web 进程只负责 enqueue，索引失败不影响 API 响应。
 
+### 🎯 编排与执行分离
+
+工作流引擎遵循**生成与执行分离**的设计原则：
+- **编排是 LLM 的能力**：根据用户意图 + Agent 能力自动生成确定性流程
+- **执行是引擎的能力**：按流程定义确定性执行，无需实时 LLM 决策
+- **步骤类型丰富**：工具调用、子 Agent 委托、人工确认暂停、条件分支
+- **显式数据流**：通过 InputRef 显式映射步骤间数据，避免隐式状态传递
+
 ---
 
 ## 核心能力
@@ -124,6 +132,12 @@ Agent 循环直接调用 LLM Gateway，不依赖 LangChain / pydantic-ai / CrewA
 - **动态工具系统**：运行时注册/注销，支持内置、MCP、HTTP 外部三种工具源
 - **智能体定义**：数据库驱动的版本化配置，含工具/技能/模型绑定
 - **上下文管理**：Token-aware 窗口 + LLM 摘要压缩
+
+### 确定性工作流编排
+- **LLM 生成流程**：根据用户意图 + Agent 能力（tools/MCP/skills）自动生成确定性工作流
+- **DAG 执行引擎**：按步骤顺序/分支驱动执行，支持工具调用、子 Agent 委托、人工确认、条件分支
+- **状态持久化**：支持 human_gate 暂停/恢复，checkpoint 持久化
+- **流式事件**：实时产出执行进度事件（WorkflowStreamEvent）
 
 ### 安全护栏
 - **4 层护栏管道**：输入 / 输出 / 工具参数 / 全局规则
@@ -273,6 +287,7 @@ agentlabkit/
 │   ├── retrieval/            # RAG 引擎（文档处理、Embedding、向量检索）
 │   ├── llm_gateway/          # LLM 网关（模型路由、Provider 适配、限流熔断）
 │   ├── agent_runtime/        # Agent 编排内核（运行时、工具、护栏、编排）
+│   │   └── workflow/         # 确定性工作流引擎（LLM 生成 + 确定性执行）
 │   ├── memory/               # 跨会话长期记忆（pgvector）
 │   ├── observability/        # 分布式链路追踪
 │   ├── cost_analysis/        # 用量成本聚合
@@ -327,6 +342,62 @@ Agent 核心改写自 [pi](https://pi.dev/)（[`earendil-works/pi`](https://gith
 - **MCP 集成**：支持 stdio/SSE/HTTP 传输，自动工具发现
 - **智能体定义**：数据库驱动的版本化 Agent 配置
 - **上下文管理**：Token-aware 裁剪 + LLM 摘要
+- **确定性工作流**：LLM 生成流程定义 → 引擎确定性执行（详见 [`workflow/`](packages/agent_runtime/src/agent_runtime/workflow/)）
+
+#### 工作流引擎详解
+
+工作流引擎位于 [`packages/agent_runtime/src/agent_runtime/workflow/`](packages/agent_runtime/src/agent_runtime/workflow/)，提供确定性多步骤流程编排能力。
+
+**核心理念**：编排是 LLM 的能力（生成），不是用户的能力（拖拉拽）；执行是引擎的能力（确定性），不是 LLM 的能力（实时决策）。
+
+**架构设计**：
+```
+用户意图 + Agent 能力
+        ↓
+   WorkflowGenerator (LLM)
+        ↓
+   WorkflowDef (流程定义)
+        ↓
+   WorkflowEngine (确定性执行)
+        ↓
+   WorkflowResult (执行结果)
+```
+
+**四种步骤类型**：
+
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| `tool` | 调用注册的工具 | 查询订单、发送通知 |
+| `agent` | 委托给子 Agent | 数据分析、内容生成 |
+| `human_gate` | 暂停等待人工确认 | 退款确认、审批流程 |
+| `condition` | 条件分支 | 资格检查、状态判断 |
+
+**数据流设计**：
+- `$user_input` — 用户原始输入
+- `$steps.<step_id>.<key>` — 上游步骤输出
+- `$const:<value>` — 常量值
+
+**使用示例**：
+```python
+from agent_runtime.workflow import WorkflowGenerator, WorkflowEngine
+
+# 1. LLM 生成工作流
+generator = WorkflowGenerator(gateway_service)
+workflow = await generator.generate(
+    agent_definition=agent_def,
+    user_intent="用户想要退款订单 #12345",
+)
+
+# 2. 确定性执行
+engine = WorkflowEngine(step_executor, state_store)
+result = await engine.run_workflow(workflow, "ORDER-12345", context)
+
+# 3. 流式执行（可选）
+async for event in engine.stream_workflow(workflow, user_input, context):
+    print(f"Step {event.step_id}: {event.event_type}")
+```
+
+**详细文档**：[`packages/agent_runtime/src/agent_runtime/workflow/AGENTS.md`](packages/agent_runtime/src/agent_runtime/workflow/AGENTS.md)
 
 ### 平台能力层
 
