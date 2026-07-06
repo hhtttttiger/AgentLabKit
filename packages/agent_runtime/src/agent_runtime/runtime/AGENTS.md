@@ -73,6 +73,8 @@ AgentRuntime(settings, gateway, tool_registry,
              handoff_manager=None, global_guardrails_repository=None)
      .run_turn(request: AgentTurnRequest, *, cancel_token=None) -> AgentTurnResult          # async — 使用自建 loop
      .stream_turn(request: AgentTurnRequest, *, cancel_token=None) -> AsyncIterator[AgentTurnStreamEvent]  # async — 使用 LlmAdapter
+     .run_workflow(request: AgentTurnRequest, *, workflow=None) -> WorkflowResult           # async — 确定性流程执行
+     .stream_workflow(request: AgentTurnRequest, *, workflow=None) -> AsyncIterator[WorkflowStreamEvent]  # async — 流式流程执行
      .load_active_global_guardrails_snapshot() -> GlobalGuardrailsSnapshot | None
 
 # 事件订阅
@@ -105,6 +107,7 @@ create_agent_runtime(...) -> AgentRuntime
 - `LoopConfig.tool_executor` 回调连接了自建 loop 和 `ToolExecution`，保持工具执行逻辑一致。
 - `GatewayBackedModel` 和 `gateway_model.py` 已删除；`run_turn()` 和 `stream_turn()` 均使用 `LlmAdapter`。
 - `_post_process_turn()` 现在直接接收 `raw_messages_input` 和 `loop_usage`，不再依赖 pydantic-ai 的 `AgentRunResult`。
+- **Workflow 执行路径**：`run_workflow()` / `stream_workflow()` 是与 `run_turn()` 并列的独立入口。当 `AgentDefinitionSnapshot.workflow` 非空时，应使用 workflow 路径而非 Agent Loop。workflow 内部复用 `ToolExecutor`（tool 步骤）和 `SubAgentExecutor`（agent 步骤），不修改 loop.py。
 
 ### Testing Requirements
 - 变更后运行：`PYTHONPATH=packages/agent_runtime/src python -m pytest packages/agent_runtime/tests/test_runtime.py`

@@ -22,6 +22,7 @@ Agent 能力基于 [pi.dev](https://pi.dev/) 框架构建。
 | `src/agent_runtime/skills/` | Skill 契约/注册/合成 + 内置 skills；可复用能力单元 |
 | `src/agent_runtime/definition/` | Agent Definition 只读加载（SQLAlchemy async）+ InMemory TTL 缓存（见 `definition/AGENTS.md`） |
 | `src/agent_runtime/orchestration/` | Sub-Agent 编排：handoff（路由+切换）、delegation（子 Agent 调用）、context passing（直接/摘要传递）、深度/循环防护 |
+| `src/agent_runtime/workflow/` | 确定性多步骤流程编排：WorkflowDef/StepDef 数据契约、WorkflowEngine 执行引擎、StepExecutor（tool/agent/human_gate/condition 分发）、状态持久化（见 `workflow/AGENTS.md`） |
 | `src/agent_runtime/channels/` | 通道特定逻辑：voice channel 的 guardrail 评估、安全回复生成、语音段分割 |
 | `src/agent_runtime/` | 顶层模块：`module.py`（装配入口）、`prompts.py`（system prompt 构建）、`errors.py`（错误枚举）、`state.py`（Agent 状态容器）、`event_bus.py`（发布/订阅事件总线）、`events.py`（类型化生命周期事件）、`__init__.py`（统一公开 API） |
 | `tests/` | 模块级单元测试与集成测试（全部 pytest） |
@@ -56,6 +57,10 @@ Agent 能力基于 [pi.dev](https://pi.dev/) 框架构建。
 | `src/agent_runtime/mcp/transport.py` | 标准 `mcp` SDK 传输适配器（stdio/sse/streamable-http） |
 | `src/agent_runtime/skills/composer.py` | `SkillComposer`：skill prompt / tool binding 合并逻辑 |
 | `src/agent_runtime/channels/voice.py` | `VoiceGuardrailEvaluator`：语音 guardrail 评估 + 安全回复生成 |
+| `src/agent_runtime/workflow/contracts.py` | Workflow 数据契约：`WorkflowDef`、`StepDef`、`InputRef`、`FailurePolicy`、`StepResult`、`WorkflowResult`、`WorkflowStreamEvent` |
+| `src/agent_runtime/workflow/engine.py` | `WorkflowEngine`：确定性流程执行引擎（`run_workflow` / `stream_workflow` / `resume_workflow`） |
+| `src/agent_runtime/workflow/step_executor.py` | `StepExecutor`：步骤执行分发（tool → ToolExecutor、agent → SubAgentExecutor、condition → 表达式求值、human_gate → 暂停） |
+| `src/agent_runtime/workflow/state_store.py` | `WorkflowStateStore` protocol + `InMemoryWorkflowStateStore`；human gate checkpoint 持久化 |
 | `src/agent_runtime/guardrails/global_guard.py` | `GlobalGuardrailService`：全局 guardrail 规则匹配与干预 |
 | `pyproject.toml` | 包定义与依赖声明（含 optional: memory / tools） |
 | `conftest.py` | 共享 fixture 与路径配置 |
@@ -73,6 +78,7 @@ Agent 能力基于 [pi.dev](https://pi.dev/) 框架构建。
 - MCP 基于标准 `mcp` SDK（stdio/sse/streamable-http）；全局 MCP 通过 `AgentSettings.enable_mcp` + `mcp_servers` 启用；definition-aware agent 会在 turn 前按 `mcp_bindings` 复用/补建连接。调用方负责在应用生命周期中调用 `runtime.start()` / `runtime.stop()`。
 - Skills：`SkillRegistry` 注册 + `SkillComposer` 将启用 skill 的 prompt fragment 注入 system prompt，同时合成 tool bindings。
 - Sub-Agent 编排：`HandoffManager` 处理 agent 到 agent/human 的 handoff；`DelegateToAgentTool` 提供 LLM 驱动的子 agent 委托调用；`SubAgentExecutor` 管理深度上限和循环检测。
+- **Workflow 编排**：`WorkflowEngine` 提供确定性多步骤流程执行，与 `run_turn()` 并列的独立入口（`run_workflow()` / `stream_workflow()`）。流程定义（`WorkflowDef`）由 LLM 生成后固化，跟随 agent 版本。步骤类型包括 tool（工具调用）、agent（子 Agent Loop）、human_gate（人工确认暂停）、condition（条件分支）。详见 `workflow/AGENTS.md`。
 - 事件系统：`EventBus` 支持任意数量的 `EventListener` 订阅；所有状态变更通过 `AgentEvent` 子类（Agent/Turn/Message/Tool 生命周期）发射。
 
 ### Testing Requirements
@@ -95,6 +101,7 @@ python3 -m pytest packages/agent_runtime/tests/test_skills.py
 python3 -m pytest packages/agent_runtime/tests/test_skills_phase2.py
 python3 -m pytest packages/agent_runtime/tests/test_orchestration.py
 python3 -m pytest packages/agent_runtime/tests/test_tool_catalog_sync.py
+python3 -m pytest packages/agent_runtime/tests/test_workflow.py
 ```
 
 ### Common Patterns
@@ -129,6 +136,34 @@ result = await module.runtime.run_turn(AgentTurnRequest(
     history=[],
     agent_key="customer_support_v2",   # 可选：按 definition 路由
 ))
+```
+
+**执行 workflow（当 agent 绑定了流程定义时）**
+
+```python
+from agent_runtime import AgentTurnRequest
+
+# 方式 1：从 agent definition 自动加载 workflow
+result = await module.runtime.run_workflow(AgentTurnRequest(
+    session_id="s1",
+    user_message="帮我退款 ORDER-12345",
+    agent_key="customer_support_v2",
+))
+
+# 方式 2：直接传入 workflow 定义
+from agent_runtime import WorkflowDef, StepDef, InputRef
+
+workflow = WorkflowDef(
+    workflow_id="wf-001",
+    agent_key="customer_support_v2",
+    version=1,
+    steps=(...),
+)
+result = await module.runtime.run_workflow(request, workflow=workflow)
+
+# 流式执行
+async for event in module.runtime.stream_workflow(request):
+    print(f"[{event.event_type}] {event.step_id}")
 ```
 
 **订阅事件**

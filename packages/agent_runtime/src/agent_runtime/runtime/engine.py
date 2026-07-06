@@ -24,8 +24,11 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 import json
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from ..workflow.contracts import WorkflowDef, WorkflowResult, WorkflowStreamEvent
 
 from llm_gateway import GatewayModule, GatewayService, UsageInfo, load_gateway_module
 
@@ -83,6 +86,7 @@ from ..skills import SkillRegistry, SkillComposer
 from ..skills.builtin import register_builtin_skills
 from ..tools import ToolBinding, ToolRegistry
 from ..tools.contracts import ToolResult
+from ..tools.executor import ToolExecutor
 
 from .cancel import CancelToken
 from .llm_adapter import FinalDirective, LlmAdapter, ReplyTextStreamParser, ToolDirective, ToolSchema
@@ -1379,6 +1383,151 @@ class AgentRuntime:
             model=resolved_request.model,
             trace_id=resolved_request.trace_id,
         )
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Workflow execution (parallel entry point to run_turn/stream_turn)
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    async def run_workflow(
+        self,
+        request: AgentTurnRequest,
+        *,
+        workflow: WorkflowDef | None = None,
+    ) -> WorkflowResult:
+        """Execute a deterministic workflow.
+
+        This is an independent entry point parallel to ``run_turn()``.
+        When the agent definition has a bound workflow, this method is
+        used instead of the Agent Loop.
+
+        Args:
+            request: The turn request (provides user_message, session, trace).
+            workflow: Optional workflow definition. If None, loaded from
+                the agent definition via ``request.agent_key``.
+
+        Returns:
+            A ``WorkflowResult`` with the execution outcome.
+        """
+        from ..workflow import WorkflowEngine, InMemoryWorkflowStateStore, StepExecutor
+        from ..orchestration.sub_agent_executor import SubAgentExecutor
+
+        # Resolve workflow definition
+        if workflow is None:
+            if request.agent_key and self.definition_loader:
+                definition = await self.definition_loader.load(request.agent_key)
+                if definition and definition.workflow:
+                    workflow = definition.workflow
+            if workflow is None:
+                raise AgentError(
+                    AgentErrorCode.INVALID_REQUEST,
+                    "No workflow definition found for this request.",
+                    trace_id=request.trace_id,
+                )
+
+        # Build workflow dependencies
+        sub_agent_executor = SubAgentExecutor(
+            runner=self,
+            definition_loader=self.definition_loader,
+        )
+        step_executor = StepExecutor(
+            tool_executor=ToolExecutor(),
+            tool_registry=self.tool_registry.dynamic_registry,
+            sub_agent_executor=sub_agent_executor,
+        )
+        state_store = InMemoryWorkflowStateStore()
+        engine = WorkflowEngine(
+            step_executor=step_executor,
+            state_store=state_store,
+            event_bus=self._event_bus,
+        )
+
+        # Build execution context
+        from ..tools.contracts import ToolExecutionContext
+        tool_context = ToolExecutionContext(
+            session_id=request.session_id,
+            trace_id=request.trace_id or "",
+            agent_key=request.agent_key,
+            agent_version=request.agent_version,
+            customer_id=request.customer_id,
+            locale=request.locale,
+            metadata=dict(request.metadata),
+        )
+
+        return await engine.run_workflow(
+            workflow=workflow,
+            user_input=request.user_message,
+            context=tool_context,
+        )
+
+    async def stream_workflow(
+        self,
+        request: AgentTurnRequest,
+        *,
+        workflow: WorkflowDef | None = None,
+    ) -> AsyncIterator[WorkflowStreamEvent]:
+        """Execute a deterministic workflow in streaming mode.
+
+        Yields ``WorkflowStreamEvent`` objects as steps complete.
+
+        Args:
+            request: The turn request.
+            workflow: Optional workflow definition. If None, loaded from
+                the agent definition.
+
+        Yields:
+            ``WorkflowStreamEvent`` objects for real-time UI updates.
+        """
+        from ..workflow import WorkflowEngine, InMemoryWorkflowStateStore, StepExecutor
+        from ..orchestration.sub_agent_executor import SubAgentExecutor
+
+        # Resolve workflow definition
+        if workflow is None:
+            if request.agent_key and self.definition_loader:
+                definition = await self.definition_loader.load(request.agent_key)
+                if definition and definition.workflow:
+                    workflow = definition.workflow
+            if workflow is None:
+                raise AgentError(
+                    AgentErrorCode.INVALID_REQUEST,
+                    "No workflow definition found for this request.",
+                    trace_id=request.trace_id,
+                )
+
+        # Build workflow dependencies
+        sub_agent_executor = SubAgentExecutor(
+            runner=self,
+            definition_loader=self.definition_loader,
+        )
+        step_executor = StepExecutor(
+            tool_executor=ToolExecutor(),
+            tool_registry=self.tool_registry.dynamic_registry,
+            sub_agent_executor=sub_agent_executor,
+        )
+        state_store = InMemoryWorkflowStateStore()
+        engine = WorkflowEngine(
+            step_executor=step_executor,
+            state_store=state_store,
+            event_bus=self._event_bus,
+        )
+
+        # Build execution context
+        from ..tools.contracts import ToolExecutionContext
+        tool_context = ToolExecutionContext(
+            session_id=request.session_id,
+            trace_id=request.trace_id or "",
+            agent_key=request.agent_key,
+            agent_version=request.agent_version,
+            customer_id=request.customer_id,
+            locale=request.locale,
+            metadata=dict(request.metadata),
+        )
+
+        async for event in engine.stream_workflow(
+            workflow=workflow,
+            user_input=request.user_message,
+            context=tool_context,
+        ):
+            yield event
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # Memory helpers

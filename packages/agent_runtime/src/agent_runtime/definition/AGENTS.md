@@ -19,7 +19,7 @@
 
 | File | Description |
 |------|-------------|
-| `models.py` | `AgentDefinitionSnapshot`：运行时所需字段的不可变快照（agent_key / system_prompt / model_binding_key / tool_bindings / guardrails_policy / handoff_policy / status）；`ToolBindingSnapshot`：单工具绑定快照 |
+| `models.py` | `AgentDefinitionSnapshot`：运行时所需字段的不可变快照（agent_key / system_prompt / model_binding_key / tool_bindings / guardrails_policy / handoff_policy / status / workflow）；`ToolBindingSnapshot`：单工具绑定快照；`McpBindingSnapshot`：MCP 绑定快照；`SkillBindingSnapshot`：Skill 绑定快照 |
 | `loader.py` | `AgentDefinitionLoader`：async SQLAlchemy read-only 查询；`load_by_key(agent_key)` 加载已发布 definition；内置 ORM models（`AgentDefinitionOrm` / `AgentDefinitionVersionOrm` / `AgentToolBindingOrm`）映射 `.NET` 管理的表 |
 | `cache.py` | `AgentDefinitionCache` protocol + `InMemoryAgentDefinitionCache`（TTL 缓存；默认 60s）；避免每个 turn 都查库 |
 
@@ -31,10 +31,14 @@ AgentDefinitionSnapshot(
     agent_key, display_name, status,
     system_prompt,          # 覆盖 AgentSettings.default_system_prompt
     model_binding_key,      # 覆盖 AgentSettings.default_model（经 llm_gateway 解析）
-    tool_bindings,          # list[ToolBindingSnapshot]
+    tool_bindings,          # tuple[ToolBindingSnapshot, ...]
+    knowledge_bindings,     # tuple[KnowledgeBindingSnapshot, ...]
+    mcp_bindings,           # tuple[McpBindingSnapshot, ...]
+    skill_bindings,         # tuple[SkillBindingSnapshot, ...]
     guardrails_policy,      # dict，传递给 GuardrailsSettings
     handoff_policy,         # dict，传递给 HandoffPolicy
     runtime_options,        # dict，未来扩展
+    workflow,               # WorkflowDef | None，绑定的确定性流程定义（Phase 1+）
 )
 ToolBindingSnapshot(tool_name, invocation_mode, description, is_enabled)
 

@@ -105,6 +105,20 @@ from .tools import (
     ToolResult,
     ToolSpec,
 )
+from .workflow import (
+    FailurePolicy,
+    InputRef,
+    InMemoryWorkflowStateStore,
+    StepDef,
+    StepExecutor,
+    StepResult,
+    WorkflowDef,
+    WorkflowEngine,
+    WorkflowRequest,
+    WorkflowResult,
+    WorkflowStateStore,
+    WorkflowStreamEvent,
+)
 
 __all__ = [
     "AgentAction",
@@ -205,4 +219,17 @@ __all__ = [
     "load_agent_module",
     "register_guard_factory",
     "register_safe_reply_factory",
+    # Workflow
+    "FailurePolicy",
+    "InputRef",
+    "InMemoryWorkflowStateStore",
+    "StepDef",
+    "StepExecutor",
+    "StepResult",
+    "WorkflowDef",
+    "WorkflowEngine",
+    "WorkflowRequest",
+    "WorkflowResult",
+    "WorkflowStateStore",
+    "WorkflowStreamEvent",
 ]
