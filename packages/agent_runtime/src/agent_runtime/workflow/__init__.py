@@ -31,6 +31,7 @@ from .contracts import (
     WorkflowStreamEvent,
 )
 from .engine import WorkflowEngine
+from .generator import WorkflowGenerator, WorkflowValidationError
 from .state_store import InMemoryWorkflowStateStore, WorkflowCheckpoint, WorkflowStateStore
 from .step_executor import StepExecutor
 
@@ -46,6 +47,9 @@ __all__ = [
     "WorkflowStreamEvent",
     # Engine
     "WorkflowEngine",
+    # Generator
+    "WorkflowGenerator",
+    "WorkflowValidationError",
     # Step executor
     "StepExecutor",
     # State store

@@ -13,8 +13,8 @@
 | Phase | 内容 | 状态 |
 |-------|------|------|
 | Phase 1 | 数据契约（WorkflowDef/StepDef/InputRef/FailurePolicy）、WorkflowEngine 串行执行、StepExecutor（tool/agent/human_gate/condition）、InMemoryStateStore、42 个单元测试 | ✅ 完成 |
-| Phase 2 | 条件分支深度优化、Human gate 暂停/恢复、checkpoint 持久化（DB/Redis）、流式事件 | 🔲 待实施 |
-| Phase 3 | WorkflowGenerator — LLM 生成流程定义、生成 prompt 模板、校验逻辑 | 🔲 待实施 |
+| Phase 2 | 条件分支深度优化、Human gate 暂停/恢复、checkpoint 持久化、流式事件（WorkflowStreamEvent）、stream_workflow/resume_workflow | ✅ 完成 |
+| Phase 3 | WorkflowGenerator — LLM 生成流程定义、生成 prompt 模板、校验逻辑、集成测试 | ✅ 完成 |
 
 ## Key Files
 
@@ -24,6 +24,7 @@
 | `engine.py` | `WorkflowEngine`：确定性流程执行引擎，支持 `run_workflow()`（阻塞）、`stream_workflow()`（流式）、`resume_workflow()`（从 human gate 恢复） |
 | `step_executor.py` | `StepExecutor`：步骤执行分发器，根据 `step_type` 调用 `ToolExecutor`（tool）、`SubAgentExecutor`（agent）、条件求值（condition）、暂停（human_gate） |
 | `state_store.py` | `WorkflowStateStore` protocol + `InMemoryWorkflowStateStore` 实现；`WorkflowCheckpoint` 用于 human gate 暂停时的状态持久化 |
+| `generator.py` | `WorkflowGenerator`：LLM 驱动的流程生成器，根据用户意图 + agent 能力生成 `WorkflowDef`；包含 prompt 构建、响应解析、流程校验 |
 | `__init__.py` | 统一导出所有公开类型 |
 
 ## Public API
@@ -80,6 +81,21 @@ store = InMemoryWorkflowStateStore()
 await store.save_checkpoint(checkpoint)
 checkpoint = await store.load_checkpoint(workflow_id)
 await store.clear_checkpoint(workflow_id)
+
+# === 流程生成器 ===
+
+from agent_runtime.workflow import WorkflowGenerator, WorkflowValidationError
+
+generator = WorkflowGenerator(gateway_service, default_model="gpt-4")
+try:
+    workflow = await generator.generate(
+        agent_definition=agent_def,
+        user_intent="用户想要退款订单 #12345",
+        max_steps=10,
+        metadata={"source": "user_request"},
+    )
+except WorkflowValidationError as e:
+    print(f"Validation failed: {e.errors}")
 ```
 
 ## For AI Agents
@@ -91,12 +107,15 @@ await store.clear_checkpoint(workflow_id)
 - **InputRef 解析**：所有步骤输入通过 `InputRef` 显式映射，不要隐式传递上下文。`$user_input`、`$steps.<id>.<key>`、`$const:<value>` 是三种标准来源。
 - **条件分支**：condition 步骤通过 `condition_expr` 求值决定跳转目标。表达式格式为 `$steps.<id>.<key> <op> <value>`，支持 `==`、`!=`、`>`、`<`、`>=`、`<=`。
 - **Human gate**：返回 `status="waiting_human"` 时引擎暂停，通过 `resume_workflow()` 恢复。checkpoint 持久化由 `WorkflowStateStore` 负责。
-- **WorkflowGenerator（Phase 3）**：生成模块将独立于引擎，负责 LLM 生成流程定义。生成和执行分离，生成器可独立迭代。
+- **WorkflowGenerator**：LLM 驱动的流程生成器。给定用户意图 + agent 能力（tools/MCP/skills），生成确定性 `WorkflowDef`。生成和执行完全分离——生成器调用 LLM 创建流程定义，引擎按定义确定性执行。
 
 ### Testing Requirements
 ```bash
-# 运行 workflow 测试
+# 运行 workflow 单元测试
 python3 -m pytest packages/agent_runtime/tests/test_workflow.py
+
+# 运行 workflow 集成测试（Generator）
+python3 -m pytest packages/agent_runtime/tests/test_workflow_integration.py
 
 # 全套回归
 python3 -m pytest packages/agent_runtime/tests/
@@ -173,9 +192,11 @@ result = await engine.run_workflow(workflow, "ORDER-12345", context)
 - `agent_runtime.tools.contracts.ToolExecutionContext` — 执行上下文
 - `agent_runtime.contracts.models.ToolExecutionRecord` — 工具事件记录
 - `agent_runtime.event_bus.EventBus` — 生命周期事件发射
-- `agent_runtime.definition.models.AgentDefinitionSnapshot` — 流程定义挂载点
+- `agent_runtime.definition.models.AgentDefinitionSnapshot` — 流程定义挂载点、Generator 的输入
 
 ### External
+- `llm_gateway.GatewayService` — Generator 调用 LLM 生成流程定义
+- `llm_gateway.TextGenerateRequest` — LLM 请求模型
 - `llm_gateway.UsageInfo` — token 用量统计
 
 ## See Also
