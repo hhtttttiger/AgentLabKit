@@ -102,6 +102,7 @@ class GatewaySettings(BaseSettings):
 
     openai: ProviderConfig = Field(default_factory=ProviderConfig)
     anthropic: ProviderConfig = Field(default_factory=ProviderConfig)
+    chat_asr_models: set[str] = Field(default_factory=set)
     catalog: ModelCatalogSettings = Field(default_factory=ModelCatalogSettings)
     instance_encryption: InstanceEncryptionSettings = Field(default_factory=InstanceEncryptionSettings)
     redis_metrics: RedisMetricsSettings = Field(default_factory=RedisMetricsSettings)

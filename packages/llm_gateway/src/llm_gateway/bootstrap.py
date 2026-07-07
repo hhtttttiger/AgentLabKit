@@ -23,7 +23,13 @@ from .usage.recorder import NullUsageRecorder, SqlAlchemyUsageRecorder
 from .providers.openai.embedding import OpenAIEmbeddingAdapter
 from .providers.openai.image import OpenAIImageAdapter
 from .providers.openai.realtime import OpenAIRealtimeAdapter
-from .providers.openai.speech import OpenAISpeechBatchAdapter, OpenAISpeechStreamAdapter
+from .providers.openai.speech import (
+    OpenAISpeechBatchAdapter,
+    OpenAISpeechStreamAdapter,
+    OpenAITranscriptionStreamAdapter,
+)
+from .providers.openai.chat_speech import OpenAIChatSpeechBatchAdapter, OpenAIChatSpeechStreamAdapter
+from .providers.openai.speech_router import CompositeSpeechBatchAdapter, CompositeSpeechStreamAdapter
 from .providers.openai.text import OpenAITextAdapter
 from .providers.anthropic.text import AnthropicTextAdapter
 
@@ -101,14 +107,31 @@ def create_gateway_service(settings: GatewaySettings | None = None) -> GatewaySe
         usage_recorder = SqlAlchemyUsageRecorder(usage_session_factory)
     else:
         usage_recorder = NullUsageRecorder()
-    openai_speech_batch = OpenAISpeechBatchAdapter(gateway_settings.openai)
+    # Speech adapters: composite router dispatches by model name.
+    # Models listed in chat_asr_models use chat.completions with audio content;
+    # others use the traditional /audio/transcriptions endpoint.
+    chat_asr_models = gateway_settings.chat_asr_models
+    openai_speech_batch_default = OpenAISpeechBatchAdapter(gateway_settings.openai)
+    openai_speech_batch_chat = OpenAIChatSpeechBatchAdapter(gateway_settings.openai)
+    # Default stream adapter uses /audio/transcriptions with SSE streaming.
+    # The WebSocket-based OpenAISpeechStreamAdapter is kept for Realtime API use cases.
+    openai_speech_stream_default = OpenAITranscriptionStreamAdapter(gateway_settings.openai)
+    openai_speech_stream_chat = OpenAIChatSpeechStreamAdapter(gateway_settings.openai)
     registry.register(
         ProviderAdapterBundle(
             provider=ProviderId.OPENAI,
             embedding=OpenAIEmbeddingAdapter(gateway_settings.openai),
             text=OpenAITextAdapter(gateway_settings.openai),
-            speech_batch=openai_speech_batch,
-            speech_stream=OpenAISpeechStreamAdapter(gateway_settings.openai),
+            speech_batch=CompositeSpeechBatchAdapter(
+                default=openai_speech_batch_default,
+                chat=openai_speech_batch_chat,
+                chat_models=chat_asr_models,
+            ),
+            speech_stream=CompositeSpeechStreamAdapter(
+                default=openai_speech_stream_default,
+                chat=openai_speech_stream_chat,
+                chat_models=chat_asr_models,
+            ),
             image=OpenAIImageAdapter(gateway_settings.openai),
             realtime=OpenAIRealtimeAdapter(
                 provider=ProviderId.OPENAI,
