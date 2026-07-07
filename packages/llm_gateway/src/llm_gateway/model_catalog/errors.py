@@ -6,6 +6,8 @@ from enum import Enum
 class CatalogErrorCode(str, Enum):
     BINDING_NOT_FOUND = "binding_not_found"
     MODEL_NOT_FOUND = "model_not_found"
+    MODEL_NAME_NOT_FOUND = "model_name_not_found"
+    MODEL_REF_AMBIGUOUS = "model_ref_ambiguous"
     NO_ENABLED_INSTANCE = "no_enabled_instance"
     FEATURE_REQUIREMENT_NOT_SATISFIED = "feature_requirement_not_satisfied"
     UNSUPPORTED_CAPABILITY = "unsupported_capability"

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import random
+import warnings
 from collections import defaultdict
 from collections.abc import Mapping
 from typing import Any
 
-from ..models import CatalogModelSummary
+from ..models import CatalogModelSummary, ModelRef
 from ..provider_runtime import RuntimeProviderConfig
 from .cache import CatalogCache, NoOpCatalogCache
-from .domain import ModelCatalogSnapshot, ResolvedModelRoute
+from .domain import ModelBindingSnapshot, ModelCatalogSnapshot, ResolvedModelRoute, freeze_mapping
 from .errors import CatalogError, CatalogErrorCode
 from ..models import Capability
 from .repository import ModelCatalogRepository
@@ -71,6 +73,13 @@ _DEFAULT_BINDING_KEYS: dict[Capability, str] = {
 
 
 class ModelResolver:
+    """Resolves a model reference (binding key / model key / model name) into
+    an ordered list of candidate routes for failover.
+
+    Primary entry point: :meth:`resolve` — accepts a :class:`ModelRef` and
+    returns ``(routes, retry_policy)``.
+    """
+
     def __init__(
         self,
         catalog_service: ModelCatalogService,
@@ -79,134 +88,230 @@ class ModelResolver:
         self._catalog_service = catalog_service
         self._secret_resolver = secret_resolver
 
-    async def resolve_for_capability(
-        self,
-        capability: Capability,
-        model_key: str | None = None,
-        provider_hint=None,
-        required_features: Mapping[str, Any] | None = None,
-    ) -> ResolvedModelRoute:
-        """Resolve the best route for a given capability using the default binding."""
-        binding_key = _DEFAULT_BINDING_KEYS[capability]
-        return await self.resolve(
-            binding_key,
-            model_key=model_key,
-            provider_hint=provider_hint,
-            required_features=required_features,
-            capability=capability,
-        )
-
-    async def resolve_binding(
-        self,
-        binding_key: str,
-        *,
-        provider_hint=None,
-        required_features: Mapping[str, Any] | None = None,
-    ) -> ResolvedModelRoute:
-        return await self.resolve(
-            binding_key,
-            model_key=None,
-            provider_hint=provider_hint,
-            required_features=required_features,
-        )
+    # ── Primary API ───────────────────────────────────────────────────────
 
     async def resolve(
         self,
-        binding_key: str,
+        ref: ModelRef,
         *,
-        model_key: str | None,
-        provider_hint,
+        capability_hint: Capability | None = None,
+        provider_hint: Any = None,
         required_features: Mapping[str, Any] | None = None,
-        capability: Capability | None = None,
-    ) -> ResolvedModelRoute:
-        routes, _ = await self.resolve_candidates(
-            binding_key,
-            model_key=model_key,
+    ) -> tuple[list[ResolvedModelRoute], RetryPolicy]:
+        """Resolve *ref* into ordered candidate routes + retry policy.
+
+        Resolution strategy (first match wins):
+        1. ``ref.binding_key`` → lookup in ``bindings_by_key`` → target model
+        2. ``ref.model_key``   → lookup in ``models_by_key`` directly
+        3. ``ref.model_name``  → lookup in ``models_by_name`` (provider model name)
+
+        Capability is inferred when the target model exposes exactly one; pass
+        *capability_hint* when the model supports multiple capabilities.
+        """
+        snapshot = await self._catalog_service.get_snapshot()
+        model, capability, binding = self._resolve_ref(ref, snapshot, capability_hint)
+        return await self._build_candidates(
+            model=model,
+            capability=capability,
+            binding=binding,
+            snapshot=snapshot,
             provider_hint=provider_hint,
             required_features=required_features,
-            capability=capability,
         )
-        return routes[0]
+
+    # ── Backward-compatible entry ─────────────────────────────────────────
 
     async def resolve_candidates(
         self,
         binding_key: str,
         *,
         model_key: str | None,
-        provider_hint,
+        provider_hint: Any,
         required_features: Mapping[str, Any] | None = None,
         capability: Capability | None = None,
     ) -> tuple[list[ResolvedModelRoute], RetryPolicy]:
-        """Return an ordered list of candidate routes and the model's retry policy.
+        """Backward-compatible entry point.
 
-        The first element is the highest-priority route (same as :meth:`resolve`
-        would return).  Callers can iterate the remaining candidates as fallback
-        options on failure.
+        .. deprecated::
+            Use :meth:`resolve` with a :class:`ModelRef` instead::
+
+                routes, retry = await resolver.resolve(
+                    ModelRef.model("gpt-5.4-mini"),
+                    capability_hint=Capability.TEXT,
+                )
         """
+        warnings.warn(
+            "resolve_candidates() is deprecated; use resolve(ModelRef, ...) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         snapshot = await self._catalog_service.get_snapshot()
 
-        # Reconcile callers that pass a *binding* key via the model field.
-        # agent_runtime maps agent.model_binding_key → request.model, so a value
-        # like "mimo-v2-flash-chat" (a binding) reaches us as model_key. If the
-        # supplied value is not a real model key but names a registered binding,
-        # honour the binding and derive the real model_key from it. Purely
-        # additive fallback — only changes behaviour when model_key is an actual
-        # binding key; genuine model keys are unaffected.
-        if (
-            model_key is not None
-            and model_key not in snapshot.models_by_key
-            and model_key in snapshot.bindings_by_key
-        ):
-            binding_key = model_key
-            model_key = snapshot.bindings_by_key[binding_key].model_key
+        # Build a ModelRef from the legacy arguments.
+        if model_key is not None:
+            ref = ModelRef.model(model_key)
+        else:
+            ref = ModelRef.binding(binding_key)
 
-        binding = snapshot.bindings_by_key.get(binding_key)
+        model, resolved_capability, binding = self._resolve_ref(
+            ref, snapshot, capability,
+        )
 
-        # When model_key is provided, allow direct resolution without a binding.
-        if model_key is not None and (binding is None or not binding.is_enabled):
-            if capability is None:
+        # When the caller passed a non-default binding_key that doesn't exist
+        # and resolution succeeded via model_key or binding fallback, synthesise
+        # a binding so the downstream pipeline has a capability.
+        if binding is None:
+            if resolved_capability is None:
                 raise CatalogError(
                     CatalogErrorCode.BINDING_NOT_FOUND,
                     f"Binding '{binding_key}' was not found.",
                     binding_key=binding_key,
                 )
-            # Synthesize a minimal binding for direct model invocation.
-            from .domain import ModelBindingSnapshot, freeze_mapping
             binding = ModelBindingSnapshot(
                 binding_key=binding_key,
                 display_name=binding_key,
-                capability=capability,
-                model_key=model_key,
+                capability=resolved_capability,
+                model_key=model.model_key,
                 metadata=freeze_mapping(),
                 is_enabled=True,
             )
-        elif binding is None or not binding.is_enabled:
+
+        return await self._build_candidates(
+            model=model,
+            capability=resolved_capability,
+            binding=binding,
+            snapshot=snapshot,
+            provider_hint=provider_hint,
+            required_features=required_features,
+        )
+
+    # ── Internal resolution ───────────────────────────────────────────────
+
+    def _resolve_ref(
+        self,
+        ref: ModelRef,
+        snapshot: ModelCatalogSnapshot,
+        capability_hint: Capability | None,
+    ) -> tuple[Any, Capability, ModelBindingSnapshot | None]:
+        """Resolve *ref* to ``(model, capability, binding_or_None)``.
+
+        The *binding* is ``None`` when resolution succeeded via model_key or
+        model_name (no binding involved).
+        """
+        if ref.binding_key is not None:
+            return self._resolve_binding(ref.binding_key, snapshot, capability_hint)
+        if ref.model_key is not None:
+            return self._resolve_model_key(ref.model_key, snapshot, capability_hint)
+        return self._resolve_model_name(ref.model_name, snapshot, capability_hint)  # type: ignore[arg-type]
+
+    def _resolve_binding(
+        self,
+        binding_key: str,
+        snapshot: ModelCatalogSnapshot,
+        capability_hint: Capability | None,
+    ) -> tuple[Any, Capability, ModelBindingSnapshot | None]:
+        binding = snapshot.bindings_by_key.get(binding_key)
+        if binding is None or not binding.is_enabled:
             raise CatalogError(
                 CatalogErrorCode.BINDING_NOT_FOUND,
                 f"Binding '{binding_key}' was not found.",
                 binding_key=binding_key,
             )
-
-        effective_model_key = model_key or binding.model_key
-        model = snapshot.models_by_key.get(effective_model_key)
+        model = snapshot.models_by_key.get(binding.model_key)
         if model is None or not model.is_enabled:
             raise CatalogError(
                 CatalogErrorCode.MODEL_NOT_FOUND,
-                f"Model '{effective_model_key}' was not found.",
-                model_key=effective_model_key,
+                f"Model '{binding.model_key}' was not found.",
+                model_key=binding.model_key,
             )
+        return model, binding.capability, binding
 
-        candidates = []
-        supported_providers = {
-            snapshot.connection_profiles_by_key[instance.connection_profile_key].provider
-            for instance in model.instances
-            if instance.connection_profile_key in snapshot.connection_profiles_by_key
-        }
+    def _resolve_model_key(
+        self,
+        model_key: str,
+        snapshot: ModelCatalogSnapshot,
+        capability_hint: Capability | None,
+    ) -> tuple[Any, Capability, ModelBindingSnapshot | None]:
+        model = snapshot.models_by_key.get(model_key)
+        if model is not None and model.is_enabled:
+            capability = self._infer_capability(model, capability_hint)
+            return model, capability, None
+
+        # Fallback: if the key is actually a binding key (e.g. agent_runtime
+        # passes agent.model_binding_key via request.model), resolve via binding.
+        binding = snapshot.bindings_by_key.get(model_key)
+        if binding is not None and binding.is_enabled:
+            bound_model = snapshot.models_by_key.get(binding.model_key)
+            if bound_model is not None and bound_model.is_enabled:
+                return bound_model, binding.capability, binding
+
+        raise CatalogError(
+            CatalogErrorCode.MODEL_NOT_FOUND,
+            f"Model '{model_key}' was not found.",
+            model_key=model_key,
+        )
+
+    def _resolve_model_name(
+        self,
+        model_name: str,
+        snapshot: ModelCatalogSnapshot,
+        capability_hint: Capability | None,
+    ) -> tuple[Any, Capability, None]:
+        model = snapshot.models_by_name.get(model_name)
+        if model is None or not model.is_enabled:
+            raise CatalogError(
+                CatalogErrorCode.MODEL_NAME_NOT_FOUND,
+                f"No enabled model found for provider name '{model_name}'.",
+                model_key=model_name,
+            )
+        capability = self._infer_capability(model, capability_hint)
+        return model, capability, None
+
+    @staticmethod
+    def _infer_capability(
+        model: Any,
+        capability_hint: Capability | None,
+    ) -> Capability:
+        """Infer the capability for *model*.
+
+        - If the model has exactly one capability, use it.
+        - If *capability_hint* is provided and valid, use it.
+        - Otherwise raise.
+        """
+        caps = model.capabilities
+        if len(caps) == 1:
+            return caps[0]
+        if capability_hint is not None and capability_hint in caps:
+            return capability_hint
+        cap_names = ", ".join(c.value for c in caps)
+        raise CatalogError(
+            CatalogErrorCode.UNSUPPORTED_CAPABILITY,
+            f"Model '{model.model_key}' supports multiple capabilities [{cap_names}]; "
+            f"pass capability_hint to disambiguate.",
+            model_key=model.model_key,
+        )
+
+    # ── Candidate building ────────────────────────────────────────────────
+
+    async def _build_candidates(
+        self,
+        *,
+        model: Any,
+        capability: Capability,
+        binding: ModelBindingSnapshot | None,
+        snapshot: ModelCatalogSnapshot,
+        provider_hint: Any,
+        required_features: Mapping[str, Any] | None,
+    ) -> tuple[list[ResolvedModelRoute], RetryPolicy]:
+        """Build ordered candidate routes for *model* + *capability*."""
+        candidates: list[tuple[Any, Any]] = []
+        supported_providers: set[Any] = set()
         for instance in model.instances:
             profile = snapshot.connection_profiles_by_key.get(instance.connection_profile_key)
-            if instance.capability != binding.capability:
-                continue
             if profile is None:
+                continue
+            supported_providers.add(profile.provider)
+            if instance.capability != capability:
                 continue
             if not instance.is_enabled or not instance.is_healthy or not profile.is_enabled:
                 continue
@@ -217,32 +322,26 @@ class ModelResolver:
         if provider_hint is not None and supported_providers and provider_hint not in supported_providers:
             raise CatalogError(
                 CatalogErrorCode.PROVIDER_CONFLICT,
-                f"Model '{effective_model_key}' does not support provider '{provider_hint.value}'.",
-                model_key=effective_model_key,
+                f"Model '{model.model_key}' does not support provider '{provider_hint.value}'.",
+                model_key=model.model_key,
                 provider=provider_hint.value,
             )
 
         if not candidates:
             raise CatalogError(
                 CatalogErrorCode.NO_ENABLED_INSTANCE,
-                f"Model '{effective_model_key}' has no enabled instance for capability '{binding.capability.value}'.",
-                model_key=effective_model_key,
+                f"Model '{model.model_key}' has no enabled instance for capability '{capability.value}'.",
+                model_key=model.model_key,
             )
 
         if required_features and not _matches_required_features(model, required_features):
             raise CatalogError(
                 CatalogErrorCode.FEATURE_REQUIREMENT_NOT_SATISFIED,
-                f"Model '{effective_model_key}' does not satisfy the requested features.",
-                model_key=effective_model_key,
+                f"Model '{model.model_key}' does not satisfy the requested features.",
+                model_key=model.model_key,
             )
 
         # Group by priority, then apply weighted random selection within each tier.
-        # Lower priority values are tried first.  Within a tier, the primary
-        # candidate is chosen by weight (higher weight = more likely), and the
-        # remaining instances are shuffled for diverse fallback ordering.
-        import random
-        from collections import defaultdict
-
         by_priority: dict[int, list[tuple[Any, Any]]] = defaultdict(list)
         for instance, profile in candidates:
             by_priority[instance.priority].append((instance, profile))
@@ -296,12 +395,11 @@ class ModelResolver:
         retry_policy = RetryPolicy.from_json(model.retry_policy)
         return routes, retry_policy
 
-    async def resolve_binding_model_key(self, binding_key: str, provider_hint=None) -> str:
-        route = await self.resolve_binding(binding_key, provider_hint=provider_hint)
-        return route.model_key
+
+# ── Helpers ───────────────────────────────────────────────────────────────
 
 
-def _matches_required_features(model, required_features: Mapping[str, Any]) -> bool:
+def _matches_required_features(model: Any, required_features: Mapping[str, Any]) -> bool:
     features_by_key = {feature.feature_key: feature for feature in model.features}
     for feature_key, expected_value in required_features.items():
         feature = features_by_key.get(feature_key)
@@ -310,7 +408,7 @@ def _matches_required_features(model, required_features: Mapping[str, Any]) -> b
     return True
 
 
-def _feature_satisfies_requirement(feature, expected_value: Any) -> bool:
+def _feature_satisfies_requirement(feature: Any, expected_value: Any) -> bool:
     if feature is None or not feature.is_enabled or not feature.is_routable or not feature.is_supported:
         return False
     if feature.allowed_values and (expected_value not in feature.allowed_values or feature.value not in feature.allowed_values):

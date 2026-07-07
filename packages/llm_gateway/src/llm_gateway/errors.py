@@ -6,6 +6,8 @@ from enum import Enum
 class GatewayErrorCode(str, Enum):
     PROVIDER_NOT_FOUND = "provider_not_found"
     MODEL_NOT_FOUND = "model_not_found"
+    MODEL_NAME_NOT_FOUND = "model_name_not_found"
+    MODEL_REF_AMBIGUOUS = "model_ref_ambiguous"
     UNSUPPORTED_CAPABILITY = "unsupported_capability"
     VALIDATION_ERROR = "validation_error"
     PROVIDER_AUTH_FAILED = "provider_auth_failed"

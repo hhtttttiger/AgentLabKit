@@ -39,8 +39,6 @@ _DEFAULT_BINDINGS: tuple[tuple[str, str, Capability, str], ...] = (
     ("gateway.default_text", "Gateway Default Text", Capability.TEXT, "gpt-5.4-mini"),
     ("gateway.default_realtime", "Gateway Default Realtime", Capability.REALTIME, "gpt-realtime-2"),
     ("gateway.default_image", "Gateway Default Image", Capability.IMAGE, "gpt-image-2"),
-    ("voice.realtime_transport", "Voice Realtime Transport", Capability.REALTIME, "gpt-realtime-2"),
-    ("voice.agent_text", "Voice Agent Text", Capability.TEXT, "gpt-5.4-mini"),
 )
 
 

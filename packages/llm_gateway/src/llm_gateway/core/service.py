@@ -10,6 +10,7 @@ from typing import Any, Awaitable, Callable, TypeVar, cast
 from ..config import GatewaySettings
 from ..errors import GatewayError, GatewayErrorCode
 from ..model_catalog import CatalogError, CatalogErrorCode, ModelCatalogService, ModelResolver
+from ..models import ModelRef
 from ..model_catalog.retry_policy import RetryPolicy
 from ..models import (
     Capability,
@@ -49,6 +50,8 @@ AdapterType = TypeVar("AdapterType")
 _CATALOG_ERROR_MAP = {
     CatalogErrorCode.BINDING_NOT_FOUND: GatewayErrorCode.BINDING_NOT_FOUND,
     CatalogErrorCode.MODEL_NOT_FOUND: GatewayErrorCode.MODEL_NOT_FOUND,
+    CatalogErrorCode.MODEL_NAME_NOT_FOUND: GatewayErrorCode.MODEL_NAME_NOT_FOUND,
+    CatalogErrorCode.MODEL_REF_AMBIGUOUS: GatewayErrorCode.MODEL_REF_AMBIGUOUS,
     CatalogErrorCode.NO_ENABLED_INSTANCE: GatewayErrorCode.NO_ENABLED_INSTANCE,
     CatalogErrorCode.FEATURE_REQUIREMENT_NOT_SATISFIED: GatewayErrorCode.FEATURE_REQUIREMENT_NOT_SATISFIED,
     CatalogErrorCode.UNSUPPORTED_CAPABILITY: GatewayErrorCode.UNSUPPORTED_CAPABILITY,
@@ -131,8 +134,8 @@ class GatewayService:
     def _rewrite_response_model(response: Any, logical_model: str, provider) -> Any:
         return response.model_copy(update={"model": logical_model, "provider": provider})
 
-    async def _resolve_route(self, capability: Capability, model_key: str | None, provider, required_features=None):
-        routes, _ = await self._resolve_routes(capability, model_key, provider, required_features)
+    async def _resolve_route(self, capability: Capability, model_key: str | None, provider, required_features=None, *, model_ref: ModelRef | None = None):
+        routes, _ = await self._resolve_routes(capability, model_key, provider, required_features, model_ref=model_ref)
         return routes[0]
 
     async def _resolve_routes(
@@ -141,19 +144,40 @@ class GatewayService:
         model_key: str | None,
         provider,
         required_features=None,
+        *,
+        model_ref: ModelRef | None = None,
     ) -> tuple[list, RetryPolicy]:
         """Resolve ordered candidate routes and the associated retry policy."""
-        binding_key = self._default_binding_key(capability)
+        ref = model_ref or self._build_model_ref(model_key, capability)
         try:
-            return await self.resolver.resolve_candidates(
-                binding_key,
-                model_key=model_key,
+            return await self.resolver.resolve(
+                ref,
+                capability_hint=capability,
                 provider_hint=provider,
                 required_features=required_features,
-                capability=capability,
             )
         except CatalogError as exc:
             raise self._gateway_error_from_catalog(exc, model_key) from exc
+
+    @staticmethod
+    def _build_model_ref(model_key: str | None, capability: Capability) -> ModelRef:
+        """Build a :class:`ModelRef` from the raw request *model* field.
+
+        Resolution priority (matching the original auto-detect behaviour):
+        1. ``None`` → use the default binding for *capability*
+        2. Non-None string → delegate to :meth:`_auto_detect_ref`
+        """
+        if model_key is None:
+            _DEFAULT_BINDINGS = {
+                Capability.EMBEDDING: "gateway.default_embedding",
+                Capability.TEXT: "gateway.default_text",
+                Capability.SPEECH_BATCH: "gateway.default_speech_batch",
+                Capability.SPEECH_STREAM: "gateway.default_speech_stream",
+                Capability.IMAGE: "gateway.default_image",
+                Capability.REALTIME: "gateway.default_realtime",
+            }
+            return ModelRef.binding(_DEFAULT_BINDINGS[capability])
+        return _auto_detect_ref(model_key)
 
     @staticmethod
     def _default_binding_key(capability: Capability) -> str:
@@ -399,6 +423,7 @@ class GatewayService:
             request.model,
             request.provider,
             getattr(request, "required_features", None),
+            model_ref=getattr(request, "model_ref", None),
         )
         trace_id = getattr(request, "trace_id", None)
         session = _DispatchSession(self, capability, candidates, retry_policy, trace_id, request)
@@ -470,6 +495,7 @@ class GatewayService:
             request.model,
             request.provider,
             getattr(request, "required_features", None),
+            model_ref=getattr(request, "model_ref", None),
         )
         trace_id = getattr(request, "trace_id", None)
         session = _DispatchSession(self, capability, candidates, retry_policy, trace_id, request)
@@ -663,6 +689,7 @@ class GatewayService:
             model_key or getattr(first_event, "model", None),
             provider or getattr(first_event, "provider", None),
             getattr(first_event, "required_features", None),
+            model_ref=getattr(first_event, "model_ref", None),
         )
         adapter = self.registry.resolve_adapter(capability, provider=route.provider)
         trace_id = self.observability.ensure_trace_id(getattr(first_event, "trace_id", None))
@@ -756,6 +783,18 @@ class GatewayService:
 
     async def models(self) -> ModelSummary:
         return ModelSummary(models=await self.catalog_service.list_models())
+
+
+def _auto_detect_ref(raw: str) -> ModelRef:
+    """Auto-detect the resolution strategy for a raw model string.
+
+    Since we don't have the snapshot here, we pass the string as ``model_key``
+    and let the resolver handle fallback to binding_key detection (existing
+    behaviour in ``ModelResolver.resolve_candidates``).  This preserves full
+    backward compatibility for callers that pass binding keys via the ``model``
+    field (e.g. ``agent_runtime``).
+    """
+    return ModelRef.model(raw)
 
 
 async def _rewrite_transport_model(

@@ -135,18 +135,42 @@ class ModelCatalogSnapshot:
     models: tuple[ModelSnapshot, ...]
     bindings: tuple[ModelBindingSnapshot, ...]
 
-    @property
-    def connection_profiles_by_key(self) -> dict[str, ConnectionProfileSnapshot]:
-        return {profile.profile_key: profile for profile in self.connection_profiles}
+    # ── Pre-computed lookup indexes (built once in __post_init__) ──────────
+    connection_profiles_by_key: MappingProxyType[str, ConnectionProfileSnapshot] = field(init=False, repr=False)
+    models_by_key: MappingProxyType[str, ModelSnapshot] = field(init=False, repr=False)
+    bindings_by_key: MappingProxyType[str, ModelBindingSnapshot] = field(init=False, repr=False)
+    feature_definitions_by_key: MappingProxyType[str, FeatureDefinitionSnapshot] = field(init=False, repr=False)
+    models_by_name: MappingProxyType[str, ModelSnapshot] = field(init=False, repr=False)
 
-    @property
-    def models_by_key(self) -> dict[str, ModelSnapshot]:
-        return {model.model_key: model for model in self.models}
-
-    @property
-    def bindings_by_key(self) -> dict[str, ModelBindingSnapshot]:
-        return {binding.binding_key: binding for binding in self.bindings}
-
-    @property
-    def feature_definitions_by_key(self) -> dict[str, FeatureDefinitionSnapshot]:
-        return {definition.feature_key: definition for definition in self.feature_definitions}
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "connection_profiles_by_key",
+            MappingProxyType({p.profile_key: p for p in self.connection_profiles}),
+        )
+        object.__setattr__(
+            self,
+            "models_by_key",
+            MappingProxyType({m.model_key: m for m in self.models}),
+        )
+        object.__setattr__(
+            self,
+            "bindings_by_key",
+            MappingProxyType({b.binding_key: b for b in self.bindings}),
+        )
+        object.__setattr__(
+            self,
+            "feature_definitions_by_key",
+            MappingProxyType({d.feature_key: d for d in self.feature_definitions}),
+        )
+        # provider_model_name → ModelSnapshot (first match wins for duplicates)
+        name_index: dict[str, ModelSnapshot] = {}
+        for model in self.models:
+            for instance in model.instances:
+                if instance.provider_model_name not in name_index:
+                    name_index[instance.provider_model_name] = model
+        object.__setattr__(
+            self,
+            "models_by_name",
+            MappingProxyType(name_index),
+        )

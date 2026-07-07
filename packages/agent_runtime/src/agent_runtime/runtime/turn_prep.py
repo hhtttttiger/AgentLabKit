@@ -160,14 +160,28 @@ class TurnPrep:
     ) -> AgentTurnRequest:
         from uuid import uuid4
 
+        from llm_gateway import ModelRef
+
+        use_definition = definition and definition.model_binding_key
         default_model = (
             definition.model_binding_key
-            if definition and definition.model_binding_key
+            if use_definition
             else settings.default_model
         )
+        resolved_model = request.model if (request.model and not request.agent_key) else default_model
+
+        # Build explicit ModelRef so the gateway doesn't need to auto-detect.
+        if use_definition and resolved_model == definition.model_binding_key:
+            model_ref = ModelRef.binding(resolved_model).model_dump()
+        elif resolved_model:
+            model_ref = ModelRef.model(resolved_model).model_dump()
+        else:
+            model_ref = None
+
         return request.model_copy(
             update={
-                "model": request.model if (request.model and not request.agent_key) else default_model,
+                "model": resolved_model,
+                "model_ref": model_ref,
                 "provider": request.provider if not request.agent_key else None,
                 "trace_id": request.trace_id or str(uuid4()),
                 "metadata": dict(request.metadata),

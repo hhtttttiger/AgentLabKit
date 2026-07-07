@@ -23,12 +23,13 @@ from llm_gateway.model_catalog.orm_models import (
     LlmConnectionProfileOrm,
     LlmFeatureDefinitionOrm,
     LlmModelBindingOrm,
-    LlmModelCardFeatureOrm,
-    LlmModelCardOrm,
+    LlmModelFeatureOrm,
+    LlmModelOrm,
     LlmModelInstanceOrm,
 )
 from llm_gateway.models import (
     Capability,
+    ModelRef,
     ProviderId,
     RealtimeClientEvent,
     RealtimeServerEvent,
@@ -206,7 +207,7 @@ def catalog_harness(tmp_path: Path) -> CatalogHarness:
                     extra_json={"tier": "gold"},
                     is_enabled=True,
                 ),
-                LlmModelCardOrm(
+                LlmModelOrm(
                     id=201,
                     model_key="gateway.text.primary",
                     type="text",
@@ -219,7 +220,7 @@ def catalog_harness(tmp_path: Path) -> CatalogHarness:
                     retry_policy_json={},
                     is_enabled=True,
                 ),
-                LlmModelCardOrm(
+                LlmModelOrm(
                     id=202,
                     model_key="gateway.text.secondary",
                     type="text",
@@ -232,7 +233,7 @@ def catalog_harness(tmp_path: Path) -> CatalogHarness:
                     retry_policy_json={},
                     is_enabled=True,
                 ),
-                LlmModelCardOrm(
+                LlmModelOrm(
                     id=203,
                     model_key="gateway.voice.catalog",
                     type="speech",
@@ -245,7 +246,7 @@ def catalog_harness(tmp_path: Path) -> CatalogHarness:
                     retry_policy_json={},
                     is_enabled=True,
                 ),
-                LlmModelCardOrm(
+                LlmModelOrm(
                     id=204,
                     model_key="gateway.voice.stream.catalog",
                     type="speech",
@@ -258,7 +259,7 @@ def catalog_harness(tmp_path: Path) -> CatalogHarness:
                     retry_policy_json={},
                     is_enabled=True,
                 ),
-                LlmModelCardOrm(
+                LlmModelOrm(
                     id=205,
                     model_key="gateway.realtime.catalog",
                     type="speech",
@@ -529,7 +530,7 @@ async def test_database_catalog_list_models_keeps_card_capabilities_without_inst
 
     with harness.sync_session_factory() as session:
         session.add(
-            LlmModelCardOrm(
+            LlmModelOrm(
                 id=260,
                 model_key="catalog.prefilled.image",
                 type="image",
@@ -590,7 +591,7 @@ async def test_database_catalog_resolver_filters_instances_by_required_features(
         )
         session.add_all(
             [
-                LlmModelCardFeatureOrm(
+                LlmModelFeatureOrm(
                     id=701,
                     model_id=201,
                     feature_id=601,
@@ -603,10 +604,12 @@ async def test_database_catalog_resolver_filters_instances_by_required_features(
         )
         session.commit()
 
-    route = await service.resolver.resolve_text(
-        "gateway.text.primary",
+    routes, _ = await service.resolver.resolve(
+        ModelRef.model("gateway.text.primary"),
+        capability_hint=Capability.TEXT,
         required_features={"function_call": True},
     )
+    route = routes[0]
 
     assert route.instance_key == "gateway.text.primary.openai"
     assert route.provider_model_name == "gpt-4.1-mini"
@@ -631,7 +634,7 @@ async def test_database_catalog_resolver_rejects_non_routable_feature_requiremen
             )
         )
         session.add(
-            LlmModelCardFeatureOrm(
+            LlmModelFeatureOrm(
                 id=702,
                 model_id=201,
                 feature_id=602,
@@ -644,8 +647,9 @@ async def test_database_catalog_resolver_rejects_non_routable_feature_requiremen
         session.commit()
 
     with pytest.raises(CatalogError) as context:
-        await service.resolver.resolve_text(
-            "gateway.text.primary",
+        await service.resolver.resolve(
+            ModelRef.model("gateway.text.primary"),
+            capability_hint=Capability.TEXT,
             required_features={"json_mode": True},
         )
 
@@ -687,7 +691,7 @@ async def test_database_catalog_gateway_request_routes_using_required_features(d
         )
         session.add_all(
             [
-                LlmModelCardFeatureOrm(
+                LlmModelFeatureOrm(
                     id=703,
                     model_id=201,
                     feature_id=603,
@@ -749,7 +753,7 @@ async def test_database_catalog_gateway_request_maps_feature_requirement_errors(
             )
         )
         session.add(
-            LlmModelCardFeatureOrm(
+            LlmModelFeatureOrm(
                 id=704,
                 model_id=201,
                 feature_id=604,
@@ -792,7 +796,7 @@ async def test_database_catalog_rejects_feature_values_outside_definition(databa
             )
         )
         session.add(
-            LlmModelCardFeatureOrm(
+            LlmModelFeatureOrm(
                 id=705,
                 model_id=201,
                 feature_id=605,

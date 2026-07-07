@@ -15,8 +15,8 @@ from llm_gateway.model_catalog.orm_models import (
     LlmConnectionProfileOrm,
     LlmFeatureDefinitionOrm,
     LlmModelBindingOrm,
-    LlmModelCardFeatureOrm,
-    LlmModelCardOrm,
+    LlmModelFeatureOrm,
+    LlmModelOrm,
     LlmModelInstanceOrm,
 )
 
@@ -97,8 +97,8 @@ class TestSqlAlchemyModelCatalogRepository:
                                 is_enabled=True,
                             )
                         ],
-                        LlmModelCardOrm: [
-                            LlmModelCardOrm(
+                        LlmModelOrm: [
+                            LlmModelOrm(
                                 id=201,
                                 model_key="gateway.default.text",
                                 type="text",
@@ -152,8 +152,8 @@ class TestSqlAlchemyModelCatalogRepository:
                                 is_enabled=True,
                             )
                         ],
-                        LlmModelCardFeatureOrm: [
-                            LlmModelCardFeatureOrm(
+                        LlmModelFeatureOrm: [
+                            LlmModelFeatureOrm(
                                 id=601,
                                 model_id=201,
                                 feature_id=501,
@@ -219,8 +219,8 @@ class TestSqlAlchemyModelCatalogRepository:
                 _FakeSession(
                     {
                         LlmConnectionProfileOrm: [],
-                        LlmModelCardOrm: [
-                            LlmModelCardOrm(
+                        LlmModelOrm: [
+                            LlmModelOrm(
                                 id=202,
                                 model_key="gateway.default.text",
                                 type="text",
@@ -282,8 +282,8 @@ class TestSqlAlchemyModelCatalogRepository:
                                 is_enabled=True,
                             )
                         ],
-                        LlmModelCardOrm: [
-                            LlmModelCardOrm(
+                        LlmModelOrm: [
+                            LlmModelOrm(
                                 id=203,
                                 model_key="gateway.default.text",
                                 type="text",
@@ -314,8 +314,8 @@ class TestSqlAlchemyModelCatalogRepository:
                             )
                         ],
                         LlmFeatureDefinitionOrm: [],
-                        LlmModelCardFeatureOrm: [
-                            LlmModelCardFeatureOrm(
+                        LlmModelFeatureOrm: [
+                            LlmModelFeatureOrm(
                                 id=602,
                                 model_id=203,
                                 feature_id=998,

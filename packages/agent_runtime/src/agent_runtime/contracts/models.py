@@ -99,6 +99,7 @@ class AgentTurnRequest(BaseModel):
     knowledge_chunks: list[KnowledgeChunk] = Field(default_factory=list)
     knowledge_lookup_status: Literal["none", "hit", "miss"] = "none"
     model: str | None = None
+    model_ref: dict | None = None  # Serialized ModelRef (binding_key / model_key / model_name)
     provider: ProviderId | None = None
     trace_id: str | None = None
     # Definition-aware fields (Section 7.2)

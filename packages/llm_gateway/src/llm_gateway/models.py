@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Capability(str, Enum):
@@ -23,6 +23,51 @@ class CapabilityStatus(str, Enum):
 class ProviderId(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
+
+
+class ModelRef(BaseModel):
+    """模型引用 — 支持三种解析策略，恰好指定一种。
+
+    - ``binding_key``: 通过场景绑定解析（如 ``"gateway.default_text"``）
+    - ``model_key``: 直接指定模型 key（如 ``"gpt-5.4-mini"``）
+    - ``model_name``: 通过 provider 模型名解析（如 ``"gpt-5.4-mini"``）
+
+    使用类方法快速构造::
+
+        ref = ModelRef.binding("gateway.default_text")
+        ref = ModelRef.model("gpt-5.4-mini")
+        ref = ModelRef.name("gpt-5.4-mini")
+    """
+
+    binding_key: str | None = None
+    model_key: str | None = None
+    model_name: str | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "ModelRef":
+        count = sum(v is not None for v in (self.binding_key, self.model_key, self.model_name))
+        if count != 1:
+            raise ValueError(
+                "ModelRef requires exactly one of binding_key, model_key, model_name; "
+                f"got {count} set."
+            )
+        return self
+
+    @classmethod
+    def binding(cls, key: str) -> "ModelRef":
+        return cls(binding_key=key)
+
+    @classmethod
+    def model(cls, key: str) -> "ModelRef":
+        return cls(model_key=key)
+
+    @classmethod
+    def name(cls, name: str) -> "ModelRef":
+        return cls(model_name=name)
+
+    def raw_value(self) -> str:
+        """Return the non-None value."""
+        return self.binding_key or self.model_key or self.model_name  # type: ignore[return-value]
 
 
 class UsageInfo(BaseModel):
@@ -65,6 +110,7 @@ class GatewayMetadata(BaseModel):
 class TextGenerateRequest(BaseModel):
     provider: ProviderId | None = None
     model: str | None = None
+    model_ref: ModelRef | None = None
     prompt: str
     trace_id: str | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
@@ -87,6 +133,7 @@ class TextGenerateResponse(BaseModel):
 class EmbeddingGenerateRequest(BaseModel):
     provider: ProviderId | None = None
     model: str | None = None
+    model_ref: ModelRef | None = None
     input: str
     trace_id: str | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
@@ -119,6 +166,7 @@ class TextStreamEvent(BaseModel):
 class SpeechTranscribeRequest(BaseModel):
     provider: ProviderId | None = None
     model: str | None = None
+    model_ref: ModelRef | None = None
     audio: bytes
     mime_type: str
     language: str | None = None
@@ -139,6 +187,7 @@ class SpeechTranscribeResponse(BaseModel):
 class SpeechStreamChunk(BaseModel):
     provider: ProviderId | None = None
     model: str | None = None
+    model_ref: ModelRef | None = None
     audio_chunk: bytes
     mime_type: str
     end_of_audio: bool = False
@@ -161,6 +210,7 @@ class SpeechStreamEvent(BaseModel):
 class ImageGenerateRequest(BaseModel):
     provider: ProviderId | None = None
     model: str | None = None
+    model_ref: ModelRef | None = None
     prompt: str
     size: str = "1024x1024"
     count: int = 1
@@ -187,6 +237,7 @@ class ImageGenerateResponse(BaseModel):
 class RealtimeSessionRequest(BaseModel):
     provider: ProviderId | None = None
     model: str | None = None
+    model_ref: ModelRef | None = None
     trace_id: str | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
     translation_mode: bool = False
@@ -196,6 +247,7 @@ class RealtimeClientEvent(BaseModel):
     event_type: str
     provider: ProviderId | None = None
     model: str | None = None
+    model_ref: ModelRef | None = None
     text: str | None = None
     audio_chunk: bytes | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
@@ -264,6 +316,7 @@ class HealthResponse(BaseModel):
 
 class UploadSpeechRequest(BaseModel):
     model: str | None = None
+    model_ref: ModelRef | None = None
     provider: ProviderId | None = None
     language: str | None = None
     trace_id: str | None = None

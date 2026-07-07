@@ -1,12 +1,9 @@
-"""Resolver fallback: a binding key passed as model_key resolves to its model.
+"""Resolver: multi-strategy model resolution via ModelRef.
 
-agent_runtime maps ``agent.model_binding_key`` onto the gateway request's
-``model`` field, so a value like ``"mimo-v2-flash-chat"`` (a *binding* key)
-reaches the resolver as ``model_key``. The resolver must recognise it as a
-binding and derive the real model key rather than failing MODEL_NOT_FOUND.
-
-These tests build a :class:`ModelCatalogSnapshot` directly (no DB) and drive
-:class:`ModelResolver.resolve_candidates` with a stub secret resolver.
+Tests the three resolution strategies (binding_key, model_key, model_name)
+and the backward-compatible ``resolve_candidates`` entry point.  Builds a
+:class:`ModelCatalogSnapshot` directly (no DB) and drives
+:class:`ModelResolver` with a stub secret resolver.
 """
 
 from __future__ import annotations
@@ -24,7 +21,7 @@ from llm_gateway.model_catalog.domain import (
 )
 from llm_gateway.model_catalog.errors import CatalogError, CatalogErrorCode
 from llm_gateway.model_catalog.service import ModelResolver
-from llm_gateway.models import Capability, ProviderId
+from llm_gateway.models import Capability, ModelRef, ProviderId
 
 
 @dataclass
@@ -51,58 +48,206 @@ class _FakeCatalogService:
         return self._snapshot
 
 
-def _snapshot_with_binding() -> ModelCatalogSnapshot:
-    binding_key = "mimo-v2-flash-chat"
-    model_key = "mimo-v2-flash"
+def _snapshot() -> ModelCatalogSnapshot:
+    """Build a snapshot with one model, one binding, two capabilities."""
     profile = ConnectionProfileSnapshot(
-        profile_key="openai-profile", display_name="OpenAI", provider=ProviderId.OPENAI,
-        base_url="https://api.example.com", is_enabled=True,
+        profile_key="openai-profile",
+        display_name="OpenAI",
+        provider=ProviderId.OPENAI,
+        base_url="https://api.example.com",
+        is_enabled=True,
     )
-    instance = ModelInstanceSnapshot(
-        instance_key=f"{model_key}.text", model_key=model_key,
-        connection_profile_key=profile.profile_key, capability=Capability.TEXT,
-        provider_model_name="mimo-v2-flash", is_enabled=True, is_healthy=True,
+    text_instance = ModelInstanceSnapshot(
+        instance_key="mimo-v2-flash.text",
+        model_key="mimo-v2-flash",
+        connection_profile_key=profile.profile_key,
+        capability=Capability.TEXT,
+        provider_model_name="mimo-v2-flash",
+        is_enabled=True,
+        is_healthy=True,
+    )
+    embed_instance = ModelInstanceSnapshot(
+        instance_key="mimo-v2-flash.embedding",
+        model_key="mimo-v2-flash",
+        connection_profile_key=profile.profile_key,
+        capability=Capability.EMBEDDING,
+        provider_model_name="mimo-v2-flash",
+        is_enabled=True,
+        is_healthy=True,
     )
     model = ModelSnapshot(
-        model_key=model_key, display_name="MiMo V2 Flash",
-        capabilities=(Capability.TEXT,), is_enabled=True, instances=(instance,),
+        model_key="mimo-v2-flash",
+        display_name="MiMo V2 Flash",
+        capabilities=(Capability.TEXT, Capability.EMBEDDING),
+        is_enabled=True,
+        instances=(text_instance, embed_instance),
+    )
+    # Single-capability model for auto-inference tests
+    single_model = ModelSnapshot(
+        model_key="gpt-5.4-mini",
+        display_name="GPT-5.4 Mini",
+        capabilities=(Capability.TEXT,),
+        is_enabled=True,
+        instances=(
+            ModelInstanceSnapshot(
+                instance_key="gpt-5.4-mini.text",
+                model_key="gpt-5.4-mini",
+                connection_profile_key=profile.profile_key,
+                capability=Capability.TEXT,
+                provider_model_name="gpt-5.4-mini",
+                is_enabled=True,
+                is_healthy=True,
+            ),
+        ),
     )
     binding = ModelBindingSnapshot(
-        binding_key=binding_key, display_name="MiMo V2 Flash Chat",
-        capability=Capability.TEXT, model_key=model_key, is_enabled=True,
+        binding_key="mimo-v2-flash-chat",
+        display_name="MiMo V2 Flash Chat",
+        capability=Capability.TEXT,
+        model_key="mimo-v2-flash",
+        is_enabled=True,
     )
     return ModelCatalogSnapshot(
-        revision=1, connection_profiles=(profile,), feature_definitions=(),
-        models=(model,), bindings=(binding,),
+        revision=1,
+        connection_profiles=(profile,),
+        feature_definitions=(),
+        models=(model, single_model),
+        bindings=(binding,),
     )
 
 
-def _resolver(snapshot: ModelCatalogSnapshot) -> ModelResolver:
-    return ModelResolver(_FakeCatalogService(snapshot), _StubSecretResolver())
+def _resolver(snapshot: ModelCatalogSnapshot | None = None) -> ModelResolver:
+    return ModelResolver(_FakeCatalogService(snapshot or _snapshot()), _StubSecretResolver())
+
+
+# ── ModelRef.binding ──────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_resolve_via_binding_key():
+    resolver = _resolver()
+    ref = ModelRef.binding("mimo-v2-flash-chat")
+    routes, _ = await resolver.resolve(ref, capability_hint=Capability.TEXT)
+
+    assert routes, "expected at least one resolved route"
+    assert routes[0].model_key == "mimo-v2-flash"
+
+
+@pytest.mark.asyncio
+async def test_resolve_via_binding_key_not_found():
+    resolver = _resolver()
+    ref = ModelRef.binding("nonexistent-binding")
+    with pytest.raises(CatalogError) as exc_info:
+        await resolver.resolve(ref)
+    assert exc_info.value.code == CatalogErrorCode.BINDING_NOT_FOUND
+
+
+# ── ModelRef.model (direct model key) ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_resolve_via_model_key_single_capability():
+    resolver = _resolver()
+    ref = ModelRef.model("gpt-5.4-mini")
+    routes, _ = await resolver.resolve(ref)
+
+    assert routes
+    assert routes[0].model_key == "gpt-5.4-mini"
+    assert routes[0].capability == Capability.TEXT
+
+
+@pytest.mark.asyncio
+async def test_resolve_via_model_key_multi_capability_with_hint():
+    resolver = _resolver()
+    ref = ModelRef.model("mimo-v2-flash")
+    routes, _ = await resolver.resolve(ref, capability_hint=Capability.EMBEDDING)
+
+    assert routes
+    assert routes[0].capability == Capability.EMBEDDING
+
+
+@pytest.mark.asyncio
+async def test_resolve_via_model_key_multi_capability_no_hint_raises():
+    resolver = _resolver()
+    ref = ModelRef.model("mimo-v2-flash")
+    with pytest.raises(CatalogError) as exc_info:
+        await resolver.resolve(ref)
+    assert exc_info.value.code == CatalogErrorCode.UNSUPPORTED_CAPABILITY
+
+
+@pytest.mark.asyncio
+async def test_resolve_via_model_key_not_found():
+    resolver = _resolver()
+    ref = ModelRef.model("does-not-exist")
+    with pytest.raises(CatalogError) as exc_info:
+        await resolver.resolve(ref)
+    assert exc_info.value.code == CatalogErrorCode.MODEL_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_model_key_falls_back_to_binding_when_not_a_model():
+    """A value that is not a model key but IS a binding key should resolve
+    via the binding (backward compat for agent_runtime)."""
+    resolver = _resolver()
+    ref = ModelRef.model("mimo-v2-flash-chat")  # this is a binding key
+    routes, _ = await resolver.resolve(ref, capability_hint=Capability.TEXT)
+
+    assert routes
+    assert routes[0].model_key == "mimo-v2-flash"
+
+
+# ── ModelRef.name (provider model name) ──────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_resolve_via_model_name():
+    resolver = _resolver()
+    ref = ModelRef.name("gpt-5.4-mini")
+    routes, _ = await resolver.resolve(ref)
+
+    assert routes
+    assert routes[0].model_key == "gpt-5.4-mini"
+
+
+@pytest.mark.asyncio
+async def test_resolve_via_model_name_multi_capability():
+    resolver = _resolver()
+    ref = ModelRef.name("mimo-v2-flash")
+    routes, _ = await resolver.resolve(ref, capability_hint=Capability.TEXT)
+
+    assert routes
+    assert routes[0].model_key == "mimo-v2-flash"
+
+
+@pytest.mark.asyncio
+async def test_resolve_via_model_name_not_found():
+    resolver = _resolver()
+    ref = ModelRef.name("nonexistent-model")
+    with pytest.raises(CatalogError) as exc_info:
+        await resolver.resolve(ref)
+    assert exc_info.value.code == CatalogErrorCode.MODEL_NAME_NOT_FOUND
+
+
+# ── Backward-compatible resolve_candidates ────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_binding_key_passed_as_model_key_resolves_to_model():
-    resolver = _resolver(_snapshot_with_binding())
-
-    # The caller passes the *binding* key in the model field (as agent_runtime
-    # does). binding_key below is the resolver's default ("gateway.default_text"),
-    # which is intentionally absent from the snapshot.
+    """agent_runtime passes binding key via model field."""
+    resolver = _resolver()
     routes, _ = await resolver.resolve_candidates(
         "gateway.default_text",
         model_key="mimo-v2-flash-chat",
         provider_hint=None,
         capability=Capability.TEXT,
     )
-
-    assert routes, "expected at least one resolved route"
-    assert routes[0].model_key == "mimo-v2-flash"  # the real model key, not the binding
+    assert routes
+    assert routes[0].model_key == "mimo-v2-flash"
 
 
 @pytest.mark.asyncio
 async def test_genuine_model_key_still_resolves_directly():
-    # A real model key must keep working (fallback must not shadow direct model keys).
-    resolver = _resolver(_snapshot_with_binding())
+    resolver = _resolver()
     routes, _ = await resolver.resolve_candidates(
         "gateway.default_text",
         model_key="mimo-v2-flash",
@@ -114,8 +259,7 @@ async def test_genuine_model_key_still_resolves_directly():
 
 @pytest.mark.asyncio
 async def test_unknown_model_key_still_raises_not_found():
-    # Values that are neither a model key nor a binding must still fail clearly.
-    resolver = _resolver(_snapshot_with_binding())
+    resolver = _resolver()
     with pytest.raises(CatalogError) as exc_info:
         await resolver.resolve_candidates(
             "gateway.default_text",

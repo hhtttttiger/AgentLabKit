@@ -8,6 +8,7 @@ from .core.service import GatewayService
 from .errors import GatewayError, GatewayErrorCode
 from .models import (
     Capability,
+    ModelRef,
     ProviderId,
     TextGenerateRequest,
     TextGenerateResponse,
@@ -38,6 +39,7 @@ __all__ = [
     "GatewayModule",
     "GatewayService",
     "GatewaySettings",
+    "ModelRef",
     "ProviderId",
     "TextGenerateRequest",
     "TextGenerateResponse",
