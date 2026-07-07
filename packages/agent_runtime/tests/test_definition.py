@@ -31,7 +31,7 @@ def _sample_definition(
         version_number=version_number,
         display_name="Test Agent",
         system_prompt_template="You are a test agent.",
-        model_binding_key="gateway.default_text",
+        model_key="gateway.default_text",
         tools=(
             ToolBindingSnapshot(tool_name="order.query", invocation_mode="auto"),
             ToolBindingSnapshot(tool_name="order.cancel", invocation_mode="manual_only"),

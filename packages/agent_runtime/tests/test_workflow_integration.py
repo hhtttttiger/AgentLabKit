@@ -52,7 +52,7 @@ def sample_agent_definition():
         version_number=1,
         display_name="Test Agent",
         description="A test agent for workflow generation",
-        model_binding_key="gpt-4",
+        model_key="gpt-4",
         tools=(
             ToolBindingSnapshot(
                 tool_name="lookup_order",
@@ -82,7 +82,7 @@ def sample_agent_with_mcp():
         version_number=1,
         display_name="MCP Agent",
         description="An agent with MCP tools",
-        model_binding_key="gpt-4",
+        model_key="gpt-4",
         tools=(
             ToolBindingSnapshot(
                 tool_name="internal_tool",
@@ -112,7 +112,7 @@ def sample_agent_with_skills():
         version_number=1,
         display_name="Skill Agent",
         description="An agent with skills",
-        model_binding_key="gpt-4",
+        model_key="gpt-4",
         tools=(
             ToolBindingSnapshot(
                 tool_name="search_knowledge",

@@ -238,7 +238,7 @@ class ModelResolver:
             return model, capability, None
 
         # Fallback: if the key is actually a binding key (e.g. agent_runtime
-        # passes agent.model_binding_key via request.model), resolve via binding.
+        # passes agent.model_key via request.model), resolve via binding.
         binding = snapshot.bindings_by_key.get(model_key)
         if binding is not None and binding.is_enabled:
             bound_model = snapshot.models_by_key.get(binding.model_key)

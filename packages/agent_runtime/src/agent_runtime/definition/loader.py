@@ -62,7 +62,7 @@ class AgentDefinitionVersionOrm(_Base):
     change_summary: Mapped[str | None] = mapped_column("ChangeSummary", String(512))
     system_prompt_template: Mapped[str] = mapped_column("SystemPromptTemplate", Text)
     default_locale: Mapped[str | None] = mapped_column("DefaultLocale", String(16))
-    model_binding_key: Mapped[str] = mapped_column("model_binding_key", String(128))
+    model_key: Mapped[str] = mapped_column("model_key", String(128))
     runtime_options_json: Mapped[dict] = mapped_column("RuntimeOptionsJson", JSONB)
     handoff_policy_json: Mapped[dict] = mapped_column("HandoffPolicyJson", JSONB)
     response_policy_json: Mapped[dict] = mapped_column("ResponsePolicyJson", JSONB)
@@ -311,7 +311,7 @@ class SqlAlchemyAgentDefinitionLoader:
             status=definition.status,
             default_locale=ver.default_locale,
             system_prompt_template=ver.system_prompt_template,
-            model_binding_key=ver.model_binding_key,
+            model_key=ver.model_key,
             tools=tools,
             knowledge_sources=(),
             knowledge_bindings=await self._load_knowledge_bindings(session, ver.id),

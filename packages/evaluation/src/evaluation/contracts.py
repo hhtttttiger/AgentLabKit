@@ -35,7 +35,7 @@ class EvalRunConfig:
     target_type: str = "agent"   # agent / rag_pipeline
     target_key: str = ""
     metric_configs: list[dict[str, Any]] = field(default_factory=list)
-    judge_model_binding_key: str = ""
+    judge_model_key: str = ""
 
 
 @dataclass(slots=True)

@@ -52,66 +52,43 @@ packages/llm_gateway/src/llm_gateway/
 
 ### ModelRef — 模型引用（推荐方式）
 
-`ModelRef` 是指定模型的统一方式，支持三种解析策略：
+外部调用方通过 `ModelRef` 指定要用哪个模型：
 
 ```python
-from llm_gateway import ModelRef, Capability
+from llm_gateway import ModelRef
 
-# 1. 通过场景绑定解析（binding_key → model）
-ref = ModelRef.binding("gateway.default_text")
-
-# 2. 直接指定模型 key（model_key → model）
+# 通过模型 key（推荐）
 ref = ModelRef.model("gpt-5.4-mini")
 
-# 3. 通过 provider 模型名解析（model_name → model）
+# 通过 provider 模型名
 ref = ModelRef.name("gpt-5.4-mini")
 ```
 
-**必须恰好指定一种**，Pydantic 校验器会在运行时强制。
+不传 `model_ref` = 使用网关默认绑定（内部自动处理，调用方无需关心 binding_key）。
 
 ### GatewayService — 统一调用入口
 
 ```python
-from llm_gateway import GatewayService, TextGenerateRequest
+from llm_gateway import GatewayService, TextGenerateRequest, ModelRef
 
-# 文本生成
+# 指定模型
 response = await service.generate_text(TextGenerateRequest(
-    model=None,       # None = 使用 capability 对应的默认绑定
+    model_ref=ModelRef.model("gpt-5.4-mini"),
     prompt="hello",
 ))
 
-# 流式文本生成
-async for event in service.generate_text_stream(request):
-    print(event.delta)
+# 使用默认模型（不传 model_ref 或 model）
+response = await service.generate_text(TextGenerateRequest(
+    prompt="hello",
+))
 
-# 其他能力
+# 其他能力同理
 await service.generate_embedding(request)
 await service.transcribe_speech(request)
 await service.generate_image(request)
 ```
 
-请求支持两种模型指定方式：
-
-```python
-# 推荐：通过 model_ref 显式指定解析策略
-TextGenerateRequest(
-    model_ref=ModelRef.binding("mimo-v2-flash-chat"),
-    prompt="hello",
-)
-
-# 兼容（逐步废弃）：通过 model 字符串自动检测
-TextGenerateRequest(
-    model="mimo-v2-flash-chat",
-    prompt="hello",
-)
-```
-
-优先级：`model_ref` > `model` > 默认绑定。当 `model_ref` 存在时，`model` 字段被忽略。
-
-`model` 字符串支持三种值（自动检测，逐步废弃）：
-- `None` — 使用 capability 对应的默认绑定（如 `gateway.default_text`）
-- binding key（如 `"mimo-v2-flash-chat"`）— 自动走绑定解析
-- model key / provider 模型名（如 `"gpt-5.4-mini"`）— 自动检测后解析
+优先级：`model_ref` > `model` > 默认绑定。
 
 ### ModelResolver — 模型解析器
 
@@ -119,7 +96,7 @@ TextGenerateRequest(
 from llm_gateway.model_catalog import ModelResolver
 from llm_gateway import ModelRef, Capability
 
-# 推荐方式：通过 ModelRef 解析
+# 通过 ModelRef 解析
 routes, retry_policy = await resolver.resolve(
     ModelRef.model("gpt-5.4-mini"),
     capability_hint=Capability.TEXT,
@@ -238,19 +215,25 @@ LlmFeatureDefinition ──1:N── LlmModelFeature
 | 项目 | 状态 | 替代方案 |
 |------|------|---------|
 | `resolve_candidates(binding_key, model_key, ...)` | ⚠️ 已废弃（DeprecationWarning） | `resolve(ModelRef, ...)` |
-| 请求 `model` 字段自动检测 | ⚠️ 保留兼容 | 请求 `model_ref` 字段显式指定 |
+| 请求 `model` 字段自动检测 | ⚠️ 保留兼容 | `model_ref=ModelRef.model/name(...)` |
 | `voice.*` 硬编码绑定 | ❌ 已删除 | 数据库中配置 |
+| `ModelRef.binding()` | 🔒 内部专用 | 外部使用 `ModelRef.model()` / `ModelRef.name()` |
 
 ### 迁移清单
 
 **agent_runtime** ✅ 已完成：
-- `turn_prep.py` 构造 `ModelRef` 并设置到 `request.model_ref`
-- `llm_adapter.py` 传递 `model_ref` 到 gateway `TextGenerateRequest`
+- `model_binding_key` → `model_key`（Agent 绑定的是模型，不是绑定关系）
+- `turn_prep.py` 直接传 `model` 字符串，网关内部自动解析
+- `llm_adapter.py` 透传 `model` 字符串，无需构造 `ModelRef`
 
-**其他调用方**（待迁移）：
-- 使用 `model_ref=ModelRef.binding(key)` 替代 `model=key`
-- 使用 `model_ref=ModelRef.model(key)` 替代 `model=key`（明确是 model_key 时）
-- 使用 `model_ref=ModelRef.name(name)` 替代 `model=name`（明确是 provider 模型名时）
+**外部调用方标准用法**：
+```python
+# 指定模型
+TextGenerateRequest(model_ref=ModelRef.model("gpt-5.4-mini"), prompt="...")
+
+# 使用默认
+TextGenerateRequest(prompt="...")
+```
 
 ## 依赖
 

@@ -52,7 +52,7 @@ def create_memory_module(
     if gateway_service is not None:
         extractor = GatewayMemoryExtractor(
             gateway_service=gateway_service,
-            model_binding_key=settings.extraction_model,
+            model_key=settings.extraction_model,
         )
     else:
         extractor = _DummyExtractor()

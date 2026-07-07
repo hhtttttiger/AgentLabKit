@@ -17,7 +17,7 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from llm_gateway import GatewayError, GatewayService, ModelRef, TextGenerateRequest, TextStreamEvent, UsageInfo
+from llm_gateway import GatewayError, GatewayService, TextGenerateRequest, TextStreamEvent, UsageInfo
 
 from ..config import AgentSettings
 from ..contracts.models import AgentDecision, AgentTurnRequest
@@ -119,10 +119,8 @@ class LlmAdapter:
             ``(directive, usage)`` — ``usage`` may be ``None`` on error.
         """
         prompt = self.build_prompt(system_prompt, conversation, tools)
-        model_ref = ModelRef(**self._request.model_ref) if self._request.model_ref else None
         request = TextGenerateRequest(
             model=self._request.model,
-            model_ref=model_ref,
             provider=self._request.provider,
             prompt=prompt,
             trace_id=self._request.trace_id,
@@ -167,10 +165,8 @@ class LlmAdapter:
         and usage info.
         """
         prompt = self.build_prompt(system_prompt, conversation, tools)
-        model_ref = ModelRef(**self._request.model_ref) if self._request.model_ref else None
         request = TextGenerateRequest(
             model=self._request.model,
-            model_ref=model_ref,
             provider=self._request.provider,
             prompt=prompt,
             trace_id=self._request.trace_id,

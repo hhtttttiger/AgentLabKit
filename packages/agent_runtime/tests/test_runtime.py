@@ -368,7 +368,7 @@ def _sample_definition(
         version_number=3,
         display_name="Sales Assistant",
         system_prompt_template="You are the sales definition prompt.",
-        model_binding_key="agent.sales",
+        model_key="agent.sales",
         tools=(
             ToolBindingSnapshot(
                 tool_name="knowledge_search",
@@ -1099,7 +1099,7 @@ class TestAgentRuntime:
             version_number=3,
             display_name="Sales Assistant",
             system_prompt_template="Use MCP tools when needed.",
-            model_binding_key="agent.sales",
+            model_key="agent.sales",
             checksum="sha256:mcp",
             mcp_bindings=(
                 McpBindingSnapshot(

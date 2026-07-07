@@ -763,7 +763,7 @@ class TestEngineResolveToolBindings:
             version_number=1,
             display_name="D",
             system_prompt_template="",
-            model_binding_key="",
+            model_key="",
             tools=(
                 ToolBindingSnapshot(tool_name="tool_x", description="X desc", invocation_mode="auto"),
                 ToolBindingSnapshot(tool_name="tool_y", invocation_mode="manual_only"),
@@ -788,7 +788,7 @@ class TestEngineResolveToolBindings:
             version_number=1,
             display_name="D",
             system_prompt_template="",
-            model_binding_key="",
+            model_key="",
             tools=(
                 ToolBindingSnapshot(tool_name="custom_tool", description="LLM-facing desc"),
             ),

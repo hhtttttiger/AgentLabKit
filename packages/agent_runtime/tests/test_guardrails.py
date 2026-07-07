@@ -330,7 +330,7 @@ class TestRuntimeGuardrailIntegration:
             agent_key="support-agent",
             version_number=7,
             display_name="Support Agent",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             guardrails_policy={
                 "globalGuardrailsRevision": 1,
                 "globalGuardrailsRules": [{"ruleKey": "legacy-agent-version-rule"}],
@@ -423,7 +423,7 @@ class TestRuntimeGuardrailIntegration:
             agent_key="support-agent",
             version_number=7,
             display_name="Support Agent",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             guardrails_policy={
                 "globalGuardrailsRevision": 1,
                 "globalGuardrailsRules": [{"ruleKey": "legacy-agent-version-rule"}],

@@ -28,15 +28,17 @@ class ProviderId(str, Enum):
 class ModelRef(BaseModel):
     """模型引用 — 支持三种解析策略，恰好指定一种。
 
-    - ``binding_key``: 通过场景绑定解析（如 ``"gateway.default_text"``）
+    外部调用方应使用 :meth:`model` 或 :meth:`name`；不传则走网关默认绑定。
+
     - ``model_key``: 直接指定模型 key（如 ``"gpt-5.4-mini"``）
     - ``model_name``: 通过 provider 模型名解析（如 ``"gpt-5.4-mini"``）
+    - ``binding_key``: **内部专用**，通过场景绑定解析（如 ``"gateway.default_text"``）
 
     使用类方法快速构造::
 
-        ref = ModelRef.binding("gateway.default_text")
-        ref = ModelRef.model("gpt-5.4-mini")
-        ref = ModelRef.name("gpt-5.4-mini")
+        ref = ModelRef.model("gpt-5.4-mini")     # 推荐
+        ref = ModelRef.name("gpt-5.4-mini")       # 推荐
+        ref = ModelRef.binding("gateway.default_text")  # 内部专用
     """
 
     binding_key: str | None = None
@@ -55,14 +57,17 @@ class ModelRef(BaseModel):
 
     @classmethod
     def binding(cls, key: str) -> "ModelRef":
+        """**内部专用** — 外部调用方不需要使用此方法。"""
         return cls(binding_key=key)
 
     @classmethod
     def model(cls, key: str) -> "ModelRef":
+        """通过模型 key 解析（推荐）。"""
         return cls(model_key=key)
 
     @classmethod
     def name(cls, name: str) -> "ModelRef":
+        """通过 provider 模型名解析（推荐）。"""
         return cls(model_name=name)
 
     def raw_value(self) -> str:

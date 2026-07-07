@@ -182,7 +182,7 @@ class AgentDefinitionSnapshot:
     status: str = "published"
     default_locale: str | None = None
     system_prompt_template: str = ""
-    model_binding_key: str = ""
+    model_key: str = ""
     tools: tuple[ToolBindingSnapshot, ...] = ()
     knowledge_sources: tuple[str, ...] = ()
     knowledge_bindings: tuple[KnowledgeBindingSnapshot, ...] = ()

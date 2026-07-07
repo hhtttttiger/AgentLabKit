@@ -71,7 +71,7 @@ class WorkflowGenerator:
         Args:
             gateway_service: LLM gateway for calling the generation model.
             default_model: Default model binding key for generation.
-                If None, uses the agent's model_binding_key.
+                If None, uses the agent's model_key.
         """
         self._gateway = gateway_service
         self._default_model = default_model
@@ -115,7 +115,7 @@ class WorkflowGenerator:
         )
 
         # 2. Call LLM to generate workflow JSON
-        model = model_override or self._default_model or agent_definition.model_binding_key
+        model = model_override or self._default_model or agent_definition.model_key
         request = TextGenerateRequest(
             model=model,
             prompt=prompt,

@@ -98,7 +98,7 @@ class TestSkillsPhase2RunTurn:
             version_number=1,
             display_name="Test",
             system_prompt_template="Base prompt only.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             # skill_bindings defaults to ()
         )
         runtime = _make_runtime(definition=definition, gateway=gateway)
@@ -140,7 +140,7 @@ class TestSkillsPhase2RunTurn:
             version_number=1,
             display_name="Greeter",
             system_prompt_template="You are a greeter.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             skill_bindings=(
                 SkillBindingSnapshot(skill_key="greet_v1", is_enabled=True, binding_order=100),
             ),
@@ -170,7 +170,7 @@ class TestSkillsPhase2RunTurn:
             version_number=1,
             display_name="Managed Skill Agent",
             system_prompt_template="You are a greeter.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             skill_bindings=(
                 SkillBindingSnapshot(
                     skill_key="managed_greet_v1",
@@ -241,7 +241,7 @@ class TestSkillsPhase2RunTurn:
             version_number=1,
             display_name="Combo",
             system_prompt_template="Base.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             skill_bindings=(
                 # B has lower order → appears first
                 SkillBindingSnapshot(skill_key="skill_b_v1", is_enabled=True, binding_order=1),
@@ -275,7 +275,7 @@ class TestSkillsPhase2RunTurn:
             version_number=1,
             display_name="Full",
             system_prompt_template="You are a support agent.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             tools=(ToolBindingSnapshot(tool_name="knowledge_search", invocation_mode="auto"),),
             skill_bindings=(
                 SkillBindingSnapshot(skill_key="rag_qa_v1", is_enabled=True, binding_order=10),
@@ -322,7 +322,7 @@ class TestSkillsPhase2RunTurn:
             version_number=1,
             display_name="Partial",
             system_prompt_template="Base.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             skill_bindings=(
                 SkillBindingSnapshot(skill_key="hidden_v1", is_enabled=False, binding_order=100),
             ),
@@ -364,7 +364,7 @@ class TestSkillsPhase2RunTurn:
             version_number=1,
             display_name="Cfg",
             system_prompt_template="Base.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             skill_bindings=(
                 SkillBindingSnapshot(
                     skill_key="cfg_v1",
@@ -404,7 +404,7 @@ class TestSkillsPhase2RunTurn:
             version_number=1,
             display_name="Tool",
             system_prompt_template="Base.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             tools=(
                 ToolBindingSnapshot(tool_name="knowledge_search", invocation_mode="manual_only"),
             ),
@@ -445,7 +445,7 @@ class TestSkillsPhase2RunTurn:
             version_number=1,
             display_name="Ghost",
             system_prompt_template="Base.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             skill_bindings=(
                 SkillBindingSnapshot(skill_key="nonexistent_skill", is_enabled=True),
             ),
@@ -502,7 +502,7 @@ class TestSkillsPhase2StreamTurn:
             version_number=1,
             display_name="Stream",
             system_prompt_template="You are a streaming agent.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
             skill_bindings=(
                 SkillBindingSnapshot(
                     skill_key="stream_skill_v1", is_enabled=True, binding_order=100
@@ -552,7 +552,7 @@ class TestSkillsPhase2StreamTurn:
             version_number=1,
             display_name="Plain",
             system_prompt_template="Plain base prompt.",
-            model_binding_key="gpt-4.1-mini",
+            model_key="gpt-4.1-mini",
         )
         runtime = _make_runtime(definition=definition, gateway=gateway)
 

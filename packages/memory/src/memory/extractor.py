@@ -55,9 +55,9 @@ PROCEDURAL_PROMPT = """\
 class GatewayMemoryExtractor:
     """通过 LLM Gateway 提取记忆。"""
 
-    def __init__(self, gateway_service: Any, model_binding_key: str = "") -> None:
+    def __init__(self, gateway_service: Any, model_key: str = "") -> None:
         self._gateway = gateway_service
-        self._model = model_binding_key
+        self._model = model_key
 
     def _messages_to_text(self, messages: list[Any]) -> str:
         """将 AgentMessage 列表转为纯文本。"""
