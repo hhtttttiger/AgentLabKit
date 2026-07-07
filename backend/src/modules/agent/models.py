@@ -25,7 +25,7 @@ class AgentDefinitionVersion(EntityBase):
     agent_id: Mapped[int] = mapped_column(BigInteger, index=True)
     version_number: Mapped[int] = mapped_column(BigInteger)
     system_prompt: Mapped[str | None] = mapped_column(Text)
-    model_binding_key: Mapped[str | None] = mapped_column(String(128))
+    model_key: Mapped[str | None] = mapped_column(String(128))
     temperature: Mapped[float | None] = mapped_column()
     max_tokens: Mapped[int | None] = mapped_column(Integer)
     response_format: Mapped[str | None] = mapped_column(String(32))

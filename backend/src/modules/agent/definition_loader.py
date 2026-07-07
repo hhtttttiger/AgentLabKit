@@ -131,7 +131,7 @@ class BackendAgentDefinitionLoader:
             description=definition.description,
             status="published",
             system_prompt_template=ver.system_prompt or "",
-            model_binding_key=ver.model_binding_key or "",
+            model_key=ver.model_key or "",
             tools=await self._load_tool_bindings(session, ver.id),
             knowledge_sources=(),
             knowledge_bindings=await self._load_knowledge_bindings(session, ver.id),

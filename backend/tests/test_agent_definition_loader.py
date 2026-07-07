@@ -86,7 +86,7 @@ def _version_row(*, version_number: int = 1) -> SimpleNamespace:
         agent_id=100,
         version_number=version_number,
         system_prompt="你是一个有用的AI助手。",
-        model_binding_key="mimo-v2-flash-chat",
+        model_key="mimo-v2-flash-chat",
         temperature=0.7,
         max_tokens=4096,
         response_format=None,
@@ -143,7 +143,7 @@ async def test_load_maps_definition_version_tools_and_kb():
     assert snapshot.display_name == "默认助手"
     assert snapshot.status == "published"
     assert snapshot.system_prompt_template == "你是一个有用的AI助手。"
-    assert snapshot.model_binding_key == "mimo-v2-flash-chat"
+    assert snapshot.model_key == "mimo-v2-flash-chat"
     assert snapshot.default_locale == "zh-CN"
     assert snapshot.runtime_options == {"temperature": 0.7, "max_tokens": 4096}
     assert snapshot.handoff_policy == {"mode": "manual"}

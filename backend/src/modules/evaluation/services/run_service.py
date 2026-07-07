@@ -133,7 +133,7 @@ class RunService:
                 id=config_orm.id, name=config_orm.name, dataset_id=config_orm.dataset_id,
                 target_type=config_orm.target_type, target_key=config_orm.target_key,
                 metric_configs=config_orm.metric_configs_json or [],
-                judge_model_binding_key=config_orm.judge_model_binding_key,
+                judge_model_key=config_orm.judge_model_key,
             )
 
             try:
@@ -180,7 +180,7 @@ class RunService:
             "id": c.id, "name": c.name, "dataset_id": c.dataset_id,
             "target_type": c.target_type, "target_key": c.target_key,
             "metric_configs": c.metric_configs_json or [],
-            "judge_model_binding_key": c.judge_model_binding_key,
+            "judge_model_key": c.judge_model_key,
             "created_at_utc": c.created_at_utc,
         }
 

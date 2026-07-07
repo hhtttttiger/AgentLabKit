@@ -48,7 +48,7 @@ class RunConfigCreateRequest(CamelModel):
     target_type: str = Field(default="agent", pattern="^(agent|rag_pipeline)$")
     target_key: str = ""
     metric_configs: list[dict[str, Any]] = []
-    judge_model_binding_key: str = ""
+    judge_model_key: str = ""
 
 
 class RunConfigResponse(CamelModel):
@@ -58,7 +58,7 @@ class RunConfigResponse(CamelModel):
     target_type: str
     target_key: str
     metric_configs: list[dict[str, Any]]
-    judge_model_binding_key: str
+    judge_model_key: str
     created_at_utc: datetime
 
 

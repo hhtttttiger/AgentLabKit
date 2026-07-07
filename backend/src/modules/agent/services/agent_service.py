@@ -454,7 +454,7 @@ class AgentService:
         """Map the editor body onto the real AgentDefinitionVersion columns."""
         return {
             "system_prompt": body.system_prompt_template or None,
-            "model_binding_key": body.model_key or None,
+            "model_key": body.model_key or None,
             "temperature": body.temperature,
             "max_tokens": body.max_tokens,
             "response_format": body.response_format,
@@ -490,7 +490,7 @@ class AgentService:
             "versionStatus": cls._version_status(v, published_version),
             "versionLabel": extra.get("version_label"),
             "changeSummary": extra.get("change_summary"),
-            "modelKey": v.model_binding_key or "",
+            "modelKey": v.model_key or "",
             "checksum": v.checksum,
             "rowVersion": v.updated_at_utc.timestamp() if v.updated_at_utc else 0,
             "publishedAtUtc": None,

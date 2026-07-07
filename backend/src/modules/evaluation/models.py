@@ -37,7 +37,7 @@ class EvalRunConfig(EntityBase):
     target_type: Mapped[str] = mapped_column(String(32), default="agent")
     target_key: Mapped[str] = mapped_column(String(128), default="")
     metric_configs_json: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
-    judge_model_binding_key: Mapped[str] = mapped_column(String(128), default="")
+    judge_model_key: Mapped[str] = mapped_column(String(128), default="")
 
 
 class EvalRun(EntityBase):

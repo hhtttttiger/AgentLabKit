@@ -68,7 +68,7 @@ async def create_run_config(body: RunConfigCreateRequest, svc: RunServiceDep):
         name=body.name, dataset_id=body.dataset_id,
         target_type=body.target_type, target_key=body.target_key,
         metric_configs_json=body.metric_configs,
-        judge_model_binding_key=body.judge_model_binding_key,
+        judge_model_key=body.judge_model_key,
     ))
 
 

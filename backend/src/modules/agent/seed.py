@@ -56,7 +56,7 @@ async def seed_agent(session: AsyncSession) -> None:
             agent_id=agent.id,
             version_number=1,
             system_prompt="你是一个有用的AI助手。",
-            model_binding_key=binding_key,
+            model_key=binding_key,
             temperature=0.7,
             max_tokens=4096,
         )
@@ -112,7 +112,7 @@ async def seed_clock_agent(session: AsyncSession) -> None:
                 "必须先调用 time_now 工具获取时间，再用工具返回的结果作答。"
                 "不要凭记忆猜测时间。"
             ),
-            model_binding_key=binding_key,
+            model_key=binding_key,
             temperature=0.2,
             max_tokens=1024,
         )
@@ -216,7 +216,7 @@ async def seed_mcp_demo(session: AsyncSession) -> None:
                 "These tools support an optional 'timezone' parameter (e.g. 'local', 'UTC', 'America/New_York'). "
                 "Always use the tool result in your reply — never guess the time."
             ),
-            model_binding_key=binding_key,
+            model_key=binding_key,
             temperature=0.2,
             max_tokens=1024,
         )
@@ -349,7 +349,7 @@ async def seed_skill_demo(session: AsyncSession) -> None:
                 "你是一个乐于助人的AI助手。你擅长将复杂问题分解为清晰的步骤，"
                 "并用有条理的方式呈现答案。"
             ),
-            model_binding_key=binding_key,
+            model_key=binding_key,
             temperature=0.7,
             max_tokens=4096,
         )
