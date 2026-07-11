@@ -92,7 +92,8 @@ class OpenAITextAdapter(TextAdapter):
             raise map_sdk_error(exc, provider=self.provider, model=model_name) from exc
         choice = (result.choices or [None])[0]
         text = choice.message.content if choice and choice.message else ""
-        finish_reason = choice.finish_reason.value if choice and choice.finish_reason else None
+        raw_reason = choice.finish_reason if choice else None
+        finish_reason = raw_reason.value if hasattr(raw_reason, "value") else raw_reason
         return TextGenerateResponse(
             provider=self.provider,
             model=model_name,
