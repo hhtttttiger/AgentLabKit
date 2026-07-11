@@ -1,4 +1,4 @@
-"""桌面端组装层：根据配置创建 GatewayService。"""
+"""桌面端组装层：根据配置创建 GatewayService / AgentModule。"""
 from __future__ import annotations
 
 from core.config import LLMConfig
@@ -6,6 +6,8 @@ from llm_gateway import Capability, ProviderId
 from llm_gateway.bootstrap import create_gateway_service
 from llm_gateway.config import GatewaySettings, ModelDefinition, ProviderConfig
 from llm_gateway.core.service import GatewayService
+
+from agent_runtime import AgentModule, AgentSettings, ToolRegistry, create_agent_module
 
 
 def create_gateway(llm_config: LLMConfig) -> GatewayService:
@@ -41,3 +43,32 @@ def create_gateway(llm_config: LLMConfig) -> GatewayService:
         )
 
     return create_gateway_service(settings)
+
+
+def create_agent(
+    llm_config: LLMConfig,
+    tool_registry: ToolRegistry | None = None,
+    system_prompt: str | None = None,
+) -> AgentModule:
+    """根据配置创建 AgentModule（含 Gateway + AgentRuntime + Tools）。"""
+    gateway = create_gateway(llm_config)
+
+    settings = AgentSettings(
+        default_model=llm_config.model,
+        default_system_prompt=system_prompt or _DEFAULT_SYSTEM_PROMPT,
+    )
+
+    return create_agent_module(
+        settings=settings,
+        gateway=gateway,
+        tool_registry=tool_registry,
+    )
+
+
+_DEFAULT_SYSTEM_PROMPT = """你是 AgentLabKit 桌面助手。你可以：
+- 与用户对话，回答问题
+- 使用工具读取文件、搜索内容、操作剪贴板、截屏
+- 帮助用户完成日常工作
+
+请用简洁、友好的语气回复。中文优先。"""
+

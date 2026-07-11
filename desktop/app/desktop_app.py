@@ -1,6 +1,6 @@
 """AgentLabKit Desktop — 主控制器。
 
-整合桌宠、托盘、对话面板、LLM Gateway、聊天历史持久化。
+整合桌宠、托盘、对话面板、Agent Runtime、聊天历史持久化。
 """
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QPixmap
 
 from core.config import AppConfig, CONFIG_FILE
-from core.bootstrap import create_gateway
-from core.async_bridge import run_async
+from core.bootstrap import create_agent
+from core.async_bridge import run_async, run_async_stream
 from ui.pet import PetWindow
 from ui.tray import TrayManager
 from ui.chat import ChatPanel
@@ -23,7 +23,14 @@ from capture.screen import capture_screen_region
 from capture.vision import analyze_image, pixmap_to_base64
 from utils.hotkey import GlobalHotkey
 from utils.clipboard import ClipboardWatcher
-from llm_gateway import TextGenerateRequest
+from tools.registry import create_desktop_tool_registry
+from agent_runtime import (
+    AgentModule,
+    AgentTurnRequest,
+    AgentTurnStreamEvent,
+    AgentMessage,
+    AgentRole,
+)
 
 # ── 日志 ──
 LOG_FILE = Path.home() / ".config" / "agentlabkit" / "desktop.log"
@@ -47,7 +54,7 @@ class DesktopApp:
         # ── 配置 ──
         self.config = AppConfig.load()
         logger.info(f"Config: provider={self.config.llm.provider}, model={self.config.llm.model}")
-        self._gateway = None
+        self._agent: AgentModule | None = None
 
         # ── 聊天存储 ──
         self._store = ChatStore()
@@ -74,8 +81,8 @@ class DesktopApp:
         self.tray.quit_requested.connect(self._quit)
         self.tray.show()
 
-        # ── Gateway ──
-        self._init_gateway()
+        # ── Agent ──
+        self._init_agent()
 
         # ── 全局快捷键 ──
         self._hotkey = GlobalHotkey(callback=self._toggle_chat)
@@ -100,18 +107,19 @@ class DesktopApp:
                 elif msg.role == "assistant":
                     self.chat.add_message(msg.content, is_user=False)
 
-    def _init_gateway(self):
+    def _init_agent(self):
         llm = self.config.llm
         if not llm.api_key:
             self.chat.add_system_message(f"⚠️ 未配置 API Key，请编辑：\n{CONFIG_FILE}")
             return
         try:
-            self._gateway = create_gateway(llm)
-            self.chat.add_system_message(f"已连接 {llm.provider}（{llm.model}）")
-            logger.info("Gateway initialized")
+            tool_registry = create_desktop_tool_registry()
+            self._agent = create_agent(llm, tool_registry=tool_registry)
+            self.chat.add_system_message(f"已连接 {llm.provider}（{llm.model}），Agent 就绪")
+            logger.info("Agent initialized")
         except Exception as e:
             self.chat.add_system_message(f"⚠️ 连接失败：{e}")
-            logger.exception("Gateway init failed")
+            logger.exception("Agent init failed")
 
     def run(self) -> int:
         return self.app.exec()
@@ -125,63 +133,105 @@ class DesktopApp:
             self.chat.raise_()
 
     def _show_settings(self):
-        """打开设置面板，保存后重新初始化 Gateway。"""
+        """打开设置面板，保存后重新初始化 Agent。"""
         dialog = SettingsDialog(self.config, parent=self.chat)
         if dialog.exec() == SettingsDialog.Accepted:
             new_config = dialog.config
             self.config = new_config
             logger.info(f"Settings changed: provider={new_config.llm.provider}, model={new_config.llm.model}")
-            self._reinit_gateway()
+            self._reinit_agent()
 
-    def _reinit_gateway(self):
-        """重新初始化 Gateway（配置变更后）。"""
-        self._gateway = None
+    def _reinit_agent(self):
+        """重新初始化 Agent（配置变更后）。"""
+        self._agent = None
         self.chat.add_system_message("⚙️ 配置已更新，正在重新连接...")
-        self._init_gateway()
+        self._init_agent()
+
+    # ── 消息处理（Agent Runtime）──
+
+    def _build_history(self) -> list[AgentMessage]:
+        """从 ChatStore 构建 agent_runtime 的 AgentMessage 列表。"""
+        messages = self._store.recent(limit=50)
+        history = []
+        for msg in messages:
+            role_map = {
+                "user": AgentRole.USER,
+                "assistant": AgentRole.ASSISTANT,
+                "system": AgentRole.SYSTEM,
+            }
+            role = role_map.get(msg.role)
+            if role:
+                history.append(AgentMessage(role=role, content=msg.content))
+        return history
 
     def _on_message_sent(self, text: str):
-        if not self._gateway:
-            self.chat.add_system_message("⚠️ LLM 未连接，请检查配置")
+        if not self._agent:
+            self.chat.add_system_message("⚠️ Agent 未连接，请检查配置")
             return
 
         self._store.add("user", text)
         self.chat.set_input_enabled(False)
+        self.chat.start_streaming_message()
         self.pet.think()
         logger.info(f"Sending: {text[:80]}...")
 
-        request = TextGenerateRequest(
-            model=self.config.llm.model,
-            prompt=text,
-            temperature=0.7,
-            max_output_tokens=1024,
+        request = AgentTurnRequest(
+            session_id="desktop",
+            user_message=text,
+            history=self._build_history(),
         )
-        run_async(
-            self._gateway.generate_text(request),
-            on_result=self._on_llm_response,
-            on_error=self._on_llm_error,
+
+        run_async_stream(
+            lambda: self._agent.runtime.stream_turn(request),
+            on_event=self._on_stream_event,
+            on_done=self._on_stream_done,
+            on_error=self._on_stream_error,
             parent=self.chat,
         )
 
-    def _on_llm_response(self, response):
-        if response.error:
-            msg = f"❌ {response.error.code}: {response.error.message}"
+    def _on_stream_event(self, event: AgentTurnStreamEvent):
+        """处理流式事件。"""
+        if event.event_type == "reply_delta":
+            self.chat.append_streaming_text(event.delta or "")
+        elif event.event_type == "tool_call":
+            name = event.tool_name or "?"
+            self.chat.append_streaming_text(f"\n\n🔧 *调用工具: {name}*")
+            logger.info(f"Tool call: {name}")
+        elif event.event_type == "tool_result":
+            name = event.tool_name or "?"
+            # 工具结果不直接显示在流式气泡中（太长），只记录日志
+            if event.tool_event:
+                output = event.tool_event.output or ""
+                logger.info(f"Tool result [{name}]: {output[:200]}")
+        elif event.event_type == "reply_completed":
+            # 流式完成，保存最终文本
+            text = event.reply_text or ""
+            if text:
+                self._store.add("assistant", text)
+            logger.info(f"Reply completed: {text[:80]}...")
+        elif event.event_type == "error":
+            error = event.error
+            msg = f"❌ {error.code}: {error.message}" if error else "❌ 未知错误"
+            self.chat.finish_streaming()
             self.chat.add_system_message(msg)
-            logger.error(f"LLM error: {response.error}")
-        else:
-            self._store.add("assistant", response.text)
-            self.chat.add_message(response.text, is_user=False)
-            logger.info(f"Response: {response.text[:80]}...")
+            logger.error(f"Stream error: {error}")
+
+    def _on_stream_done(self):
+        """流式完成。"""
+        self.chat.finish_streaming()
         self.chat.set_input_enabled(True)
         self.pet.done()
 
-    def _on_llm_error(self, error: Exception):
+    def _on_stream_error(self, error: Exception):
+        """流式异常。"""
+        self.chat.finish_streaming()
         msg = f"❌ 请求失败：{type(error).__name__}: {error}"
         self.chat.add_system_message(msg)
-        logger.exception("LLM request failed")
+        logger.exception("Stream error")
         self.chat.set_input_enabled(True)
         self.pet.done()
 
-    # ── 图片理解 ──
+    # ── 图片理解（直连 Vision API，不走 Agent）──
 
     def _on_screenshot(self):
         """截图识别：隐藏窗口 → 全屏覆盖 → 框选 → 分析。"""

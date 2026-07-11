@@ -56,3 +56,66 @@ def run_async(
     thread.finished.connect(thread.deleteLater)
     thread.start()
     return thread
+
+
+# ── 流式支持 ───────────────────────────────────────────────────
+
+class _AsyncStreamThread(QThread):
+    """后台线程，迭代 async generator，逐个事件传回 Qt 主线程。"""
+
+    event_ready = Signal(object)   # 每个事件
+    finished_ready = Signal()      # 完成
+    error_ready = Signal(object)   # 异常
+
+    def __init__(self, agen_factory, parent=None):
+        """agen_factory: 无参函数，返回 async generator。"""
+        super().__init__(parent)
+        self._agen_factory = agen_factory
+
+    def run(self):
+        loop = asyncio.new_event_loop()
+        try:
+            async def consume():
+                async for event in self._agen_factory():
+                    self.event_ready.emit(event)
+            loop.run_until_complete(consume())
+            self.finished_ready.emit()
+        except Exception as e:
+            self.error_ready.emit(e)
+        finally:
+            loop.close()
+
+
+def run_async_stream(
+    agen_factory,
+    on_event: Callable[[Any], None] | None = None,
+    on_done: Callable[[], None] | None = None,
+    on_error: Callable[[Exception], None] | None = None,
+    parent: QObject | None = None,
+) -> _AsyncStreamThread:
+    """在后台线程迭代 async generator，每个事件通过回调返回 Qt 主线程。
+
+    Args:
+        agen_factory: 无参函数，返回 async generator（如 lambda: runtime.stream_turn(req)）
+        on_event: 每收到一个事件时回调
+        on_done: generator 迭代完成时回调
+        on_error: 异常时回调
+
+    Usage:
+        run_async_stream(
+            lambda: self._agent.runtime.stream_turn(request),
+            on_event=lambda ev: handle_stream_event(ev),
+            on_done=lambda: print("done"),
+            on_error=lambda e: print(f"Error: {e}"),
+        )
+    """
+    thread = _AsyncStreamThread(agen_factory, parent=parent)
+    if on_event:
+        thread.event_ready.connect(on_event)
+    if on_done:
+        thread.finished_ready.connect(on_done)
+    if on_error:
+        thread.error_ready.connect(on_error)
+    thread.finished.connect(thread.deleteLater)
+    thread.start()
+    return thread

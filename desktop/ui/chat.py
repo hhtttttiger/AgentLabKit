@@ -127,6 +127,8 @@ class ChatPanel(QWidget):
         self.setWindowTitle("AgentLabKit 对话")
         self.setMinimumSize(420, 560)
         self.resize(480, 640)
+        self._streaming_label: QLabel | None = None  # 流式气泡的文本标签
+        self._streaming_text: str = ""                 # 流式累计文本
         self._init_ui()
 
     def _init_ui(self):
@@ -237,6 +239,70 @@ class ChatPanel(QWidget):
     def set_input_enabled(self, enabled: bool):
         self._input.setEnabled(enabled)
         self._send_btn.setEnabled(enabled)
+
+    # ── 流式消息 ──
+
+    def start_streaming_message(self):
+        """创建一个空的 assistant 气泡，准备流式追加文本。"""
+        self._streaming_text = ""
+
+        # 创建气泡框架
+        bubble = QFrame()
+        bubble.setStyleSheet("""
+            QFrame {
+                background: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                border-radius: 12px;
+            }
+        """)
+        bubble.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
+
+        self._streaming_label = QLabel("▌")  # 光标
+        self._streaming_label.setWordWrap(True)
+        self._streaming_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self._streaming_label.setMaximumWidth(340)
+        self._streaming_label.setStyleSheet("""
+            QLabel {
+                color: #333;
+                background: transparent;
+                padding: 8px 12px;
+                font-size: 14px;
+                border: none;
+            }
+        """)
+        self._streaming_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+
+        outer = QHBoxLayout(bubble)
+        outer.setContentsMargins(6, 2, 6, 2)
+        outer.addWidget(self._streaming_label)
+        outer.addStretch()
+
+        # 包装为行
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.addWidget(bubble)
+        row_layout.addStretch()
+
+        self._streaming_row = row
+        self._messages_layout.insertWidget(self._messages_layout.count() - 1, row)
+        self._scroll_to_bottom()
+
+    def append_streaming_text(self, delta: str):
+        """追加文本到当前流式气泡。"""
+        if self._streaming_label is None:
+            return
+        self._streaming_text += delta
+        self._streaming_label.setText(self._streaming_text + "▌")
+        self._scroll_to_bottom()
+
+    def finish_streaming(self):
+        """流式结束，移除光标，最终化气泡。"""
+        if self._streaming_label is None:
+            return
+        self._streaming_label.setText(self._streaming_text)
+        self._streaming_label = None
+        self._streaming_text = ""
 
     def _scroll_to_bottom(self):
         self._scroll.verticalScrollBar().setValue(
