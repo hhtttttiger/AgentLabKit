@@ -11,7 +11,7 @@ from retrieval.providers.embedding import BaseEmbeddingProvider, EmbeddingResult
 
 # llm_gateway 的类型仅在运行时导入
 from llm_gateway.models import EmbeddingGenerateRequest
-from llm_gateway.core.service import GatewayService
+from llm_gateway import GatewayProtocol
 
 
 class GatewayEmbeddingProvider(BaseEmbeddingProvider):
@@ -23,7 +23,7 @@ class GatewayEmbeddingProvider(BaseEmbeddingProvider):
 
     def __init__(
         self,
-        gateway: GatewayService,
+        gateway: GatewayProtocol,
         model: str = "text-embedding-3-small",
         dimensions: int = 1024,
         batch_size: int = 20,

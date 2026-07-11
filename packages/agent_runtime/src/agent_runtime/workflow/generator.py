@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from llm_gateway import GatewayService, TextGenerateRequest
+from llm_gateway import GatewayProtocol, TextGenerateRequest
 
 from ..definition.models import AgentDefinitionSnapshot, ToolBindingSnapshot
 from .contracts import (
@@ -63,7 +63,7 @@ class WorkflowGenerator:
 
     def __init__(
         self,
-        gateway_service: GatewayService,
+        gateway_service: GatewayProtocol,
         default_model: str | None = None,
     ) -> None:
         """Initialize the generator.

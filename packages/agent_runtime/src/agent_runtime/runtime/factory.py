@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from llm_gateway import GatewayModule, GatewayService, load_gateway_module
+from llm_gateway import GatewayModule, GatewayProtocol, load_gateway_module
 
 from ..config import AgentSettings
 from ..guardrails import GuardsPipeline
@@ -35,9 +35,9 @@ logger = logging.getLogger(__name__)
 
 
 def resolve_gateway_service(
-    gateway: GatewayModule | GatewayService | None,
-) -> GatewayService:
-    """Resolve a gateway reference to a concrete :class:`GatewayService`."""
+    gateway: GatewayModule | GatewayProtocol | None,
+) -> GatewayProtocol:
+    """Resolve a gateway reference to a :class:`GatewayProtocol` implementation."""
     if gateway is None:
         return load_gateway_module().service
     if isinstance(gateway, GatewayModule):
@@ -47,7 +47,7 @@ def resolve_gateway_service(
 
 def build_context_manager(
     settings: AgentSettings,
-    gateway: GatewayService,
+    gateway: GatewayProtocol,
 ) -> ContextManager | None:
     """Build a :class:`ContextManager` from application settings."""
     if not settings.memory.enabled:
@@ -92,7 +92,7 @@ def build_mcp_client_manager(settings: AgentSettings) -> McpClientManager | None
 
 def create_agent_runtime(
     settings: AgentSettings | None = None,
-    gateway: GatewayModule | GatewayService | None = None,
+    gateway: GatewayModule | GatewayProtocol | None = None,
     tool_registry: ToolRegistry | None = None,
     definition_loader: AgentDefinitionLoader | None = None,
     context_manager: ContextManager | None = None,

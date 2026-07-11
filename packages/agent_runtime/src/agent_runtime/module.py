@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from llm_gateway import GatewayModule, GatewayService
+from llm_gateway import GatewayModule, GatewayProtocol
 
 from .config import AgentSettings
 from .definition.loader import AgentDefinitionLoader
@@ -19,7 +19,7 @@ from .tools.catalog_syncer import ToolCatalogSyncer
 class AgentModule:
     settings: AgentSettings
     runtime: AgentRuntime
-    gateway: GatewayService
+    gateway: GatewayProtocol
     tool_registry: ToolRegistry
     definition_loader: AgentDefinitionLoader | None = None
     context_manager: ContextManager | None = None
@@ -31,7 +31,7 @@ class AgentModule:
 
 def create_agent_module(
     settings: AgentSettings | None = None,
-    gateway: GatewayModule | GatewayService | None = None,
+    gateway: GatewayModule | GatewayProtocol | None = None,
     tool_registry: ToolRegistry | None = None,
     definition_loader: AgentDefinitionLoader | None = None,
     context_manager: ContextManager | None = None,

@@ -17,7 +17,7 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from llm_gateway import GatewayError, GatewayService, TextGenerateRequest, TextStreamEvent, UsageInfo
+from llm_gateway import GatewayError, GatewayProtocol, TextGenerateRequest, TextStreamEvent, UsageInfo
 
 from ..config import AgentSettings
 from ..contracts.models import AgentDecision, AgentTurnRequest
@@ -96,7 +96,7 @@ class LlmAdapter:
 
     def __init__(
         self,
-        service: GatewayService,
+        service: GatewayProtocol,
         *,
         settings: AgentSettings,
         request: AgentTurnRequest,

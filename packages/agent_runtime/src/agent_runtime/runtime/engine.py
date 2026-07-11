@@ -31,7 +31,7 @@ from uuid import uuid4
 if TYPE_CHECKING:
     from ..workflow.contracts import WorkflowDef, WorkflowResult, WorkflowStreamEvent
 
-from llm_gateway import GatewayService, UsageInfo
+from llm_gateway import GatewayProtocol, UsageInfo
 
 from ..config import AgentSettings
 from ..contracts.models import (
@@ -170,7 +170,7 @@ class AgentRuntime:
         self,
         *,
         settings: AgentSettings,
-        gateway: GatewayService,
+        gateway: GatewayProtocol,
         tool_registry: ToolRegistry,
         definition_loader: AgentDefinitionLoader | None = None,
         context_manager: ContextManager | None = None,

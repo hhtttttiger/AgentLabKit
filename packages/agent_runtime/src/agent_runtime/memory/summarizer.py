@@ -3,7 +3,7 @@ from __future__ import annotations
 from textwrap import dedent
 from typing import Protocol
 
-from llm_gateway import GatewayService, TextGenerateRequest
+from llm_gateway import GatewayProtocol, TextGenerateRequest
 
 from ..contracts.models import AgentMessage
 
@@ -35,7 +35,7 @@ class GatewaySummarizer:
 
     def __init__(
         self,
-        gateway: GatewayService,
+        gateway: GatewayProtocol,
         *,
         model: str | None = None,
         max_output_tokens: int | None = None,

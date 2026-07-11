@@ -15,6 +15,7 @@ from .models import (
     TextStreamEvent,
     UsageInfo,
 )
+from .protocol import GatewayProtocol
 
 
 @dataclass
@@ -37,6 +38,7 @@ __all__ = [
     "GatewayError",
     "GatewayErrorCode",
     "GatewayModule",
+    "GatewayProtocol",
     "GatewayService",
     "GatewaySettings",
     "ModelRef",
