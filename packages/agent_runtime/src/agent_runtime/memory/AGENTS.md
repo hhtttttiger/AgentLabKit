@@ -86,7 +86,7 @@ ctx_mgr = ContextManager(config, counter, summarizer)
 
 ### Internal
 - `agent_runtime.contracts.models` — `AgentMessage`, `AgentRole`
-- `llm_gateway.core.service.GatewayService` — 摘要 LLM 调用（Phase 2）
+- `llm_gateway.GatewayProtocol` — 摘要 LLM 调用（Phase 2）
 
 ### External
 - `tiktoken>=0.8.0`（optional；不安装时 fallback 到 `ApproximateTokenCounter`）

@@ -9,7 +9,7 @@ chat / ai_invoke / knowledge_base / agent_runtime
                     │
                     ▼
               llm_gateway  ← 本包
-              (GatewayService · ModelCatalog · Provider 路由)
+              (GatewayProtocol · GatewayService · ModelCatalog · Provider 路由)
                     │
                     ▼
               packages/db (ORM 模型)
@@ -21,11 +21,12 @@ chat / ai_invoke / knowledge_base / agent_runtime
 
 ```
 packages/llm_gateway/src/llm_gateway/
-├── __init__.py               # 公共 API：GatewayService, ModelRef, Capability 等
+├── __init__.py               # 公共 API：GatewayProtocol, GatewayService, ModelRef, Capability 等
 ├── config.py                 # GatewaySettings (AI_GATEWAY_ 前缀)
 ├── bootstrap.py              # create_gateway_service() 工厂
 ├── errors.py                 # GatewayError, GatewayErrorCode
 ├── models.py                 # 请求/响应模型, ModelRef, Capability, ProviderId
+├── protocol.py               # GatewayProtocol — 消费方依赖的结构化协议
 ├── core/
 │   ├── service.py            # GatewayService — 统一调用入口 + 重试/限流/熔断
 │   ├── adapters.py           # 抽象适配器接口 (TextAdapter, EmbeddingAdapter 等)
@@ -66,10 +67,12 @@ ref = ModelRef.name("gpt-5.4-mini")
 
 不传 `model_ref` = 使用网关默认绑定（内部自动处理，调用方无需关心 binding_key）。
 
-### GatewayService — 统一调用入口
+### GatewayProtocol — 消费方依赖的协议
+
+消费方应依赖 `GatewayProtocol`（结构化协议）而非 `GatewayService`（具体实现），以便替换底层实现。
 
 ```python
-from llm_gateway import GatewayService, TextGenerateRequest, ModelRef
+from llm_gateway import GatewayProtocol, TextGenerateRequest, ModelRef
 
 # 指定模型
 response = await service.generate_text(TextGenerateRequest(

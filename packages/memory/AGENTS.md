@@ -17,7 +17,7 @@ backend (main.py lifespan 初始化 + modules/memory HTTP 层)
   (Store · Extractor · Retriever · Injector · Consolidator)
    │                        │ (硬依赖, extractor/consolidator 直接 import)
    ▼                        ▼
-agentlabkit-db (memory_records / memory_embeddings, pgvector)   llm_gateway (GatewayService)
+agentlabkit-db (memory_records / memory_embeddings, pgvector)   llm_gateway (GatewayProtocol)
 ```
 
 - 被 `backend/src/main.py` 通过 `create_memory_module(session_factory=..., gateway_service=..., embedding_provider=..., settings=...)` 初始化（默认 `enabled=False`），挂到 `app.state.memory_module`。
@@ -121,5 +121,5 @@ def create_memory_module(*, session_factory, gateway_service=None, embedding_pro
 
 - [根 AGENTS.md](../../AGENTS.md) — 全局架构与文档索引
 - [agent_runtime/memory](../agent_runtime/src/agent_runtime/memory/AGENTS.md) — ⚠️ 单会话上下文管理（非本包）
-- [packages/llm_gateway/AGENTS.md](../llm_gateway/AGENTS.md) — GatewayMemoryExtractor 依赖的 GatewayService
+- [packages/llm_gateway/AGENTS.md](../llm_gateway/AGENTS.md) — GatewayMemoryExtractor 依赖的 GatewayProtocol
 - [backend/AGENTS.md](../../backend/AGENTS.md) — memory_records/memory_embeddings 表与 HTTP 路由

@@ -154,7 +154,7 @@ unsubscribe = runtime.subscribe(on_event)
 - `agent_runtime.events` — 类型化事件
 - `agent_runtime.event_bus` — 事件总线
 - `agent_runtime.state` — Agent 状态
-- `llm_gateway` — `GatewayService`, `GatewayModule`
+- `llm_gateway` — `GatewayProtocol`, `GatewayModule`
 
 ### External
 - `pydantic-ai` — **仅 `mcp/client.py` 依赖**（`pydantic-ai.mcp` MCP 协议客户端）；`run_turn()`、`stream_turn()`、`tools/registry.py` 已完全不依赖

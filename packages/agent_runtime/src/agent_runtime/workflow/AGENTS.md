@@ -195,7 +195,7 @@ result = await engine.run_workflow(workflow, "ORDER-12345", context)
 - `agent_runtime.definition.models.AgentDefinitionSnapshot` — 流程定义挂载点、Generator 的输入
 
 ### External
-- `llm_gateway.GatewayService` — Generator 调用 LLM 生成流程定义
+- `llm_gateway.GatewayProtocol` — Generator 调用 LLM 生成流程定义
 - `llm_gateway.TextGenerateRequest` — LLM 请求模型
 - `llm_gateway.UsageInfo` — token 用量统计
 

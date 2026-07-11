@@ -116,7 +116,7 @@ from agent_runtime import create_agent_module, AgentSettings
 
 module = create_agent_module(
     settings=AgentSettings(),
-    gateway=gateway_module,          # llm_gateway.GatewayModule | GatewayService
+    gateway=gateway_module,          # llm_gateway.GatewayModule | GatewayProtocol
     tool_registry=my_registry,       # 可选，默认 ToolRegistry()
     definition_loader=loader,        # 可选，启用 definition-aware runtime
     context_manager=ctx_mgr,         # 可选，启用 memory
@@ -195,7 +195,7 @@ AGENT_RUNTIME_MCP__ENABLED=true
 
 ### Internal
 
-- `llm_gateway` — 模型访问、摘要调用、GatewayService
+- `llm_gateway` — 模型访问、摘要调用、GatewayProtocol
 
 ### External
 
