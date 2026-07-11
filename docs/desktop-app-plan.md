@@ -119,12 +119,21 @@ desktop_app/
 - [x] `SqliteMemoryStore` → `desktop/sqlite_memory_store.py`（MemoryStore 协议，纯 Python 余弦相似度）
 - [ ] `SqliteTraceStore`（待实现，优先级低）
 
-### Phase 4：提供商切换
-- [ ] 设置面板：配置 LLM 提供商（Ollama / OpenAI / Anthropic）
-- [ ] 动态切换 provider，无需重启
+### Phase 4：图片理解（截屏 + Vision API）✅
+- [x] 截屏 + 区域选择覆盖层 → `desktop/capture.py`（全屏截图、鼠标框选、ESC 取消）
+- [x] 视觉管线 → `desktop/vision.py`（直接调用 OpenAI/Anthropic Vision API，httpx）
+- [x] 📎 附件按钮 → `desktop/chat.py`（截图识别 / 文件选择器）
+- [x] 图片消息气泡 → `ImageBubble` 类
+- [x] 主流程集成 → `desktop/main.py`（窗口隐藏/恢复、异步分析）
 
-### Phase 5：打磨
-- [ ] 桌宠动画/交互
-- [ ] 全局快捷键唤起
-- [ ] 剪贴板/选中文本集成
+### Phase 5：提供商切换 ✅
+- [x] 设置面板 → `desktop/settings.py`（提供商预设、表单配置、密码显隐切换）
+- [x] 动态切换 provider，无需重启 → `main.py`（_reinit_gateway）
+- [x] 托盘菜单连接 → `tray.py`（settings_requested 信号）
+- [x] 提供商预设：OpenAI / Anthropic / DeepSeek / Ollama / 自定义
+
+### Phase 6：打磨
+- [x] 桌宠动画/交互 → `desktop/pet.py`（idle/thinking/happy/sleepy 四状态，右键菜单互动）
+- [x] 全局快捷键唤起 → `desktop/hotkey.py`（Ctrl+Space，pynput，可选依赖）
+- [x] 剪贴板监听 → `desktop/clipboard_watcher.py`（QTimer 轮询 QClipboard）
 - [ ] 打包分发（PyInstaller / Nuitka）

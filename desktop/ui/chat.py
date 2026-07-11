@@ -1,10 +1,11 @@
-"""对话面板：气泡消息 + 输入框。"""
+"""对话面板：气泡消息 + 输入框 + 图片附件。"""
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea,
     QLineEdit, QPushButton, QLabel, QFrame, QSizePolicy,
+    QFileDialog, QMenu,
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPixmap
 
 
 # ── 消息气泡 ────────────────────────────────────────────────
@@ -54,6 +55,44 @@ class ChatBubble(QFrame):
             outer.addStretch()
 
 
+# ── 图片气泡 ─────────────────────────────────────────────────
+
+class ImageBubble(QFrame):
+    """图片消息气泡，显示缩略图。"""
+
+    def __init__(self, pixmap: QPixmap, is_user: bool = True, parent=None):
+        super().__init__(parent)
+
+        bg = "#4A90D9" if is_user else "#FFFFFF"
+        border = "none" if is_user else "1px solid #E0E0E0"
+
+        self.setStyleSheet(f"""
+            ImageBubble {{
+                background: {bg};
+                border: {border};
+                border-radius: 12px;
+            }}
+        """)
+        self.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Minimum)
+
+        # 缩略图（最大 280x200）
+        thumb = pixmap.scaled(
+            280, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation,
+        )
+        img_label = QLabel()
+        img_label.setPixmap(thumb)
+        img_label.setStyleSheet("background: transparent; padding: 4px;")
+        img_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(6, 2, 6, 2)
+        if is_user:
+            outer.addStretch()
+        outer.addWidget(img_label)
+        if not is_user:
+            outer.addStretch()
+
+
 # ── 消息行（包含气泡 + 对齐）──────────────────────────────────
 
 class MessageRow(QWidget):
@@ -80,6 +119,8 @@ class ChatPanel(QWidget):
     """对话面板窗口。"""
 
     message_sent = Signal(str)
+    screenshot_requested = Signal()     # 截图识别
+    image_selected = Signal(str)        # 图片文件路径
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -145,6 +186,19 @@ class ChatPanel(QWidget):
         self._input.returnPressed.connect(self._on_send)
         input_layout.addWidget(self._input, 1)
 
+        # 附件按钮
+        self._attach_btn = QPushButton("📎")
+        self._attach_btn.setFixedSize(36, 36)
+        self._attach_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent; border: none;
+                border-radius: 18px; font-size: 18px;
+            }
+            QPushButton:hover { background: #F0F0F0; }
+        """)
+        self._attach_btn.clicked.connect(self._on_attach)
+        input_layout.addWidget(self._attach_btn)
+
         self._send_btn = QPushButton("发送")
         self._send_btn.setFixedSize(60, 36)
         self._send_btn.setStyleSheet("""
@@ -196,3 +250,35 @@ class ChatPanel(QWidget):
         self._input.clear()
         self.add_message(text, is_user=True)
         self.message_sent.emit(text)
+
+    def _on_attach(self):
+        """显示附件菜单：截图识别 / 选择图片。"""
+        menu = QMenu(self)
+        menu.addAction("📷 截图识别", self.screenshot_requested.emit)
+        menu.addAction("🖼️ 选择图片", self._pick_image)
+        menu.exec(self._attach_btn.mapToGlobal(
+            self._attach_btn.rect().bottomLeft()
+        ))
+
+    def _pick_image(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择图片", "",
+            "图片 (*.png *.jpg *.jpeg *.gif *.bmp *.webp);;所有文件 (*)",
+        )
+        if path:
+            self.image_selected.emit(path)
+
+    def add_image_message(self, pixmap: QPixmap, is_user: bool = True):
+        """添加图片消息气泡。"""
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        bubble = ImageBubble(pixmap, is_user=is_user)
+        if is_user:
+            layout.addStretch()
+            layout.addWidget(bubble)
+        else:
+            layout.addWidget(bubble)
+            layout.addStretch()
+        self._messages_layout.insertWidget(self._messages_layout.count() - 1, row)
+        self._scroll_to_bottom()

@@ -1,7 +1,7 @@
 """桌面端组装层：根据配置创建 GatewayService。"""
 from __future__ import annotations
 
-from config import LLMConfig
+from core.config import LLMConfig
 from llm_gateway import Capability, ProviderId
 from llm_gateway.bootstrap import create_gateway_service
 from llm_gateway.config import GatewaySettings, ModelDefinition, ProviderConfig

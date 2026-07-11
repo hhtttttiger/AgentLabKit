@@ -32,6 +32,7 @@ class TrayManager(QObject):
 
     # 信号
     show_chat_requested = Signal()
+    settings_requested = Signal()
     quit_requested = Signal()
 
     def __init__(self, parent=None):
@@ -44,7 +45,7 @@ class TrayManager(QObject):
         menu = QMenu()
         menu.addAction("💬 显示对话", self.show_chat_requested.emit)
         menu.addSeparator()
-        menu.addAction("⚙️ 设置", self._on_settings)  # TODO
+        menu.addAction("⚙️ 设置", self.settings_requested.emit)
         menu.addSeparator()
         menu.addAction("❌ 退出", self.quit_requested.emit)
         self._tray.setContextMenu(menu)
@@ -70,6 +71,3 @@ class TrayManager(QObject):
         if reason == QSystemTrayIcon.Trigger:
             self.show_chat_requested.emit()
 
-    def _on_settings(self):
-        # TODO: 打开设置面板
-        pass

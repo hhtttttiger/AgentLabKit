@@ -101,6 +101,7 @@ docker compose up --build
 | 共享 ORM / Engine / Snowflake ID | [`packages/db`](packages/db/AGENTS.md) |
 | 加 HTTP 路由 / 业务编排 / DB 迁移 | [`backend`](backend/AGENTS.md) |
 | 改管理后台界面 | [`frontend/admin`](frontend/admin/AGENTS.md) |
+| 改桌面客户端 | [`desktop`](desktop/AGENTS.md) |
 
 ## 文档索引
 
@@ -148,6 +149,7 @@ docker compose up --build
 |------|------|-----------|
 | **backend** | [`backend/AGENTS.md`](backend/AGENTS.md) | FastAPI 主应用：业务模块、路由、DI、数据库迁移 |
 | **frontend** | [`frontend/admin/AGENTS.md`](frontend/admin/AGENTS.md) | React 管理后台：模型管理、Agent 管理、知识库、AI 对话 |
+| **desktop** | [`desktop/AGENTS.md`](desktop/AGENTS.md) | PySide6 桌面客户端：桌宠、对话面板、截图识别、本地记忆 |
 
 ### 运维参考
 
