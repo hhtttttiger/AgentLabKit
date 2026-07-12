@@ -14,7 +14,7 @@ import type { AgentVersionSummaryView, VersionDetailView, VersionStatus } from '
 import { useVersionList, useVersionDetail } from './hooks';
 import { VersionDrawer } from './VersionDrawer';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 export type VersionLaunchAction =
   | { kind: 'create'; key: string }
@@ -39,7 +39,7 @@ export function VersionList({
   launchAction?: VersionLaunchAction | null;
   createTrigger?: number;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const [createOpen, setCreateOpen] = useState(false);
   const [editVersionNumber, setEditVersionNumber] = useState<number | null>(null);
   const [viewVersionNumber, setViewVersionNumber] = useState<number | null>(null);

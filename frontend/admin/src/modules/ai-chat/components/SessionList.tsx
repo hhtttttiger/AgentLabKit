@@ -25,20 +25,20 @@ export function SessionList({
   onNewChat,
 }: SessionListProps) {
   useAdminLocale();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
 
   return (
     <aside className="hidden h-full w-[292px] shrink-0 flex-col rounded-[2px] border border-border bg-surface lg:flex dark:bg-surface">
       <div className="flex items-center justify-between border-b border-border px-4 py-4">
         <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
-          {t('modules.aiChat.sessionList.eyebrow')}
+          {t('aiChat:sessionList.eyebrow')}
         </span>
         <button
           onClick={onNewChat}
           type="button"
           className="flex h-7 w-7 items-center justify-center rounded-[2px] text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
-          aria-label={t('modules.aiChat.sessionList.newChat')}
-          title={t('modules.aiChat.sessionList.newChat')}
+          aria-label={t('aiChat:sessionList.newChat')}
+          title={t('aiChat:sessionList.newChat')}
         >
           <Plus className="h-4 w-4" />
         </button>
@@ -64,7 +64,7 @@ export function SessionList({
 
       <div className="border-t border-border px-4 py-4 text-center">
         <span className="text-xs text-text-muted-subtle">
-          {t('modules.aiChat.sessionList.count', { count: sessions.length })}
+          {t('aiChat:sessionList.count', { count: sessions.length })}
         </span>
       </div>
     </aside>
@@ -83,11 +83,11 @@ type SessionItemProps = {
 };
 
 function SessionItem({ session, isActive, onSelect, onDelete }: SessionItemProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   const lastMessage = session.messages[session.messages.length - 1];
   const preview = lastMessage
     ? `${lastMessage.content.slice(0, 30)}${lastMessage.content.length > 30 ? '...' : ''}`
-    : t('modules.aiChat.sessionList.noMessages');
+    : t('aiChat:sessionList.noMessages');
 
   return (
     <li
@@ -124,7 +124,7 @@ function SessionItem({ session, isActive, onSelect, onDelete }: SessionItemProps
           }}
           className="absolute bottom-3 right-3 rounded-lg p-1.5 text-text-muted opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-subtle hover:text-error"
           type="button"
-          title={t('modules.aiChat.sessionList.deleteConversation')}
+          title={t('aiChat:sessionList.deleteConversation')}
         >
           <TrashIcon />
         </button>
@@ -138,21 +138,21 @@ function SessionItem({ session, isActive, onSelect, onDelete }: SessionItemProps
 // ---------------------------------------------------------------------------
 
 function ModelTypeBadge({ type }: { type: 'agent' | 'model' }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   return (
     <span
       className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
     >
-      {type === 'agent' ? t('modules.aiChat.selector.agent') : t('modules.aiChat.selector.model')}
+      {type === 'agent' ? t('aiChat:selector.agent') : t('aiChat:selector.model')}
     </span>
   );
 }
 
 function EmptySessions() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   return (
     <div className="flex h-40 flex-col items-center justify-center rounded-[2px] border border-dashed border-border bg-surface/65 px-5 text-center">
-      <p className="text-sm font-medium text-text-muted">{t('modules.aiChat.sessionList.empty')}</p>
+      <p className="text-sm font-medium text-text-muted">{t('aiChat:sessionList.empty')}</p>
     </div>
   );
 }

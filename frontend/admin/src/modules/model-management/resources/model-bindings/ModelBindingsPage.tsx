@@ -22,7 +22,7 @@ import { defaultModelBindingFilters, toModelBindingQuery } from './types';
 import { useModelBindingList, useModelBindingMutations } from './hooks';
 
 export function ModelBindingsPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const { toast } = useToast();
   const enabledFilterOptions = getEnabledFilterOptions(t);
   const [filters, setFilters] = useState(defaultModelBindingFilters);
@@ -52,7 +52,7 @@ export function ModelBindingsPage() {
     () => [
       {
         key: 'bindingKey',
-        header: t('modules.modelManagement.modelBindings.page.columns.bindingKey'),
+        header: t('modelManagement:modelBindings.page.columns.bindingKey'),
         render: (row) => (
           <div>
             <div className="font-medium text-text">{row.displayName}</div>
@@ -62,14 +62,14 @@ export function ModelBindingsPage() {
       },
       {
         key: 'usage',
-        header: t('modules.modelManagement.modelBindings.page.columns.usage'),
+        header: t('modelManagement:modelBindings.page.columns.usage'),
         render: (row) => (
           <div className="font-medium text-text">{getCapabilityLabel(t, row.capability)}</div>
         ),
       },
       {
         key: 'mapping',
-        header: t('modules.modelManagement.modelBindings.page.columns.mapping'),
+        header: t('modelManagement:modelBindings.page.columns.mapping'),
         render: (row) => (
           <div className="space-y-1">
             <div>{getCapabilityLabel(t, row.capability)}</div>
@@ -79,16 +79,16 @@ export function ModelBindingsPage() {
       },
       {
         key: 'status',
-        header: t('modules.modelManagement.modelBindings.page.columns.status'),
-        render: (row) => <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modules.modelManagement.modelBindings.page.status.enabled') : t('modules.modelManagement.modelBindings.page.status.disabled')}</Badge>,
+        header: t('modelManagement:modelBindings.page.columns.status'),
+        render: (row) => <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modelManagement:modelBindings.page.status.enabled') : t('modelManagement:modelBindings.page.status.disabled')}</Badge>,
       },
       {
         key: 'actions',
-        header: t('modules.modelManagement.modelBindings.page.columns.actions'),
+        header: t('modelManagement:modelBindings.page.columns.actions'),
         render: (row) => (
           <RowActions actions={[
-            { label: t('modules.modelManagement.modelBindings.page.rowActions.edit'), onClick: () => setEditingItem(row) },
-            { label: t('modules.modelManagement.modelBindings.page.rowActions.delete'), onClick: () => setDeletingItem(row), variant: 'danger' },
+            { label: t('modelManagement:modelBindings.page.rowActions.edit'), onClick: () => setEditingItem(row) },
+            { label: t('modelManagement:modelBindings.page.rowActions.delete'), onClick: () => setDeletingItem(row), variant: 'danger' },
           ]} />
         ),
       },
@@ -111,22 +111,22 @@ export function ModelBindingsPage() {
               >
                 <ToolbarButton variant="primary" onClick={() => setCreateOpen(true)}>
                   <Plus size={14} />
-                  {t('modules.modelManagement.modelBindings.page.newBinding')}
+                  {t('modelManagement:modelBindings.page.newBinding')}
                 </ToolbarButton>
               </FilterToolbarActions>
             }
           >
-            <SelectField fieldSize="compact" label={t('modules.modelManagement.modelBindings.page.filters.capability')} value={filters.capability} onChange={(event) => setFilters((current) => ({ ...current, capability: event.target.value as typeof current.capability, page: 1 }))}>
-              <option value="">{t('modules.modelManagement.modelBindings.page.filters.allCapabilities')}</option>
+            <SelectField fieldSize="compact" label={t('modelManagement:modelBindings.page.filters.capability')} value={filters.capability} onChange={(event) => setFilters((current) => ({ ...current, capability: event.target.value as typeof current.capability, page: 1 }))}>
+              <option value="">{t('modelManagement:modelBindings.page.filters.allCapabilities')}</option>
               {capabilityOptions.map((item) => (
                 <option key={item.value} value={item.value}>
                   {getCapabilityLabel(t, item.value)}
                 </option>
               ))}
             </SelectField>
-            <TextField fieldSize="compact" label={t('modules.modelManagement.modelBindings.page.filters.modelKey')} value={modelKeyInput} onChange={(event) => setModelKeyInput(event.target.value)} />
+            <TextField fieldSize="compact" label={t('modelManagement:modelBindings.page.filters.modelKey')} value={modelKeyInput} onChange={(event) => setModelKeyInput(event.target.value)} />
             <div className="filter-narrow">
-              <SelectField fieldSize="compact" label={t('modules.modelManagement.modelBindings.page.filters.enableStatus')} value={filters.isEnabled} onChange={(event) => setFilters((current) => ({ ...current, isEnabled: event.target.value as typeof current.isEnabled, page: 1 }))}>
+              <SelectField fieldSize="compact" label={t('modelManagement:modelBindings.page.filters.enableStatus')} value={filters.isEnabled} onChange={(event) => setFilters((current) => ({ ...current, isEnabled: event.target.value as typeof current.isEnabled, page: 1 }))}>
                 {enabledFilterOptions.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -146,8 +146,8 @@ export function ModelBindingsPage() {
           loading={listQuery.isLoading}
           emptyState={
               <EmptyState
-                title={t('modules.modelManagement.modelBindings.page.emptyTitle')}
-                action={<Button onClick={() => setCreateOpen(true)}>{t('modules.modelManagement.modelBindings.page.createBinding')}</Button>}
+                title={t('modelManagement:modelBindings.page.emptyTitle')}
+                action={<Button onClick={() => setCreateOpen(true)}>{t('modelManagement:modelBindings.page.createBinding')}</Button>}
               />
           }
         />
@@ -186,9 +186,9 @@ export function ModelBindingsPage() {
 
       <ConfirmDialog
         open={deletingItem !== null}
-        title={t('modules.modelManagement.modelBindings.page.deleteTitle')}
-        description={t('modules.modelManagement.modelBindings.page.deleteDescription', { name: deletingItem?.displayName ?? '' })}
-        confirmLabel={t('modules.modelManagement.modelBindings.page.confirmDelete')}
+        title={t('modelManagement:modelBindings.page.deleteTitle')}
+        description={t('modelManagement:modelBindings.page.deleteDescription', { name: deletingItem?.displayName ?? '' })}
+        confirmLabel={t('modelManagement:modelBindings.page.confirmDelete')}
         loading={mutations.remove.isPending}
         onClose={() => {
           setDeletingItem(null);

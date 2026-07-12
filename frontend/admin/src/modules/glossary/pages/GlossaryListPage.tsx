@@ -23,7 +23,7 @@ import { CategoryFormDrawer } from '../resources/category/components/CategoryFor
 const pageSize = 12;
 
 export function GlossaryListPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'glossary']);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -40,13 +40,13 @@ export function GlossaryListPage() {
 
   return (
     <PageFrame
-      title={t('modules.glossary.list.title')}
+      title={t('glossary:list.title')}
       scroll={false}
-      description={t('modules.glossary.list.description')}
+      description={t('glossary:list.description')}
       actions={
         <Button onClick={() => setCreateOpen(true)}>
           <Plus size={16} />
-          {t('modules.glossary.list.newCategory')}
+          {t('glossary:list.newCategory')}
         </Button>
       }
     >
@@ -64,9 +64,9 @@ export function GlossaryListPage() {
             }
           >
             <TextField
-              label={t('modules.glossary.list.searchLabel')}
+              label={t('glossary:list.searchLabel')}
               fieldSize="compact"
-              placeholder={t('modules.glossary.list.searchPlaceholder')}
+              placeholder={t('glossary:list.searchPlaceholder')}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -90,9 +90,9 @@ export function GlossaryListPage() {
           <SkeletonCards />
         ) : items.length === 0 ? (
           <EmptyState
-            title={t('modules.glossary.list.emptyTitle')}
-            description={t('modules.glossary.list.emptyDescription')}
-            action={<Button onClick={() => setCreateOpen(true)}>{t('modules.glossary.list.newCategory')}</Button>}
+            title={t('glossary:list.emptyTitle')}
+            description={t('glossary:list.emptyDescription')}
+            action={<Button onClick={() => setCreateOpen(true)}>{t('glossary:list.newCategory')}</Button>}
           />
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -138,9 +138,9 @@ export function GlossaryListPage() {
 
       <ConfirmDialog
         open={deletingItem !== null}
-        title={t('modules.glossary.list.deleteTitle')}
-        description={t('modules.glossary.list.deleteDescription', { name: deletingItem?.name ?? '' })}
-        confirmLabel={t('modules.glossary.list.confirmDelete')}
+        title={t('glossary:list.deleteTitle')}
+        description={t('glossary:list.deleteDescription', { name: deletingItem?.name ?? '' })}
+        confirmLabel={t('glossary:list.confirmDelete')}
         loading={mutations.remove.isPending}
         error={mutations.remove.error ? getErrorMessage(mutations.remove.error) : null}
         onClose={() => {

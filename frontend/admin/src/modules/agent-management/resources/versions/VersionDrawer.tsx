@@ -43,7 +43,7 @@ import {
   mergeKnowledgeBaseBindingRows,
 } from '../knowledge-base-bindings/types';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 function ToolBindingRow({
   index,
@@ -64,7 +64,7 @@ function ToolBindingRow({
   availableTools?: Array<{ toolName: string; displayName: string; sourceType: string }>;
   disabled?: boolean;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const hasOptions = availableTools && availableTools.length > 0;
 
   const invocationModeOptions: { value: InvocationMode; label: string }[] = [
@@ -165,7 +165,7 @@ function McpBindingRow({
   errors: Record<string, string>;
   disabled?: boolean;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   return (
     <div className="rounded-[2px] border border-border bg-background-subtle p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -232,7 +232,7 @@ function SkillBindingRow({
   errors: Record<string, string>;
   disabled?: boolean;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
 
   const updateToolOverride = (toolIndex: number, updated: ToolBindingWriteModel) => {
     onChange({
@@ -353,7 +353,7 @@ export function VersionDrawer({
   readOnly?: boolean;
   onClose: () => void;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const { toast } = useToast();
   const isEdit = !!editVersion && !readOnly;
   const bindingSourceVersion = editVersion ?? seedVersion ?? null;

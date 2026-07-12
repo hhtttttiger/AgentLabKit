@@ -119,7 +119,7 @@ export function createSession(options: {
   const time = formatAdminTime(now);
   return {
     id: generateSessionId(),
-    title: options.title ?? i18n.t('modules.aiChat.sessionList.defaultTitle', { time }),
+    title: options.title ?? i18n.t('aiChat:sessionList.defaultTitle', { time }),
     modelType: options.modelType,
     modelId: options.modelId,
     messages: [],

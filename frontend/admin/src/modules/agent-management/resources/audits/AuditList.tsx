@@ -14,7 +14,7 @@ import { AuditDetailDrawer } from './AuditDetailDrawer';
 import { defaultAuditFilters, toAuditListQuery } from './types';
 import { useAuditList } from './hooks';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 const statusTone: Record<string, 'success' | 'danger' | 'warning' | 'neutral'> = {
   success: 'success',
@@ -29,7 +29,7 @@ function copyToClipboard(text: string) {
 }
 
 export function AuditList({ agentKey }: { agentKey: string }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const [filters, setFilters] = useState(defaultAuditFilters);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 

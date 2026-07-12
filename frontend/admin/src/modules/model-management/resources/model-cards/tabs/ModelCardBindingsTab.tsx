@@ -12,7 +12,7 @@ import { ModelBindingDrawer } from '../../model-bindings/ModelBindingDrawer';
 export function ModelBindingsTab() {
   const { modelKey } = useParams<{ modelKey: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const detailQuery = useModelDetail(modelKey);
   const bindingMutations = useModelBindingMutations();
 
@@ -32,11 +32,11 @@ export function ModelBindingsTab() {
   const card = detailQuery.data;
 
   if (detailQuery.isError) {
-    return <InlineMessage tone="error">{t('modules.modelManagement.models.tabs.loadFailed')}</InlineMessage>;
+    return <InlineMessage tone="error">{t('modelManagement:models.tabs.loadFailed')}</InlineMessage>;
   }
 
   if (!card && detailQuery.isLoading) {
-    return <div className="text-sm text-text-secondary">{t('modules.modelManagement.models.tabs.loading')}</div>;
+    return <div className="text-sm text-text-secondary">{t('modelManagement:models.tabs.loading')}</div>;
   }
 
   if (!card) return null;
@@ -46,8 +46,8 @@ export function ModelBindingsTab() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-text-secondary">{t('modules.modelManagement.models.tabs.bindings.description')}</p>
-        <Button variant="secondary" onClick={openCreate}>{t('modules.modelManagement.models.tabs.bindings.addButton')}</Button>
+        <p className="text-sm text-text-secondary">{t('modelManagement:models.tabs.bindings.description')}</p>
+        <Button variant="secondary" onClick={openCreate}>{t('modelManagement:models.tabs.bindings.addButton')}</Button>
       </div>
 
       {bindings.length ? (
@@ -61,13 +61,13 @@ export function ModelBindingsTab() {
                     {binding.bindingKey} / {getCapabilityLabel(t, binding.capability)}
                   </div>
                 </div>
-                <Badge tone={binding.isEnabled ? 'success' : 'warning'}>{binding.isEnabled ? t('modules.modelManagement.models.tabs.bindings.status.enabled') : t('modules.modelManagement.models.tabs.bindings.status.disabled')}</Badge>
+                <Badge tone={binding.isEnabled ? 'success' : 'warning'}>{binding.isEnabled ? t('modelManagement:models.tabs.bindings.status.enabled') : t('modelManagement:models.tabs.bindings.status.disabled')}</Badge>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <EmptyState title={t('modules.modelManagement.models.tabs.bindings.empty')} />
+        <EmptyState title={t('modelManagement:models.tabs.bindings.empty')} />
       )}
 
       <ModelBindingDrawer

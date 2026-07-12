@@ -18,7 +18,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function RunsPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'evaluation']);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { data: runs, isLoading } = useRunList();
@@ -76,7 +76,7 @@ export function RunsPage() {
       {isLoading ? (
         <SkeletonRows columns={6} rows={5} />
       ) : !runs?.length ? (
-        <EmptyState title={t('modules.evaluation.runs.emptyTitle')} description={t('modules.evaluation.runs.emptyDescription')} />
+        <EmptyState title={t('evaluation:runs.emptyTitle')} description={t('evaluation:runs.emptyDescription')} />
       ) : (
         <table className="w-full text-sm">
           <thead>

@@ -21,7 +21,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
   onSelectTrace,
   onRegenerate,
 }: MessageBubbleProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
 
@@ -63,17 +63,17 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
         <div className="mb-1 flex items-center gap-2">
           {!isUser && (
             <span className="text-xs font-medium opacity-70">
-              {t('modules.aiChat.message.assistant')}
+              {t('aiChat:message.assistant')}
             </span>
           )}
           {message.status === 'sending' && (
             <span className={`text-xs ${isUser ? 'text-white/60' : 'opacity-50'}`}>
-              {t('modules.aiChat.message.sending')}
+              {t('aiChat:message.sending')}
             </span>
           )}
           {message.status === 'failed' && (
             <span className="text-xs text-error">
-              {t('modules.aiChat.message.failed')}
+              {t('aiChat:message.failed')}
             </span>
           )}
         </div>
@@ -99,7 +99,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
               type="button"
               onClick={handleCopy}
               className="inline-flex items-center gap-1 rounded-[2px] p-1 text-xs text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
-              title={t('modules.aiChat.message.copy')}
+              title={t('aiChat:message.copy')}
             >
               <Copy className="h-3 w-3" />
             </button>
@@ -108,7 +108,7 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
                 type="button"
                 onClick={() => onRegenerate(message.id)}
                 className="inline-flex items-center gap-1 rounded-[2px] p-1 text-xs text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
-                title={t('modules.aiChat.message.regenerate')}
+                title={t('aiChat:message.regenerate')}
               >
                 <RefreshCw className="h-3 w-3" />
               </button>
@@ -127,8 +127,8 @@ export const ChatMessageBubble = memo(function ChatMessageBubble({
           }`}
           aria-label={
             selected
-              ? t('modules.aiChat.message.viewedTrace')
-              : t('modules.aiChat.message.viewTrace')
+              ? t('aiChat:message.viewedTrace')
+              : t('aiChat:message.viewTrace')
           }
         >
           <Orbit className="h-3.5 w-3.5" strokeWidth={1.8} />

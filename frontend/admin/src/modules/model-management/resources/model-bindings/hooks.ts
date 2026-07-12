@@ -16,7 +16,7 @@ export function useModelBindingList(query: LlmModelBindingListQuery) {
 
 export function useModelBindingMutations() {
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   const invalidate = () =>
     Promise.all([

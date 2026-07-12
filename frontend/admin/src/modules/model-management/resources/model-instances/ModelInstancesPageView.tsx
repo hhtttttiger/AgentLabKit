@@ -22,14 +22,14 @@ import type { ModelInstancesPageState } from './useModelInstancesPageState';
 import { defaultModelInstanceFilters } from './types';
 
 export function ModelInstancesPageView({ state }: { state: ModelInstancesPageState }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const enabledFilterOptions = getEnabledFilterOptions(t);
   const healthFilterOptions = getHealthFilterOptions(t);
   const columns = useMemo<TableColumn<LlmModelInstanceView>[]>(
     () => [
       {
         key: 'instanceKey',
-        header: t('modules.modelManagement.modelInstances.page.columns.instanceKey'),
+        header: t('modelManagement:modelInstances.page.columns.instanceKey'),
         render: (row) => (
           <div>
             <div className="font-medium text-[var(--color-ink)]">{row.instanceKey}</div>
@@ -41,31 +41,31 @@ export function ModelInstancesPageView({ state }: { state: ModelInstancesPageSta
       },
       {
         key: 'modelName',
-        header: t('modules.modelManagement.modelInstances.page.columns.modelName'),
+        header: t('modelManagement:modelInstances.page.columns.modelName'),
         render: (row) => row.modelName,
       },
       {
         key: 'priority',
-        header: t('modules.modelManagement.modelInstances.page.columns.priority'),
+        header: t('modelManagement:modelInstances.page.columns.priority'),
         render: (row) => `${row.priority} / ${row.weight} / ${row.defaultTimeoutMs} ms`,
       },
       {
         key: 'status',
-        header: t('modules.modelManagement.modelInstances.page.columns.status'),
+        header: t('modelManagement:modelInstances.page.columns.status'),
         render: (row) => (
           <div className="flex gap-2">
-            <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modules.modelManagement.modelInstances.page.status.enabled') : t('modules.modelManagement.modelInstances.page.status.disabled')}</Badge>
-            <Badge tone={row.isHealthy ? 'success' : 'danger'}>{row.isHealthy ? t('modules.modelManagement.modelInstances.page.status.healthy') : t('modules.modelManagement.modelInstances.page.status.unhealthy')}</Badge>
+            <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modelManagement:modelInstances.page.status.enabled') : t('modelManagement:modelInstances.page.status.disabled')}</Badge>
+            <Badge tone={row.isHealthy ? 'success' : 'danger'}>{row.isHealthy ? t('modelManagement:modelInstances.page.status.healthy') : t('modelManagement:modelInstances.page.status.unhealthy')}</Badge>
           </div>
         ),
       },
       {
         key: 'actions',
-        header: t('modules.modelManagement.modelInstances.page.columns.actions'),
+        header: t('modelManagement:modelInstances.page.columns.actions'),
         render: (row) => (
           <RowActions actions={[
-            { label: t('modules.modelManagement.modelInstances.page.rowActions.edit'), onClick: () => state.openEdit(row) },
-            { label: t('modules.modelManagement.modelInstances.page.rowActions.delete'), onClick: () => state.requestDelete(row), variant: 'danger' },
+            { label: t('modelManagement:modelInstances.page.rowActions.edit'), onClick: () => state.openEdit(row) },
+            { label: t('modelManagement:modelInstances.page.rowActions.delete'), onClick: () => state.requestDelete(row), variant: 'danger' },
           ]} />
         ),
       },
@@ -80,10 +80,10 @@ export function ModelInstancesPageView({ state }: { state: ModelInstancesPageSta
           compact
           showHints={false}
           items={[
-          { label: t('modules.modelManagement.modelInstances.page.metrics.total'), value: state.listQuery.data?.totalCount ?? 0, hint: t('modules.modelManagement.modelInstances.page.metrics.totalHint') },
-          { label: t('modules.modelManagement.modelInstances.page.metrics.enabled'), value: state.metrics.enabledCount, hint: t('modules.modelManagement.modelInstances.page.metrics.enabledHint') },
-          { label: t('modules.modelManagement.modelInstances.page.metrics.healthy'), value: state.metrics.healthyCount, hint: t('modules.modelManagement.modelInstances.page.metrics.healthyHint') },
-          { label: t('modules.modelManagement.modelInstances.page.metrics.typeCount'), value: state.metrics.typeCount, hint: t('modules.modelManagement.modelInstances.page.metrics.typeCountHint') },
+          { label: t('modelManagement:modelInstances.page.metrics.total'), value: state.listQuery.data?.totalCount ?? 0, hint: t('modelManagement:modelInstances.page.metrics.totalHint') },
+          { label: t('modelManagement:modelInstances.page.metrics.enabled'), value: state.metrics.enabledCount, hint: t('modelManagement:modelInstances.page.metrics.enabledHint') },
+          { label: t('modelManagement:modelInstances.page.metrics.healthy'), value: state.metrics.healthyCount, hint: t('modelManagement:modelInstances.page.metrics.healthyHint') },
+          { label: t('modelManagement:modelInstances.page.metrics.typeCount'), value: state.metrics.typeCount, hint: t('modelManagement:modelInstances.page.metrics.typeCountHint') },
         ]}
       />
       </div>
@@ -101,28 +101,28 @@ export function ModelInstancesPageView({ state }: { state: ModelInstancesPageSta
               >
                 <ToolbarButton variant="primary" onClick={state.openCreate}>
                   <Plus size={14} />
-                  {t('modules.modelManagement.modelInstances.page.newInstance')}
+                  {t('modelManagement:modelInstances.page.newInstance')}
                 </ToolbarButton>
               </FilterToolbarActions>
             }
           >
-          <TextField fieldSize="compact" label={t('modules.modelManagement.modelInstances.page.filters.modelKey')} value={state.filters.modelKey} onChange={(event) => state.patchFilters({ modelKey: event.target.value, page: 1 })} />
-          <SelectField fieldSize="compact" label={t('modules.modelManagement.modelInstances.page.filters.feature')} value={state.filters.featureKey} onChange={(event) => state.patchFilters({ featureKey: event.target.value, page: 1 })}>
-            <option value="">{state.featureOptionsQuery.isLoading ? t('modules.modelManagement.modelInstances.page.filters.loading') : t('modules.modelManagement.modelInstances.page.filters.featureAll')}</option>
+          <TextField fieldSize="compact" label={t('modelManagement:modelInstances.page.filters.modelKey')} value={state.filters.modelKey} onChange={(event) => state.patchFilters({ modelKey: event.target.value, page: 1 })} />
+          <SelectField fieldSize="compact" label={t('modelManagement:modelInstances.page.filters.feature')} value={state.filters.featureKey} onChange={(event) => state.patchFilters({ featureKey: event.target.value, page: 1 })}>
+            <option value="">{state.featureOptionsQuery.isLoading ? t('modelManagement:modelInstances.page.filters.loading') : t('modelManagement:modelInstances.page.filters.featureAll')}</option>
             {(state.featureOptionsQuery.data ?? []).map((item) => (
               <option key={item.featureKey} value={item.featureKey}>
                 {item.displayName}
               </option>
             ))}
           </SelectField>
-          <SelectField fieldSize="compact" label={t('modules.modelManagement.modelInstances.page.filters.featureSupport')} value={state.filters.featureIsSupported} onChange={(event) => state.patchFilters({ featureIsSupported: event.target.value as typeof defaultModelInstanceFilters.featureIsSupported, page: 1 })}>
-            <option value="all">{t('modules.modelManagement.modelInstances.page.filters.featureSupportAll')}</option>
-            <option value="true">{t('modules.modelManagement.modelInstances.page.filters.featureSupportTrue')}</option>
-            <option value="false">{t('modules.modelManagement.modelInstances.page.filters.featureSupportFalse')}</option>
+          <SelectField fieldSize="compact" label={t('modelManagement:modelInstances.page.filters.featureSupport')} value={state.filters.featureIsSupported} onChange={(event) => state.patchFilters({ featureIsSupported: event.target.value as typeof defaultModelInstanceFilters.featureIsSupported, page: 1 })}>
+            <option value="all">{t('modelManagement:modelInstances.page.filters.featureSupportAll')}</option>
+            <option value="true">{t('modelManagement:modelInstances.page.filters.featureSupportTrue')}</option>
+            <option value="false">{t('modelManagement:modelInstances.page.filters.featureSupportFalse')}</option>
           </SelectField>
-          <TextField fieldSize="compact" label={t('modules.modelManagement.modelInstances.page.filters.featureValue')} value={state.filters.featureValueJson} onChange={(event) => state.patchFilters({ featureValueJson: event.target.value, page: 1 })} />
-          <SelectField fieldSize="compact" label={t('modules.modelManagement.modelInstances.page.filters.type')} value={state.filters.type} onChange={(event) => state.patchFilters({ type: event.target.value as typeof defaultModelInstanceFilters.type, page: 1 })}>
-            <option value="">{t('modules.modelManagement.modelInstances.page.filters.typeAll')}</option>
+          <TextField fieldSize="compact" label={t('modelManagement:modelInstances.page.filters.featureValue')} value={state.filters.featureValueJson} onChange={(event) => state.patchFilters({ featureValueJson: event.target.value, page: 1 })} />
+          <SelectField fieldSize="compact" label={t('modelManagement:modelInstances.page.filters.type')} value={state.filters.type} onChange={(event) => state.patchFilters({ type: event.target.value as typeof defaultModelInstanceFilters.type, page: 1 })}>
+            <option value="">{t('modelManagement:modelInstances.page.filters.typeAll')}</option>
             {capabilityOptions.map((item) => (
               <option key={item.value} value={item.value}>
                 {getCapabilityLabel(t, item.value)}
@@ -130,7 +130,7 @@ export function ModelInstancesPageView({ state }: { state: ModelInstancesPageSta
             ))}
           </SelectField>
           <div className="filter-narrow">
-            <SelectField fieldSize="compact" label={t('modules.modelManagement.modelInstances.page.filters.enableStatus')} value={state.filters.isEnabled} onChange={(event) => state.patchFilters({ isEnabled: event.target.value as typeof defaultModelInstanceFilters.isEnabled, page: 1 })}>
+            <SelectField fieldSize="compact" label={t('modelManagement:modelInstances.page.filters.enableStatus')} value={state.filters.isEnabled} onChange={(event) => state.patchFilters({ isEnabled: event.target.value as typeof defaultModelInstanceFilters.isEnabled, page: 1 })}>
               {enabledFilterOptions.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
@@ -139,7 +139,7 @@ export function ModelInstancesPageView({ state }: { state: ModelInstancesPageSta
             </SelectField>
           </div>
           <div className="filter-narrow">
-            <SelectField fieldSize="compact" label={t('modules.modelManagement.modelInstances.page.filters.healthStatus')} value={state.filters.isHealthy} onChange={(event) => state.patchFilters({ isHealthy: event.target.value as typeof defaultModelInstanceFilters.isHealthy, page: 1 })}>
+            <SelectField fieldSize="compact" label={t('modelManagement:modelInstances.page.filters.healthStatus')} value={state.filters.isHealthy} onChange={(event) => state.patchFilters({ isHealthy: event.target.value as typeof defaultModelInstanceFilters.isHealthy, page: 1 })}>
               {healthFilterOptions.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
@@ -166,8 +166,8 @@ export function ModelInstancesPageView({ state }: { state: ModelInstancesPageSta
           loading={state.listQuery.isLoading}
           emptyState={
               <EmptyState
-                title={t('modules.modelManagement.modelInstances.page.emptyTitle')}
-                action={<Button onClick={state.openCreate}>{t('modules.modelManagement.modelInstances.page.createInstance')}</Button>}
+                title={t('modelManagement:modelInstances.page.emptyTitle')}
+                action={<Button onClick={state.openCreate}>{t('modelManagement:modelInstances.page.createInstance')}</Button>}
               />
           }
         />
@@ -186,9 +186,9 @@ export function ModelInstancesPageView({ state }: { state: ModelInstancesPageSta
 
       <ConfirmDialog
         open={state.deleteDialog.open}
-        title={t('modules.modelManagement.modelInstances.page.deleteTitle')}
+        title={t('modelManagement:modelInstances.page.deleteTitle')}
         description={state.deleteDialog.description}
-        confirmLabel={t('modules.modelManagement.modelInstances.page.confirmDelete')}
+        confirmLabel={t('modelManagement:modelInstances.page.confirmDelete')}
         loading={state.deleteDialog.loading}
         onClose={state.deleteDialog.onClose}
         onConfirm={state.deleteDialog.onConfirm}

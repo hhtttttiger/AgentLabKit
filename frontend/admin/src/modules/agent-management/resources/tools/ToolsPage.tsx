@@ -25,7 +25,7 @@ import {
 import { useToolDefinitionList, useToolDefinitionMutations } from './hooks';
 import { ToolDrawer } from './ToolDrawer';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 function SourceTypeBadge({ type }: { type: string }) {
   return (
@@ -36,7 +36,7 @@ function SourceTypeBadge({ type }: { type: string }) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const tone = status === 'active' ? 'success' : status === 'deprecated' ? 'warning' : 'danger';
   return (
     <Badge tone={tone}>
@@ -46,7 +46,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function ToolsPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const { toast } = useToast();
   const [filters, setFilters] = useState(defaultToolFilters);
   const [editingTool, setEditingTool] = useState<ToolSummaryView | null>(null);

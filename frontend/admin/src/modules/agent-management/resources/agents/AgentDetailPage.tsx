@@ -16,7 +16,7 @@ import { AuditList } from '../audits/AuditList';
 
 type Tab = 'versions' | 'audits';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 const statusTone: Record<string, 'success' | 'warning' | 'neutral'> = {
   draft: 'warning',
@@ -58,7 +58,7 @@ function getLaunchAction(searchParams: URLSearchParams): VersionLaunchAction | n
 }
 
 export function AgentDetailPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const { agentKey } = useParams<{ agentKey: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();

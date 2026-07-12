@@ -7,7 +7,7 @@ import { defaultSegmentListFilters } from '../types';
 import type { KbSegmentView } from '../../../lib/contracts';
 
 export function SegmentViewer({ kbId, docId }: { kbId: string; docId: string }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const [page, setPage] = useState(1);
   const pageSize = defaultSegmentListFilters.pageSize;
 
@@ -23,7 +23,7 @@ export function SegmentViewer({ kbId, docId }: { kbId: string; docId: string }) 
       {query.isLoading && <p className="text-sm text-text-muted">加载中…</p>}
 
       {!query.isLoading && segments.length === 0 && (
-        <EmptyState title={t('modules.knowledgeBase.detail.segmentEmptyTitle')} />
+        <EmptyState title={t('knowledgeBase:detail.segmentEmptyTitle')} />
       )}
 
       <div className="space-y-2">

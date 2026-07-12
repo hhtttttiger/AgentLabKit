@@ -17,7 +17,7 @@ const TIME_RANGE_OPTIONS = [
 ];
 
 export function TraceListPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'observability']);
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -31,10 +31,10 @@ export function TraceListPage() {
 
   const metrics = stats
     ? [
-        { label: t('modules.observability.traces.metrics.totalTraces'), value: String(stats.totalTraces), accent: 'blue' as const },
-        { label: t('modules.observability.traces.metrics.avgLatency'), value: formatDuration(stats.avgDurationMs), accent: 'violet' as const },
-        { label: t('modules.observability.traces.metrics.totalTokens'), value: stats.totalTokens.toLocaleString(), accent: 'teal' as const },
-        { label: t('modules.observability.traces.metrics.errorCount'), value: String(stats.errorCount), accent: 'amber' as const },
+        { label: t('observability:traces.metrics.totalTraces'), value: String(stats.totalTraces), accent: 'blue' as const },
+        { label: t('observability:traces.metrics.avgLatency'), value: formatDuration(stats.avgDurationMs), accent: 'violet' as const },
+        { label: t('observability:traces.metrics.totalTokens'), value: stats.totalTokens.toLocaleString(), accent: 'teal' as const },
+        { label: t('observability:traces.metrics.errorCount'), value: String(stats.errorCount), accent: 'amber' as const },
       ]
     : [];
 
@@ -48,7 +48,7 @@ export function TraceListPage() {
             onClick={() => { setDays(d); setPage(1); }}
             className={`rounded-[2px] px-3 py-1 text-xs ${days === d ? 'bg-primary text-background' : 'bg-surface border border-border text-text-secondary hover:border-primary'}`}
           >
-            {t(`modules.observability.traces.timeRange.${key}`)}
+            {t(`observability:traces.timeRange.${key}`)}
           </button>
         ))}
       </div>
@@ -58,7 +58,7 @@ export function TraceListPage() {
 
       {/* Error */}
       {isError && (
-        <InlineMessage tone="error">{t('modules.observability.traces.loadError')}</InlineMessage>
+        <InlineMessage tone="error">{t('observability:traces.loadError')}</InlineMessage>
       )}
 
       {/* Table */}
@@ -66,18 +66,18 @@ export function TraceListPage() {
       {isLoading ? (
         <SkeletonRows columns={7} rows={5} />
       ) : !traces.length ? (
-        <EmptyState title={t('modules.observability.traces.emptyTitle')} description={t('modules.observability.traces.emptyDescription')} />
+        <EmptyState title={t('observability:traces.emptyTitle')} description={t('observability:traces.emptyDescription')} />
       ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-text-muted">
-              <th className="pb-2 font-medium w-64">{t('modules.observability.traces.columns.traceId')}</th>
-              <th className="pb-2 font-medium">{t('modules.observability.traces.columns.agent')}</th>
-              <th className="pb-2 font-medium text-center">{t('modules.observability.traces.columns.status')}</th>
-              <th className="pb-2 font-medium text-right">{t('modules.observability.traces.columns.duration')}</th>
-              <th className="pb-2 font-medium text-right">{t('modules.observability.traces.columns.tokens')}</th>
-              <th className="pb-2 font-medium text-right">{t('modules.observability.traces.columns.spanCount')}</th>
-              <th className="pb-2 font-medium pl-4">{t('modules.observability.traces.columns.startTime')}</th>
+              <th className="pb-2 font-medium w-64">{t('observability:traces.columns.traceId')}</th>
+              <th className="pb-2 font-medium">{t('observability:traces.columns.agent')}</th>
+              <th className="pb-2 font-medium text-center">{t('observability:traces.columns.status')}</th>
+              <th className="pb-2 font-medium text-right">{t('observability:traces.columns.duration')}</th>
+              <th className="pb-2 font-medium text-right">{t('observability:traces.columns.tokens')}</th>
+              <th className="pb-2 font-medium text-right">{t('observability:traces.columns.spanCount')}</th>
+              <th className="pb-2 font-medium pl-4">{t('observability:traces.columns.startTime')}</th>
             </tr>
           </thead>
           <tbody>

@@ -22,7 +22,7 @@ import { KbUnifiedList, type UnifiedListItem } from './components/KbUnifiedList'
 
 export function KbDocumentsTab() {
   const { kbId = '' } = useParams<{ kbId: string }>();
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const { toast } = useToast();
   useAdminLocale();
 

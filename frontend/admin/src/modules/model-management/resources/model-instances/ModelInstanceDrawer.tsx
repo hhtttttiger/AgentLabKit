@@ -23,27 +23,27 @@ function validateDraft(
   const errors: Record<string, string> = {};
 
   if (mode === 'create' && !modelKey.trim()) {
-    errors.modelKey = t('modules.modelManagement.modelInstances.drawer.validation.modelKeyRequired');
+    errors.modelKey = t('modelManagement:modelInstances.drawer.validation.modelKeyRequired');
   }
 
   if (!draft.instanceKey.trim()) {
-    errors.instanceKey = t('modules.modelManagement.modelInstances.drawer.validation.instanceKeyRequired');
+    errors.instanceKey = t('modelManagement:modelInstances.drawer.validation.instanceKeyRequired');
   }
 
   if (draft.priority < 0) {
-    errors.priority = t('modules.modelManagement.modelInstances.drawer.validation.priorityMin');
+    errors.priority = t('modelManagement:modelInstances.drawer.validation.priorityMin');
   }
 
   if (draft.weight <= 0) {
-    errors.weight = t('modules.modelManagement.modelInstances.drawer.validation.weightMin');
+    errors.weight = t('modelManagement:modelInstances.drawer.validation.weightMin');
   }
 
   if (draft.defaultTimeoutMs <= 0) {
-    errors.defaultTimeoutMs = t('modules.modelManagement.modelInstances.drawer.validation.timeoutMin');
+    errors.defaultTimeoutMs = t('modelManagement:modelInstances.drawer.validation.timeoutMin');
   }
 
   if (mode === 'create' && !apiKeyInput.trim()) {
-    errors.apiKey = t('modules.modelManagement.modelInstances.drawer.validation.apiKeyRequired');
+    errors.apiKey = t('modelManagement:modelInstances.drawer.validation.apiKeyRequired');
   }
 
   return errors;
@@ -68,7 +68,7 @@ export function ModelInstanceDrawer({
   onClose: () => void;
   onSubmit: (payload: { modelKey: string; model: LlmModelInstanceWriteModel }) => Promise<void>;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const [modelKey, setModelKey] = useState(modelKeyPreset ?? '');
   const [draft, setDraft] = useState<LlmModelInstanceWriteModel>(emptyModelInstanceDraft);
   const [apiKeyInput, setApiKeyInput] = useState('');
@@ -129,21 +129,21 @@ export function ModelInstanceDrawer({
   return (
     <FormModal
       open={open}
-      title={mode === 'create' ? t('modules.modelManagement.modelInstances.drawer.titleCreate') : t('modules.modelManagement.modelInstances.drawer.titleEdit')}
-      description={t('modules.modelManagement.modelInstances.drawer.description')}
+      title={mode === 'create' ? t('modelManagement:modelInstances.drawer.titleCreate') : t('modelManagement:modelInstances.drawer.titleEdit')}
+      description={t('modelManagement:modelInstances.drawer.description')}
       onClose={onClose}
       widthClassName="max-w-4xl"
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            {t('modules.modelManagement.modelInstances.drawer.actions.cancel')}
+            {t('modelManagement:modelInstances.drawer.actions.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={loading || Object.keys(errors).length > 0}>
             {loading
-              ? t('modules.modelManagement.modelInstances.drawer.actions.submitting')
+              ? t('modelManagement:modelInstances.drawer.actions.submitting')
               : mode === 'create'
-                ? t('modules.modelManagement.modelInstances.drawer.actions.create')
-                : t('modules.modelManagement.modelInstances.drawer.actions.save')}
+                ? t('modelManagement:modelInstances.drawer.actions.create')
+                : t('modelManagement:modelInstances.drawer.actions.save')}
           </Button>
         </div>
       }
@@ -154,7 +154,7 @@ export function ModelInstanceDrawer({
         <div className="grid gap-4 md:grid-cols-2">
           {showCardSelector ? (
             <SelectField
-               label={t('modules.modelManagement.modelInstances.drawer.fields.modelKey')}
+               label={t('modelManagement:modelInstances.drawer.fields.modelKey')}
               value={modelKey}
               error={errors.modelKey}
               disabled={lockCardSelector}
@@ -167,7 +167,7 @@ export function ModelInstanceDrawer({
                 }
               }}
             >
-              <option value="">{modelOptionsQuery.isLoading ? t('modules.modelManagement.modelInstances.drawer.fields.modelKeyLoading') : t('modules.modelManagement.modelInstances.drawer.fields.modelKeyPlaceholder')}</option>
+              <option value="">{modelOptionsQuery.isLoading ? t('modelManagement:modelInstances.drawer.fields.modelKeyLoading') : t('modelManagement:modelInstances.drawer.fields.modelKeyPlaceholder')}</option>
               {modelOptions.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label} ({item.value})
@@ -177,14 +177,14 @@ export function ModelInstanceDrawer({
           ) : null}
 
           <TextField
-             label={t('modules.modelManagement.modelInstances.drawer.fields.instanceKey')}
+             label={t('modelManagement:modelInstances.drawer.fields.instanceKey')}
             value={draft.instanceKey}
             error={errors.instanceKey}
             onChange={(event) => setDraft((current) => ({ ...current, instanceKey: event.target.value }))}
           />
 
           <TextField
-             label={t('modules.modelManagement.modelInstances.drawer.fields.deploymentName')}
+             label={t('modelManagement:modelInstances.drawer.fields.deploymentName')}
             value={draft.providerDeploymentName ?? ''}
             onChange={(event) => setDraft((current) => ({ ...current, providerDeploymentName: event.target.value }))}
           />
@@ -192,13 +192,13 @@ export function ModelInstanceDrawer({
 
         <div className="space-y-4">
           <TextField
-             label={t('modules.modelManagement.modelInstances.drawer.fields.apiKey')}
+             label={t('modelManagement:modelInstances.drawer.fields.apiKey')}
             type="password"
             value={apiKeyInput}
             error={errors.apiKey}
             onChange={(event) => setApiKeyInput(event.target.value)}
-             hint={mode === 'edit' ? t('modules.modelManagement.modelInstances.drawer.fields.apiKeyHintEdit') : t('modules.modelManagement.modelInstances.drawer.fields.apiKeyHintCreate')}
-             placeholder={mode === 'edit' ? t('modules.modelManagement.modelInstances.drawer.fields.apiKeyPlaceholderEdit') : undefined}
+             hint={mode === 'edit' ? t('modelManagement:modelInstances.drawer.fields.apiKeyHintEdit') : t('modelManagement:modelInstances.drawer.fields.apiKeyHintCreate')}
+             placeholder={mode === 'edit' ? t('modelManagement:modelInstances.drawer.fields.apiKeyPlaceholderEdit') : undefined}
           />
         </div>
 
@@ -210,33 +210,33 @@ export function ModelInstanceDrawer({
             onClick={() => setAdvancedOpen((v) => !v)}
           >
             {advancedOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            {t('modules.modelManagement.modelInstances.drawer.fields.advancedOptions')}
+            {t('modelManagement:modelInstances.drawer.fields.advancedOptions')}
           </button>
           {advancedOpen && (
             <div className="border-t border-border px-4 py-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <TextField
-                   label={t('modules.modelManagement.modelInstances.drawer.fields.region')}
+                   label={t('modelManagement:modelInstances.drawer.fields.region')}
                   value={draft.region ?? ''}
                   onChange={(event) => setDraft((current) => ({ ...current, region: event.target.value }))}
                 />
 
                 <NumberField
-                   label={t('modules.modelManagement.modelInstances.drawer.fields.priority')}
+                   label={t('modelManagement:modelInstances.drawer.fields.priority')}
                   value={draft.priority}
                   error={errors.priority}
                   onChange={(event) => setDraft((current) => ({ ...current, priority: Number(event.target.value) }))}
                 />
 
                 <NumberField
-                   label={t('modules.modelManagement.modelInstances.drawer.fields.weight')}
+                   label={t('modelManagement:modelInstances.drawer.fields.weight')}
                   value={draft.weight}
                   error={errors.weight}
                   onChange={(event) => setDraft((current) => ({ ...current, weight: Number(event.target.value) }))}
                 />
 
                 <NumberField
-                   label={t('modules.modelManagement.modelInstances.drawer.fields.timeout')}
+                   label={t('modelManagement:modelInstances.drawer.fields.timeout')}
                   value={draft.defaultTimeoutMs}
                   error={errors.defaultTimeoutMs}
                   onChange={(event) => setDraft((current) => ({ ...current, defaultTimeoutMs: Number(event.target.value) }))}
@@ -247,21 +247,21 @@ export function ModelInstanceDrawer({
         </div>
 
         <JsonEditor
-          label={t('modules.modelManagement.modelInstances.drawer.fields.extraJson')}
+          label={t('modelManagement:modelInstances.drawer.fields.extraJson')}
           kind="object"
           value={typeof draft.extraJson === 'object' ? JSON.stringify(draft.extraJson, null, 2) : draft.extraJson}
           onChange={(value) => { try { setDraft((current) => ({ ...current, extraJson: value.trim() ? JSON.parse(value) : {} })); } catch { /* ignore parse errors while typing */ } }}
-          hint={t('modules.modelManagement.modelInstances.drawer.fields.extraJsonHint')}
+          hint={t('modelManagement:modelInstances.drawer.fields.extraJsonHint')}
         />
 
         <div className="grid gap-4 md:grid-cols-2">
           <ToggleField
-             label={t('modules.modelManagement.modelInstances.drawer.fields.isEnabled')}
+             label={t('modelManagement:modelInstances.drawer.fields.isEnabled')}
             checked={draft.isEnabled}
             onChange={(checked) => setDraft((current) => ({ ...current, isEnabled: checked }))}
           />
           <ToggleField
-             label={t('modules.modelManagement.modelInstances.drawer.fields.isHealthy')}
+             label={t('modelManagement:modelInstances.drawer.fields.isHealthy')}
             checked={draft.isHealthy}
             onChange={(checked) => setDraft((current) => ({ ...current, isHealthy: checked }))}
           />

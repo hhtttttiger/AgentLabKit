@@ -18,7 +18,7 @@ const TYPE_STYLES: Record<string, string> = {
 const METRIC_ACCENTS = ['blue', 'violet', 'teal', 'amber'] as const;
 
 export function MemoryListPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'memory']);
   const { toast } = useToast();
   const { user } = useAuth();
   const userId = user?.userId ?? '';
@@ -41,17 +41,17 @@ export function MemoryListPage() {
   const total = result?.totalCount ?? 0;
 
   const typeLabels: Record<string, string> = {
-    episodic: t('modules.memory.list.typeLabels.episodic'),
-    semantic: t('modules.memory.list.typeLabels.semantic'),
-    procedural: t('modules.memory.list.typeLabels.procedural'),
+    episodic: t('memory:list.typeLabels.episodic'),
+    semantic: t('memory:list.typeLabels.semantic'),
+    procedural: t('memory:list.typeLabels.procedural'),
   };
 
   const metrics = stats
     ? [
-        { label: t('modules.memory.list.metrics.totalActive'), value: String(stats.totalActive), accent: METRIC_ACCENTS[0] },
-        { label: t('modules.memory.list.metrics.episodic'), value: String(stats.countsByType.episodic || 0), accent: METRIC_ACCENTS[1] },
-        { label: t('modules.memory.list.metrics.semantic'), value: String(stats.countsByType.semantic || 0), accent: METRIC_ACCENTS[2] },
-        { label: t('modules.memory.list.metrics.procedural'), value: String(stats.countsByType.procedural || 0), accent: METRIC_ACCENTS[3] },
+        { label: t('memory:list.metrics.totalActive'), value: String(stats.totalActive), accent: METRIC_ACCENTS[0] },
+        { label: t('memory:list.metrics.episodic'), value: String(stats.countsByType.episodic || 0), accent: METRIC_ACCENTS[1] },
+        { label: t('memory:list.metrics.semantic'), value: String(stats.countsByType.semantic || 0), accent: METRIC_ACCENTS[2] },
+        { label: t('memory:list.metrics.procedural'), value: String(stats.countsByType.procedural || 0), accent: METRIC_ACCENTS[3] },
       ]
     : [];
 
@@ -59,15 +59,15 @@ export function MemoryListPage() {
     <div className="flex flex-col gap-6 p-6 pb-10 h-[calc(100vh-var(--header-height,3.5rem))] overflow-hidden">
       {/* 类型过滤 + 操作 */}
       <div className="flex items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center gap-2" role="radiogroup" aria-label={t('modules.memory.list.filterLabel')}>
+        <div className="flex items-center gap-2" role="radiogroup" aria-label={t('memory:list.filterLabel')}>
           <button
             onClick={() => { setFilterType(undefined); setPage(1); }}
             className={`rounded-[2px] px-3 py-1 text-xs ${!filterType ? 'bg-primary text-background' : 'bg-surface border border-border text-text-secondary'}`}
             role="radio"
             aria-checked={!filterType}
-            aria-label={t('modules.memory.list.filterAll')}
+            aria-label={t('memory:list.filterAll')}
           >
-            {t('modules.memory.list.filterAll')}
+            {t('memory:list.filterAll')}
           </button>
           {Object.entries(typeLabels).map(([key, label]) => (
             <button
@@ -87,7 +87,7 @@ export function MemoryListPage() {
           onClick={() => consolidateMutation.mutateAsync({}).then(() => { setPage(1); toast(t('toast.consolidateDone')); }).catch(() => {})}
           disabled={consolidateMutation.isPending}
         >
-          {consolidateMutation.isPending ? t('processing') : t('modules.memory.list.consolidate')}
+          {consolidateMutation.isPending ? t('processing') : t('memory:list.consolidate')}
         </button>
       </div>
 
@@ -101,7 +101,7 @@ export function MemoryListPage() {
       {/* 错误状态 */}
       {isError && (
         <InlineMessage tone="error">
-          {t('modules.memory.list.loadError', { message: (error as Error)?.message || '' })}
+          {t('memory:list.loadError', { message: (error as Error)?.message || '' })}
         </InlineMessage>
       )}
 
@@ -111,8 +111,8 @@ export function MemoryListPage() {
           <SkeletonCards count={6} />
         ) : !memories.length ? (
           <EmptyState
-            title={t('modules.memory.list.emptyTitle')}
-            description={t('modules.memory.list.emptyDescription')}
+            title={t('memory:list.emptyTitle')}
+            description={t('memory:list.emptyDescription')}
           />
         ) : (
           <div className="flex flex-col gap-2">
@@ -132,8 +132,8 @@ export function MemoryListPage() {
                   <div className="flex-1">
                     <p className="text-sm text-text line-clamp-3">{m.content}</p>
                     <div className="mt-2 flex items-center gap-3 text-xs text-text-muted">
-                      <span>{t('modules.memory.list.accessCount', { count: m.accessCount })}</span>
-                      <span>{t('modules.memory.list.relevance', { score: m.relevanceScore.toFixed(2) })}</span>
+                      <span>{t('memory:list.accessCount', { count: m.accessCount })}</span>
+                      <span>{t('memory:list.relevance', { score: m.relevanceScore.toFixed(2) })}</span>
                       <span>{new Date(m.createdAtUtc).toLocaleString()}</span>
                     </div>
                   </div>
@@ -144,9 +144,9 @@ export function MemoryListPage() {
                         onSuccess: () => toast(t('toast.deactivateDone')),
                       })}
                       disabled={deactivateMutation.isPending}
-                      aria-label={`${t('modules.memory.list.deactivate')} ${typeLabel}`}
+                      aria-label={`${t('memory:list.deactivate')} ${typeLabel}`}
                     >
-                      {t('modules.memory.list.deactivate')}
+                      {t('memory:list.deactivate')}
                     </button>
                     <button
                       className="text-xs text-text-muted hover:text-error hover:underline"

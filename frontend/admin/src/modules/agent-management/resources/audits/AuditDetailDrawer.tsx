@@ -4,7 +4,7 @@ import { FormModal } from '@/shared/ui/FormModal';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 import { useAuditDetail } from './hooks';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 export function AuditDetailDrawer({
   agentKey,
@@ -17,7 +17,7 @@ export function AuditDetailDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const detailQuery = useAuditDetail(agentKey, open ? runId : null);
 
   return (

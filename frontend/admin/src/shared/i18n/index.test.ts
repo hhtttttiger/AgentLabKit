@@ -45,8 +45,8 @@ describe('admin i18n initialization', () => {
 
     expect(adminI18nResources['zh-CN'].common.nav.knowledgeBase).toBe('知识库');
     expect(adminI18nResources['en-US'].common.nav.knowledgeBase).toBe('Knowledge base');
-    expect(adminI18nResources['zh-CN'].common.modules.knowledgeBase.list.title).toBe('知识库');
-    expect(adminI18nResources['en-US'].common.modules.knowledgeBase.list.title).toBe('Knowledge base');
+    expect(adminI18nResources['zh-CN'].knowledgeBase.list.title).toBe('知识库');
+    expect(adminI18nResources['en-US'].knowledgeBase.list.title).toBe('Knowledge base');
   });
 
   it('falls back to zh-CN when ja-JP locale is saved but removed', async () => {

@@ -7,7 +7,7 @@ import { SkeletonRows } from '@/shared/ui/Skeleton';
 import { useToast } from '@/shared/ui/Toast';
 
 export function DatasetsPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'evaluation']);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { data: result, isLoading } = useDatasetList();
@@ -48,7 +48,7 @@ export function DatasetsPage() {
       {isLoading ? (
         <SkeletonRows columns={5} rows={5} />
       ) : !datasets.length ? (
-        <EmptyState title={t('modules.evaluation.datasets.emptyTitle')} description={t('modules.evaluation.datasets.emptyDescription')} />
+        <EmptyState title={t('evaluation:datasets.emptyTitle')} description={t('evaluation:datasets.emptyDescription')} />
       ) : (
         <table className="w-full text-sm">
           <thead>

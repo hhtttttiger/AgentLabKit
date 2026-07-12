@@ -12,9 +12,9 @@ import { emptyFeatureDraft, toFeatureDraft } from './types';
 function validateDraft(_mode: 'create' | 'edit', draft: LlmFeatureWriteModel, t: (key: string) => string) {
   const errors: Partial<Record<keyof LlmFeatureWriteModel, string>> = {};
 
-  if (!draft.featureKey.trim()) errors.featureKey = t('modules.modelManagement.featureDefinitions.drawer.validation.featureKeyRequired');
-  if (!draft.displayName.trim()) errors.displayName = t('modules.modelManagement.featureDefinitions.drawer.validation.displayNameRequired');
-  if (!draft.valueType.trim()) errors.valueType = t('modules.modelManagement.featureDefinitions.drawer.validation.valueTypeRequired');
+  if (!draft.featureKey.trim()) errors.featureKey = t('modelManagement:featureDefinitions.drawer.validation.featureKeyRequired');
+  if (!draft.displayName.trim()) errors.displayName = t('modelManagement:featureDefinitions.drawer.validation.displayNameRequired');
+  if (!draft.valueType.trim()) errors.valueType = t('modelManagement:featureDefinitions.drawer.validation.valueTypeRequired');
 
   return errors;
 }
@@ -38,7 +38,7 @@ export function FeatureDrawer({
 }) {
   const [draft, setDraft] = useState<LlmFeatureWriteModel>(emptyFeatureDraft);
   const [rawAllowedValuesJson, setRawAllowedValuesJson] = useState('[]');
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   useEffect(() => {
     setDraft(initialValue ?? emptyFeatureDraft);
@@ -70,20 +70,20 @@ export function FeatureDrawer({
   return (
     <FormModal
       open={open}
-      title={mode === 'create' ? t('modules.modelManagement.featureDefinitions.drawer.titleCreate') : t('modules.modelManagement.featureDefinitions.drawer.titleEdit')}
-      description={t('modules.modelManagement.featureDefinitions.drawer.description')}
+      title={mode === 'create' ? t('modelManagement:featureDefinitions.drawer.titleCreate') : t('modelManagement:featureDefinitions.drawer.titleEdit')}
+      description={t('modelManagement:featureDefinitions.drawer.description')}
       onClose={onClose}
       widthClassName="max-w-4xl"
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            {t('modules.modelManagement.featureDefinitions.drawer.actions.cancel')}
+            {t('modelManagement:featureDefinitions.drawer.actions.cancel')}
           </Button>
           <Button
             onClick={() => onSubmit(toFeatureDraft(draft))}
             disabled={loading || Object.keys(validationErrors).length > 0}
           >
-            {loading ? t('modules.modelManagement.featureDefinitions.drawer.actions.submitting') : mode === 'create' ? t('modules.modelManagement.featureDefinitions.drawer.actions.create') : t('modules.modelManagement.featureDefinitions.drawer.actions.save')}
+            {loading ? t('modelManagement:featureDefinitions.drawer.actions.submitting') : mode === 'create' ? t('modelManagement:featureDefinitions.drawer.actions.create') : t('modelManagement:featureDefinitions.drawer.actions.save')}
           </Button>
         </div>
       }
@@ -92,20 +92,20 @@ export function FeatureDrawer({
         {error ? <InlineMessage tone="error">{error}</InlineMessage> : null}
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-          label={t('modules.modelManagement.featureDefinitions.drawer.fields.featureKey')}
+          label={t('modelManagement:featureDefinitions.drawer.fields.featureKey')}
             value={draft.featureKey}
             error={validationErrors.featureKey}
             disabled={mode === 'edit'}
             onChange={(event) => setDraft((current) => ({ ...current, featureKey: event.target.value }))}
           />
           <TextField
-            label={t('modules.modelManagement.featureDefinitions.drawer.fields.displayName')}
+            label={t('modelManagement:featureDefinitions.drawer.fields.displayName')}
             value={draft.displayName}
             error={validationErrors.displayName}
             onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))}
           />
           <SelectField
-            label={t('modules.modelManagement.featureDefinitions.drawer.fields.valueType')}
+            label={t('modelManagement:featureDefinitions.drawer.fields.valueType')}
             value={draft.valueType}
             error={validationErrors.valueType}
             onChange={(event) => setDraft((current) => ({ ...current, valueType: event.target.value }))}
@@ -118,32 +118,32 @@ export function FeatureDrawer({
           </SelectField>
         </div>
         <TextField
-          label={t('modules.modelManagement.featureDefinitions.drawer.fields.description')}
+          label={t('modelManagement:featureDefinitions.drawer.fields.description')}
           value={draft.description ?? ''}
           onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
         />
         <JsonEditor
-          label={t('modules.modelManagement.featureDefinitions.drawer.fields.allowedValues')}
+          label={t('modelManagement:featureDefinitions.drawer.fields.allowedValues')}
           kind="array"
           value={rawAllowedValuesJson}
           onChange={(value) => {
             setRawAllowedValuesJson(value);
           }}
-          hint={t('modules.modelManagement.featureDefinitions.drawer.fields.allowedValuesHint')}
+          hint={t('modelManagement:featureDefinitions.drawer.fields.allowedValuesHint')}
         />
         <div className="grid gap-4 md:grid-cols-3">
           <ToggleField
-            label={t('modules.modelManagement.featureDefinitions.drawer.fields.isFilterable')}
+            label={t('modelManagement:featureDefinitions.drawer.fields.isFilterable')}
             checked={draft.isFilterable}
             onChange={(checked) => setDraft((current) => ({ ...current, isFilterable: checked }))}
           />
           <ToggleField
-            label={t('modules.modelManagement.featureDefinitions.drawer.fields.isRoutable')}
+            label={t('modelManagement:featureDefinitions.drawer.fields.isRoutable')}
             checked={draft.isRoutable}
             onChange={(checked) => setDraft((current) => ({ ...current, isRoutable: checked }))}
           />
           <ToggleField
-            label={t('modules.modelManagement.featureDefinitions.drawer.fields.isEnabled')}
+            label={t('modelManagement:featureDefinitions.drawer.fields.isEnabled')}
             checked={draft.isEnabled}
             onChange={(checked) => setDraft((current) => ({ ...current, isEnabled: checked }))}
           />

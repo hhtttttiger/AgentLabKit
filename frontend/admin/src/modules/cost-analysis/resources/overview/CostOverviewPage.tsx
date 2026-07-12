@@ -8,7 +8,7 @@ import { CostPieChart } from '../../lib/charts/CostPieChart';
 import { useTranslation } from 'react-i18next';
 
 export function CostOverviewPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'costAnalysis']);
   const overviewQuery = useCostOverview(30);
   const breakdownQuery = useBreakdownByModel(30);
   const trendQuery = useCostTrend('day', 30);
@@ -45,7 +45,7 @@ export function CostOverviewPage() {
     return (
       <div className="p-6">
         <InlineMessage tone="error">
-          {overviewQuery.error?.message ?? t('modules.costAnalysis.overview.error')}
+          {overviewQuery.error?.message ?? t('costAnalysis:overview.error')}
         </InlineMessage>
       </div>
     );
@@ -56,10 +56,10 @@ export function CostOverviewPage() {
   const trend = trendQuery.data;
 
   const metrics = [
-    { label: t('modules.costAnalysis.overview.totalSpend'), value: formatCost(overview.totalSpend), hint: formatPct(overview.spendChangePct), accent: 'blue' as const },
-    { label: t('modules.costAnalysis.overview.totalRequests'), value: String(overview.totalRequests), hint: `前 ${formatCost(overview.prevTotalSpend)}`, accent: 'violet' as const },
-    { label: t('modules.costAnalysis.overview.totalTokens'), value: formatTokens(overview.totalTokens), accent: 'teal' as const },
-    { label: t('modules.costAnalysis.overview.avgLatency'), value: formatLatency(overview.avgLatencyMs), accent: 'amber' as const },
+    { label: t('costAnalysis:overview.totalSpend'), value: formatCost(overview.totalSpend), hint: formatPct(overview.spendChangePct), accent: 'blue' as const },
+    { label: t('costAnalysis:overview.totalRequests'), value: String(overview.totalRequests), hint: `前 ${formatCost(overview.prevTotalSpend)}`, accent: 'violet' as const },
+    { label: t('costAnalysis:overview.totalTokens'), value: formatTokens(overview.totalTokens), accent: 'teal' as const },
+    { label: t('costAnalysis:overview.avgLatency'), value: formatLatency(overview.avgLatencyMs), accent: 'amber' as const },
   ];
 
   return (
@@ -70,7 +70,7 @@ export function CostOverviewPage() {
         {/* 成本趋势 */}
         <div className="border border-border rounded-[2px] bg-surface px-6 py-4">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
-            {t('modules.costAnalysis.overview.costTrend')}
+            {t('costAnalysis:overview.costTrend')}
           </h3>
           {trend && <CostTrendChart data={trend} />}
         </div>
@@ -78,7 +78,7 @@ export function CostOverviewPage() {
         {/* 模型分布 */}
         <div className="border border-border rounded-[2px] bg-surface px-6 py-4">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
-            {t('modules.costAnalysis.overview.modelDistribution')}
+            {t('costAnalysis:overview.modelDistribution')}
           </h3>
           {breakdown && <CostPieChart data={breakdown.slice(0, 6)} />}
         </div>
@@ -88,7 +88,7 @@ export function CostOverviewPage() {
       {overview.topModels.length > 0 && (
         <div className="border border-border rounded-[2px] bg-surface px-6 py-4">
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
-            {t('modules.costAnalysis.overview.topModels')}
+            {t('costAnalysis:overview.topModels')}
           </h3>
           <table className="w-full text-sm">
             <thead>

@@ -50,11 +50,11 @@ function InlineValueEditor({
   valueError: string | null;
   onUpdate: (valueInput: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const allowedValues = parseAllowedValues(feature.allowedValuesJson);
 
   if (!draft.isSupported) {
-    return <span className="text-xs text-text-muted">{t('modules.modelManagement.models.featureSection.disabled')}</span>;
+    return <span className="text-xs text-text-muted">{t('modelManagement:models.featureSection.disabled')}</span>;
   }
 
   if (feature.valueType === 'boolean') {
@@ -126,7 +126,7 @@ function FeatureRow({
   onDelete: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   const rawValueError = draft.isSupported
     ? validateFeatureValueInput(
@@ -156,8 +156,8 @@ function FeatureRow({
             <span className={`text-sm font-medium ${draft.isSupported ? 'text-text' : 'text-text-muted line-through'}`}>
               {feature.displayName}
             </span>
-            {feature.isFilterable ? <Badge>{t('modules.modelManagement.models.featureSection.filterable')}</Badge> : null}
-            {feature.isRoutable ? <Badge tone="success">{t('modules.modelManagement.models.featureSection.routable')}</Badge> : null}
+            {feature.isFilterable ? <Badge>{t('modelManagement:models.featureSection.filterable')}</Badge> : null}
+            {feature.isRoutable ? <Badge tone="success">{t('modelManagement:models.featureSection.routable')}</Badge> : null}
           </div>
         </div>
 
@@ -177,7 +177,7 @@ function FeatureRow({
               onClick={onSave}
               disabled={busy || Boolean(valueError)}
             >
-              {busy && isSaving ? t('modules.modelManagement.models.featureSection.saving') : t('modules.modelManagement.models.featureSection.save')}
+              {busy && isSaving ? t('modelManagement:models.featureSection.saving') : t('modelManagement:models.featureSection.save')}
             </Button>
 
             <button
@@ -196,13 +196,13 @@ function FeatureRow({
         <div className="border-t border-border-subtle px-4 pb-3 pt-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <TextField
-              label={t('modules.modelManagement.models.featureSection.source')}
+              label={t('modelManagement:models.featureSection.source')}
               value={draft.source}
               fieldSize="compact"
               onChange={(event) => onUpdateDraft((current) => ({ ...current, source: event.target.value }))}
             />
             <TextField
-              label={t('modules.modelManagement.models.featureSection.remark')}
+              label={t('modelManagement:models.featureSection.remark')}
               value={draft.remark}
               fieldSize="compact"
               onChange={(event) => onUpdateDraft((current) => ({ ...current, remark: event.target.value }))}
@@ -212,7 +212,7 @@ function FeatureRow({
             <div className="mt-3 flex items-center justify-between">
               <span className="text-xs text-text-muted">{feature.featureKey} · {feature.valueType}</span>
               <Button variant="ghost" onClick={onDelete} disabled={busy}>
-                {busy && isRemoving ? t('modules.modelManagement.models.featureSection.removing') : t('modules.modelManagement.models.featureSection.remove')}
+                {busy && isRemoving ? t('modelManagement:models.featureSection.removing') : t('modelManagement:models.featureSection.remove')}
               </Button>
             </div>
           ) : (
@@ -231,7 +231,7 @@ export function ModelFeatureSection({
   modelKey: string;
   features: LlmModelView['features'];
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const {
     featureDefinitionsQuery,
     featureMutations,
@@ -337,17 +337,17 @@ export function ModelFeatureSection({
 
   return (
     <Card
-      title={t('modules.modelManagement.models.featureSection.cardTitle')}
-      description={totalCount > 0 ? t('modules.modelManagement.models.featureSection.configuredCount', { configured: configuredCount, total: totalCount }) : undefined}
+      title={t('modelManagement:models.featureSection.cardTitle')}
+      description={totalCount > 0 ? t('modelManagement:models.featureSection.configuredCount', { configured: configuredCount, total: totalCount }) : undefined}
     >
       <div className="space-y-3">
         <CardFeatureBadges features={features} limit={8} />
         {featureActionError ? <InlineMessage tone="error">{featureActionError}</InlineMessage> : null}
-        {featureDefinitionsQuery.isLoading ? <div className="text-sm text-text-secondary">{t('modules.modelManagement.models.featureSection.loading')}</div> : null}
+        {featureDefinitionsQuery.isLoading ? <div className="text-sm text-text-secondary">{t('modelManagement:models.featureSection.loading')}</div> : null}
 
         {configured.length > 0 ? (
           <div className="space-y-2">
-            <div className="text-xs font-medium tracking-wide text-text-muted">{t('modules.modelManagement.models.featureSection.configured')}</div>
+            <div className="text-xs font-medium tracking-wide text-text-muted">{t('modelManagement:models.featureSection.configured')}</div>
             {configured.map((feature) => {
               const featureDraft = featureDrafts[feature.featureKey];
               if (!featureDraft) return null;
@@ -371,7 +371,7 @@ export function ModelFeatureSection({
 
         {unconfigured.length > 0 ? (
           <div className="space-y-2">
-            <div className="text-xs font-medium tracking-wide text-text-muted">{t('modules.modelManagement.models.featureSection.unconfigured')}</div>
+            <div className="text-xs font-medium tracking-wide text-text-muted">{t('modelManagement:models.featureSection.unconfigured')}</div>
             {unconfigured.map((feature) => {
               const featureDraft = featureDrafts[feature.featureKey];
               if (!featureDraft) return null;
@@ -394,7 +394,7 @@ export function ModelFeatureSection({
         ) : null}
 
         {!editableFeatures.length && !featureDefinitionsQuery.isLoading ? (
-          <EmptyState title={t('modules.modelManagement.models.featureSection.empty')} />
+          <EmptyState title={t('modelManagement:models.featureSection.empty')} />
         ) : null}
       </div>
     </Card>

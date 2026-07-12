@@ -10,7 +10,7 @@ import { ModelSummaryCard } from '../components/ModelSummaryCard';
 import { formatCompact, formatLatency } from '../lib/formatters';
 
 export function ModelMonitoringOverviewPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'modelMonitoring']);
   const modelOptionsQuery = useModelOptions();
   const overviewQuery = useMonitoringOverview({});
 
@@ -25,17 +25,17 @@ export function ModelMonitoringOverviewPage() {
       <div className="space-y-6 pb-3">
         <MetricStrip
           items={[
-            { label: t('modules.modelMonitoring.overview.metrics.totalRequests'), value: data ? formatCompact(data.totalRequests) : '-', hint: t('modules.modelMonitoring.overview.hints.totalRequests'), accent: 'blue' },
-            { label: t('modules.modelMonitoring.overview.metrics.totalTokens'), value: data ? formatCompact(data.totalTokens) : '-', hint: t('modules.modelMonitoring.overview.hints.totalTokens'), accent: 'violet' },
-            { label: t('modules.modelMonitoring.overview.metrics.averageLatency'), value: data ? formatLatency(data.averageLatencyMs) : '-', hint: t('modules.modelMonitoring.overview.hints.averageLatency'), accent: 'teal' },
-            { label: t('modules.modelMonitoring.overview.metrics.totalErrors'), value: data ? formatCompact(data.totalErrors) : '-', hint: t('modules.modelMonitoring.overview.hints.totalErrors'), accent: 'amber' },
+            { label: t('modelMonitoring:overview.metrics.totalRequests'), value: data ? formatCompact(data.totalRequests) : '-', hint: t('modelMonitoring:overview.hints.totalRequests'), accent: 'blue' },
+            { label: t('modelMonitoring:overview.metrics.totalTokens'), value: data ? formatCompact(data.totalTokens) : '-', hint: t('modelMonitoring:overview.hints.totalTokens'), accent: 'violet' },
+            { label: t('modelMonitoring:overview.metrics.averageLatency'), value: data ? formatLatency(data.averageLatencyMs) : '-', hint: t('modelMonitoring:overview.hints.averageLatency'), accent: 'teal' },
+            { label: t('modelMonitoring:overview.metrics.totalErrors'), value: data ? formatCompact(data.totalErrors) : '-', hint: t('modelMonitoring:overview.hints.totalErrors'), accent: 'amber' },
           ]}
         />
 
         {isLoading ? (
           <SkeletonCards />
         ) : !data?.modelSummaries.length ? (
-          <EmptyState title={t('modules.modelMonitoring.overview.emptyTitle')} description={t('modules.modelMonitoring.overview.emptyDescription')} />
+          <EmptyState title={t('modelMonitoring:overview.emptyTitle')} description={t('modelMonitoring:overview.emptyDescription')} />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {data.modelSummaries.map((card) => (

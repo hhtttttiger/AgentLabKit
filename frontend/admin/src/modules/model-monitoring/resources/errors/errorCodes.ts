@@ -39,20 +39,20 @@ const LOCAL_KNOWN_LABELS: Record<string, string> = {
 };
 
 /** Static getter – used in tests and as fallback for the hook. */
-export function getErrorCodeOptions(t: TFunction<'common'>): ErrorCodeOption[] {
+export function getErrorCodeOptions(t: TFunction<'modelMonitoring'>): ErrorCodeOption[] {
   return Object.keys(LOCAL_KNOWN_LABELS).map((code) => ({
     value: code,
-    label: `${code} — ${t(`modules.modelMonitoring.errors.errorCodeLabels.${code}`, code)}`,
+    label: `${code} — ${t(`modelMonitoring:errors.errorCodeLabels.${code}`, code)}`,
   }));
 }
 
 function buildErrorCodeOptions(
   errorCodes: string[] | undefined,
-  t: TFunction<'common'>,
+  t: TFunction<'modelMonitoring'>,
 ): ErrorCodeOption[] {
   const codes = errorCodes?.length ? errorCodes : Object.keys(LOCAL_KNOWN_LABELS);
   return codes.map((code) => {
-    const translated = t(`modules.modelMonitoring.errors.errorCodeLabels.${code}`, '');
+    const translated = t(`modelMonitoring:errors.errorCodeLabels.${code}`, '');
     const label = translated ? `${code} — ${translated}` : code;
     return { value: code, label };
   });
@@ -62,7 +62,7 @@ function buildErrorCodeOptions(
  * Hook: returns error code filter options, preferring codes that actually
  * exist in the DB (via API), falling back to the local known list.
  */
-export function useErrorCodeOptions(t: TFunction<'common'>): ErrorCodeOption[] {
+export function useErrorCodeOptions(t: TFunction<'modelMonitoring'>): ErrorCodeOption[] {
   const { data } = useDistinctErrorCodes();
   return useMemo(() => buildErrorCodeOptions(data?.errorCodes, t), [data?.errorCodes, t]);
 }

@@ -31,9 +31,9 @@ export function ChatInputArea({
   selectedModel,
   onSelectModel,
 }: ChatInputAreaProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   const [input, setInput] = useState('');
-  const resolvedPlaceholder = placeholder ?? t('modules.aiChat.input.placeholder');
+  const resolvedPlaceholder = placeholder ?? t('aiChat:input.placeholder');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea based on content
@@ -83,17 +83,17 @@ export function ChatInputArea({
           <button
             type="button"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border-subtle bg-surface-subtle/80 transition hover:border-border hover:bg-surface"
-            title={t('modules.aiChat.input.addAttachment')}
+            title={t('aiChat:input.addAttachment')}
           >
             <Plus className="h-4 w-4" />
           </button>
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-subtle/80 px-3 py-2 text-sm transition hover:border-border hover:bg-surface"
-            title={t('modules.aiChat.input.toolSettings')}
+            title={t('aiChat:input.toolSettings')}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            <span>{t('modules.aiChat.input.toolLabel')}</span>
+            <span>{t('aiChat:input.toolLabel')}</span>
           </button>
         </div>
 
@@ -101,7 +101,7 @@ export function ChatInputArea({
           <button
             type="button"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-text-muted transition hover:bg-surface-subtle hover:text-text"
-            title={t('modules.aiChat.input.voiceInput')}
+            title={t('aiChat:input.voiceInput')}
           >
             <Mic className="h-4 w-4" />
           </button>
@@ -116,7 +116,7 @@ export function ChatInputArea({
                 background: 'rgb(var(--color-error))',
                 boxShadow: '0 10px 20px rgb(var(--color-error) / 0.20)',
               }}
-              title={t('modules.aiChat.input.stopGeneration')}
+              title={t('aiChat:input.stopGeneration')}
             >
               <Square className="h-3.5 w-3.5" />
             </button>
@@ -130,7 +130,7 @@ export function ChatInputArea({
                 background: 'linear-gradient(135deg, rgb(var(--color-primary)), rgb(var(--color-primary-hover)))',
                 boxShadow: '0 10px 20px rgb(var(--color-primary) / 0.20)',
               }}
-              title={t('modules.aiChat.input.sendMessage')}
+              title={t('aiChat:input.sendMessage')}
             >
               <ArrowUp className="h-4.5 w-4.5" />
             </button>

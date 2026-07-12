@@ -20,8 +20,8 @@ function canEmitConnection(kind: SkillFlowState['kind']) {
 }
 
 export function SkillFlowNodeCard({ data, selected }: NodeProps<Node<SkillFlowState>>) {
-  const { t } = useTranslation('common');
-  const wb = 'modules.agentManagement.skills.workbench';
+  const { t } = useTranslation(['common', 'agentManagement']);
+  const wb = 'agentManagement.skills.workbench';
   const kindLabelMap: Record<SkillFlowState['kind'], string> = {
     start: t(`${wb}.nodeLabels.start`),
     task: t(`${wb}.nodeLabels.task`),

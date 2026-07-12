@@ -26,7 +26,7 @@ export function TermImportDrawer({
   categoryId?: string;
   onClose: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'glossary']);
   const { importTerms } = useGlossaryTermMutations();
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<GlossaryImportResult | null>(null);
@@ -58,7 +58,7 @@ export function TermImportDrawer({
       onError: (error) => {
         setResult({
           importedCount: 0,
-          errors: [error instanceof Error ? error.message : t('modules.glossary.termImport.errorFallback')],
+          errors: [error instanceof Error ? error.message : t('glossary:termImport.errorFallback')],
         });
       },
     });
@@ -67,16 +67,16 @@ export function TermImportDrawer({
   return (
     <FormModal
       open={open}
-      title={t('modules.glossary.termImport.title')}
-      description={t('modules.glossary.termImport.description')}
+      title={t('glossary:termImport.title')}
+      description={t('glossary:termImport.description')}
       onClose={handleClose}
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={handleClose}>
-            {t('modules.glossary.termImport.actions.cancel')}
+            {t('glossary:termImport.actions.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={!file || importTerms.isPending}>
-            {importTerms.isPending ? t('modules.glossary.termImport.actions.importing') : t('modules.glossary.termImport.actions.submit')}
+            {importTerms.isPending ? t('glossary:termImport.actions.importing') : t('glossary:termImport.actions.submit')}
           </Button>
         </div>
       }
@@ -102,31 +102,31 @@ export function TermImportDrawer({
           {file ? (
             <>
               <div className="text-sm font-medium text-text">{file.name}</div>
-              <div className="text-xs text-text-muted">{t('modules.glossary.termImport.upload.replaceFile')}</div>
+              <div className="text-xs text-text-muted">{t('glossary:termImport.upload.replaceFile')}</div>
             </>
           ) : (
             <>
-              <div className="text-sm font-medium text-text">{t('modules.glossary.termImport.upload.selectFile')}</div>
-              <div className="text-xs text-text-muted">{t('modules.glossary.termImport.upload.hint')}</div>
+              <div className="text-sm font-medium text-text">{t('glossary:termImport.upload.selectFile')}</div>
+              <div className="text-xs text-text-muted">{t('glossary:termImport.upload.hint')}</div>
             </>
           )}
         </label>
 
         <div className="flex items-center justify-center gap-2 text-sm text-text-muted">
-          <span>{t('modules.glossary.termImport.template.prompt')}</span>
+          <span>{t('glossary:termImport.template.prompt')}</span>
           <button
             type="button"
             onClick={downloadTemplate}
             className="inline-flex items-center gap-1 font-medium text-primary transition hover:underline"
           >
             <Download size={14} />
-            {t('modules.glossary.termImport.actions.downloadTemplate')}
+            {t('glossary:termImport.actions.downloadTemplate')}
           </button>
         </div>
 
         {result ? (
           <div className="space-y-3 rounded-[2px] border border-border bg-surface/70 p-4">
-            <div className="text-sm font-medium text-text">{t('modules.glossary.termImport.result.importedCount', { count: result.importedCount })}</div>
+            <div className="text-sm font-medium text-text">{t('glossary:termImport.result.importedCount', { count: result.importedCount })}</div>
             {result.errors.length ? (
               <ul className="list-disc space-y-1 pl-5 text-sm text-text-secondary">
                 {result.errors.map((item) => (
@@ -134,7 +134,7 @@ export function TermImportDrawer({
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-text-secondary">{t('modules.glossary.termImport.result.noErrors')}</p>
+              <p className="text-sm text-text-secondary">{t('glossary:termImport.result.noErrors')}</p>
             )}
           </div>
         ) : null}

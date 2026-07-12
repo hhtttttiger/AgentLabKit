@@ -12,7 +12,7 @@ type CardProps = {
  * Shared model-summary card used in both the overview page and the usage grid view.
  */
 export function ModelSummaryCard({ card, onClick }: CardProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'modelMonitoring']);
 
   const content = (
     <>
@@ -23,11 +23,11 @@ export function ModelSummaryCard({ card, onClick }: CardProps) {
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="flex items-center gap-2 text-xs text-text-muted">
           <Zap size={13} className="shrink-0 text-primary" />
-          <span>{t('modules.modelMonitoring.overview.card.requests', { value: formatCompact(card.totalRequests) })}</span>
+          <span>{t('modelMonitoring:overview.card.requests', { value: formatCompact(card.totalRequests) })}</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-text-muted">
           <Activity size={13} className="shrink-0 text-primary" />
-          <span>{t('modules.modelMonitoring.overview.card.tokens', { value: formatCompact(card.totalInputTokens + card.totalOutputTokens) })}</span>
+          <span>{t('modelMonitoring:overview.card.tokens', { value: formatCompact(card.totalInputTokens + card.totalOutputTokens) })}</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-text-muted">
           <Clock size={13} className="shrink-0 text-text-muted" />
@@ -35,7 +35,7 @@ export function ModelSummaryCard({ card, onClick }: CardProps) {
         </div>
         <div className="flex items-center gap-2 text-xs text-text-muted">
           <AlertTriangle size={13} className="shrink-0 text-warning-text" />
-          <span>{t('modules.modelMonitoring.overview.card.errors', { value: card.errorCount })}</span>
+          <span>{t('modelMonitoring:overview.card.errors', { value: card.errorCount })}</span>
         </div>
       </div>
     </>

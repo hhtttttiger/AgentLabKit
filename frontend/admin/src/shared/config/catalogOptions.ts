@@ -27,19 +27,19 @@ export function isEmbeddingModel(type: string | null | undefined): boolean {
   return type === 'Embedding' || type === 'embedding';
 }
 
-export function getEnabledFilterOptions(t: TFunction<'common'>) {
+export function getEnabledFilterOptions(t: TFunction<'modelManagement'>) {
   return [
-    { label: t('modules.modelManagement.shared.enabledStatusOptions.all'), value: 'all' },
-    { label: t('modules.modelManagement.shared.enabledStatusOptions.enabledOnly'), value: 'true' },
-    { label: t('modules.modelManagement.shared.enabledStatusOptions.disabledOnly'), value: 'false' },
+    { label: t('modelManagement:shared.enabledStatusOptions.all'), value: 'all' },
+    { label: t('modelManagement:shared.enabledStatusOptions.enabledOnly'), value: 'true' },
+    { label: t('modelManagement:shared.enabledStatusOptions.disabledOnly'), value: 'false' },
   ];
 }
 
-export function getHealthFilterOptions(t: TFunction<'common'>) {
+export function getHealthFilterOptions(t: TFunction<'modelManagement'>) {
   return [
-    { label: t('modules.modelManagement.shared.healthStatusOptions.all'), value: 'all' },
-    { label: t('modules.modelManagement.shared.healthStatusOptions.healthyOnly'), value: 'true' },
-    { label: t('modules.modelManagement.shared.healthStatusOptions.unhealthyOnly'), value: 'false' },
+    { label: t('modelManagement:shared.healthStatusOptions.all'), value: 'all' },
+    { label: t('modelManagement:shared.healthStatusOptions.healthyOnly'), value: 'true' },
+    { label: t('modelManagement:shared.healthStatusOptions.unhealthyOnly'), value: 'false' },
   ];
 }
 
@@ -51,19 +51,19 @@ export const valueTypeOptions = [
   { label: 'Enum', value: 'enum' },
 ];
 
-export function getFilterableFilterOptions(t: TFunction<'common'>) {
+export function getFilterableFilterOptions(t: TFunction<'modelManagement'>) {
   return [
-    { label: t('modules.modelManagement.shared.filterableOptions.all'), value: 'all' },
-    { label: t('modules.modelManagement.shared.filterableOptions.filterableOnly'), value: 'true' },
-    { label: t('modules.modelManagement.shared.filterableOptions.notFilterableOnly'), value: 'false' },
+    { label: t('modelManagement:shared.filterableOptions.all'), value: 'all' },
+    { label: t('modelManagement:shared.filterableOptions.filterableOnly'), value: 'true' },
+    { label: t('modelManagement:shared.filterableOptions.notFilterableOnly'), value: 'false' },
   ];
 }
 
-export function getRoutableFilterOptions(t: TFunction<'common'>) {
+export function getRoutableFilterOptions(t: TFunction<'modelManagement'>) {
   return [
-    { label: t('modules.modelManagement.shared.routableOptions.all'), value: 'all' },
-    { label: t('modules.modelManagement.shared.routableOptions.routableOnly'), value: 'true' },
-    { label: t('modules.modelManagement.shared.routableOptions.notRoutableOnly'), value: 'false' },
+    { label: t('modelManagement:shared.routableOptions.all'), value: 'all' },
+    { label: t('modelManagement:shared.routableOptions.routableOnly'), value: 'true' },
+    { label: t('modelManagement:shared.routableOptions.notRoutableOnly'), value: 'false' },
   ];
 }
 
@@ -76,7 +76,7 @@ export function getValueTypeLabel(valueType: string | null | undefined) {
 }
 
 /** Map a capability value (e.g. 'SpeechBatch') to a localized, human-readable label. */
-export function getCapabilityLabel(t: TFunction<'common'>, capability: string | null | undefined): string {
+export function getCapabilityLabel(t: TFunction<'modelManagement'>, capability: string | null | undefined): string {
   if (!capability) return '-';
   const known = capabilityOptions.find((item) => item.value === capability);
   return t(`preferences.catalog.capabilities.${capability}`, { defaultValue: known?.label ?? capability });

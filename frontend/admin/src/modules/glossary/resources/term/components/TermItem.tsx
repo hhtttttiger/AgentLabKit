@@ -12,7 +12,7 @@ export function TermItem({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'glossary']);
   return (
     <div className={cn('rounded-[2px] border border-border bg-surface/80 p-4 transition hover:bg-background-subtle')}>
       <div className="flex items-start justify-between gap-4">
@@ -26,16 +26,16 @@ export function TermItem({
                 </span>
               ))
             ) : (
-              <span className="text-xs text-text-muted">{t('modules.glossary.termItem.noSynonyms')}</span>
+              <span className="text-xs text-text-muted">{t('glossary:termItem.noSynonyms')}</span>
             )}
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
           <Button variant="secondary" className="min-h-control-sm px-3 py-2 text-xs" onClick={onEdit}>
-            {t('modules.glossary.termItem.actions.edit')}
+            {t('glossary:termItem.actions.edit')}
           </Button>
           <Button variant="ghost" className="min-h-control-sm px-3 py-2 text-xs" onClick={onDelete}>
-            {t('modules.glossary.termItem.actions.delete')}
+            {t('glossary:termItem.actions.delete')}
           </Button>
         </div>
       </div>

@@ -11,14 +11,14 @@ const AiChatLayout = lazyRoute(() => import('./pages/AiChatLayout'), 'AiChatLayo
 const AiChatPage = lazyRoute(() => import('./pages/AiChatPage'), 'AiChatPage');
 
 function AiChatPageLoader() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   const { data: agentOptions = [], isLoading: isLoadingAgents } = useChatAgentOptions();
   const { data: modelOptions = [], isLoading } = useChatModelOptions();
 
   if (isLoading || isLoadingAgents) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-text-muted">{t('modules.aiChat.loading')}</div>
+        <div className="text-text-muted">{t('aiChat:loading')}</div>
       </div>
     );
   }

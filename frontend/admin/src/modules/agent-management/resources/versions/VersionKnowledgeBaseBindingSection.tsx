@@ -10,7 +10,7 @@ import { InlineMessage } from '@/shared/ui/InlineMessage';
 import type { KnowledgeBaseBindingWriteModel } from '../../lib/contracts';
 import type { KnowledgeBaseBindingCandidate } from '../knowledge-base-bindings/types';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 type Row = KnowledgeBaseBindingWriteModel & {
   knowledgeBaseName: string;
@@ -45,7 +45,7 @@ export function VersionKnowledgeBaseBindingSection({
   onUpdate: (index: number, binding: KnowledgeBaseBindingWriteModel) => void;
   onRemove: (index: number) => void;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const [createOpen, setCreateOpen] = useState(false);
   const [draft, setDraft] = useState<KnowledgeBaseBindingWriteModel>({
     id: null,

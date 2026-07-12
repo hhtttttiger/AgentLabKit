@@ -61,7 +61,7 @@ function CreateUserForm({
   onCancel: () => void;
   submitting: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'userManagement']);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -76,42 +76,42 @@ function CreateUserForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <TextField
-        label={t('modules.userManagement.form.username')}
+        label={t('userManagement:form.username')}
         value={username}
         onChange={(e) => setUsername(e.target.value)}
         required
         autoFocus
       />
       <TextField
-        label={t('modules.userManagement.form.password')}
+        label={t('userManagement:form.password')}
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
       />
       <TextField
-        label={t('modules.userManagement.form.displayName')}
+        label={t('userManagement:form.displayName')}
         value={displayName}
         onChange={(e) => setDisplayName(e.target.value)}
       />
       <TextField
-        label={t('modules.userManagement.form.email')}
+        label={t('userManagement:form.email')}
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
       <SelectField
-        label={t('modules.userManagement.form.role')}
+        label={t('userManagement:form.role')}
         value={role}
         onChange={(e) => setRole(e.target.value)}
       >
-        <option value="admin">{t('modules.userManagement.roles.admin')}</option>
-        <option value="member">{t('modules.userManagement.roles.member')}</option>
+        <option value="admin">{t('userManagement:roles.admin')}</option>
+        <option value="member">{t('userManagement:roles.member')}</option>
       </SelectField>
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="ghost" type="button" onClick={onCancel}>{t('actions.cancel')}</Button>
         <Button type="submit" disabled={submitting}>
-          {submitting ? t('modules.userManagement.form.creating') : t('modules.userManagement.form.create')}
+          {submitting ? t('userManagement:form.creating') : t('userManagement:form.create')}
         </Button>
       </div>
     </form>
@@ -129,7 +129,7 @@ function EditUserForm({
   onCancel: () => void;
   submitting: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'userManagement']);
   const [displayName, setDisplayName] = useState(user.displayName ?? '');
   const [email, setEmail] = useState(user.email ?? '');
   const [role, setRole] = useState(user.role);
@@ -146,33 +146,33 @@ function EditUserForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <TextField
-        label={t('modules.userManagement.form.username')}
+        label={t('userManagement:form.username')}
         value={user.username}
         disabled
       />
       <TextField
-        label={t('modules.userManagement.form.displayName')}
+        label={t('userManagement:form.displayName')}
         value={displayName}
         onChange={(e) => setDisplayName(e.target.value)}
       />
       <TextField
-        label={t('modules.userManagement.form.email')}
+        label={t('userManagement:form.email')}
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
       <SelectField
-        label={t('modules.userManagement.form.role')}
+        label={t('userManagement:form.role')}
         value={role}
         onChange={(e) => setRole(e.target.value)}
       >
-        <option value="admin">{t('modules.userManagement.roles.admin')}</option>
-        <option value="member">{t('modules.userManagement.roles.member')}</option>
+        <option value="admin">{t('userManagement:roles.admin')}</option>
+        <option value="member">{t('userManagement:roles.member')}</option>
       </SelectField>
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="ghost" type="button" onClick={onCancel}>{t('actions.cancel')}</Button>
         <Button type="submit" disabled={submitting}>
-          {submitting ? t('modules.userManagement.form.saving') : t('modules.userManagement.form.save')}
+          {submitting ? t('userManagement:form.saving') : t('userManagement:form.save')}
         </Button>
       </div>
     </form>
@@ -180,7 +180,7 @@ function EditUserForm({
 }
 
 export function UsersPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'userManagement']);
   const { toast } = useToast();
   const mutations = useUserMutations();
 
@@ -246,45 +246,45 @@ export function UsersPage() {
   const columns: TableColumn<UserListItem>[] = [
     {
       key: 'username',
-      header: t('modules.userManagement.columns.username'),
+      header: t('userManagement:columns.username'),
       render: (row) => <span className="font-medium text-text-primary">{row.username}</span>,
     },
     {
       key: 'displayName',
-      header: t('modules.userManagement.columns.displayName'),
+      header: t('userManagement:columns.displayName'),
       render: (row) => row.displayName ?? '—',
     },
     {
       key: 'email',
-      header: t('modules.userManagement.columns.email'),
+      header: t('userManagement:columns.email'),
       render: (row) => row.email ?? '—',
     },
     {
       key: 'role',
-      header: t('modules.userManagement.columns.role'),
+      header: t('userManagement:columns.role'),
       render: (row) => (
         <Badge tone={row.role === 'admin' ? 'info' : 'neutral'}>
-          {t(`modules.userManagement.roles.${row.role}`)}
+          {t(`userManagement:roles.${row.role}`)}
         </Badge>
       ),
     },
     {
       key: 'isActive',
-      header: t('modules.userManagement.columns.status'),
+      header: t('userManagement:columns.status'),
       render: (row) => (
         <Badge tone={row.isActive ? 'success' : 'danger'}>
-          {row.isActive ? t('modules.userManagement.status.active') : t('modules.userManagement.status.inactive')}
+          {row.isActive ? t('userManagement:status.active') : t('userManagement:status.inactive')}
         </Badge>
       ),
     },
     {
       key: 'lastLoginAtUtc',
-      header: t('modules.userManagement.columns.lastLogin'),
+      header: t('userManagement:columns.lastLogin'),
       render: (row) => row.lastLoginAtUtc ? new Date(row.lastLoginAtUtc).toLocaleString() : '—',
     },
     {
       key: 'actions',
-      header: t('modules.userManagement.columns.actions'),
+      header: t('userManagement:columns.actions'),
       render: (row) => (
         <div className="flex gap-1">
           <Button
@@ -296,7 +296,7 @@ export function UsersPage() {
           </Button>
           <Button
             variant="ghost"
-            title={row.isActive ? t('modules.userManagement.actions.deactivate') : t('modules.userManagement.actions.activate')}
+            title={row.isActive ? t('userManagement:actions.deactivate') : t('userManagement:actions.activate')}
             onClick={() => row.isActive ? setDeactivatingUser(row) : handleToggleActive(row)}
           >
             {row.isActive ? <UserX size={14} /> : <UserCheck size={14} />}
@@ -308,12 +308,12 @@ export function UsersPage() {
 
   return (
     <PageFrame
-      title={t('modules.userManagement.title')}
-      description={t('modules.userManagement.description')}
+      title={t('userManagement:title')}
+      description={t('userManagement:description')}
       actions={
         <Button onClick={() => setCreateOpen(true)}>
           <Plus size={16} />
-          {t('modules.userManagement.newUser')}
+          {t('userManagement:newUser')}
         </Button>
       }
     >
@@ -349,8 +349,8 @@ export function UsersPage() {
           loading={listQuery.isLoading}
           emptyState={
             <EmptyState
-              title={t('modules.userManagement.emptyTitle')}
-              description={t('modules.userManagement.emptyDescription')}
+              title={t('userManagement:emptyTitle')}
+              description={t('userManagement:emptyDescription')}
             />
           }
         />
@@ -359,7 +359,7 @@ export function UsersPage() {
       {/* Create user modal */}
       <FormModal
         open={createOpen}
-        title={t('modules.userManagement.createUserTitle')}
+        title={t('userManagement:createUserTitle')}
         onClose={() => setCreateOpen(false)}
       >
         <CreateUserForm
@@ -372,7 +372,7 @@ export function UsersPage() {
       {/* Edit user modal */}
       <FormModal
         open={editingUser !== null}
-        title={t('modules.userManagement.editUserTitle')}
+        title={t('userManagement:editUserTitle')}
         onClose={() => setEditingUser(null)}
       >
         {editingUser && (
@@ -388,9 +388,9 @@ export function UsersPage() {
       {/* Deactivate confirmation */}
       <ConfirmDialog
         open={deactivatingUser !== null}
-        title={t('modules.userManagement.deactivateTitle')}
-        description={t('modules.userManagement.deactivateDescription', { name: deactivatingUser?.username })}
-        confirmLabel={t('modules.userManagement.actions.deactivate')}
+        title={t('userManagement:deactivateTitle')}
+        description={t('userManagement:deactivateDescription', { name: deactivatingUser?.username })}
+        confirmLabel={t('userManagement:actions.deactivate')}
         onConfirm={handleDeactivate}
         onClose={() => setDeactivatingUser(null)}
       />

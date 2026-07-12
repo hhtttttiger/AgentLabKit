@@ -29,7 +29,7 @@ import {
 import type { McpServerSummaryView, McpTransport } from './types';
 import { useMcpServer, useMcpServerList, useMcpServerMutations } from './hooks';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 const transportTone: Record<McpTransport, 'neutral' | 'warning' | 'success'> = {
   stdio: 'neutral',
@@ -38,7 +38,7 @@ const transportTone: Record<McpTransport, 'neutral' | 'warning' | 'success'> = {
 };
 
 export function McpServersPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const { toast } = useToast();
   const [filters, setFilters] = useState(defaultMcpServerFilters);
   const [editingName, setEditingName] = useState<string | null>(null);

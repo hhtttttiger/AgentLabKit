@@ -31,7 +31,7 @@ import { TermImportDrawer } from '../../resources/term/components/TermImportDraw
 const pageSize = 10;
 
 export function CategoryTermsTab() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'glossary']);
   const { toast } = useToast();
   const { categoryId } = useParams<{ categoryId: string }>();
   const [page, setPage] = useState(1);
@@ -55,12 +55,12 @@ export function CategoryTermsTab() {
   const columns: TableColumn<GlossaryTermView>[] = useMemo(() => [
       {
         key: 'term',
-        header: t('modules.glossary.termsTab.columns.term'),
+        header: t('glossary:termsTab.columns.term'),
         render: (row) => <span className="font-medium text-text">{row.term}</span>,
       },
       {
         key: 'synonyms',
-        header: t('modules.glossary.termsTab.columns.synonyms'),
+        header: t('glossary:termsTab.columns.synonyms'),
       render: (row) =>
         row.synonyms.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
@@ -74,18 +74,18 @@ export function CategoryTermsTab() {
     },
       {
         key: 'createdAt',
-        header: t('modules.glossary.termsTab.columns.createdAt'),
+        header: t('glossary:termsTab.columns.createdAt'),
         className: 'whitespace-nowrap',
         render: (row) => formatAdminDate(row.createdAtUtc, undefined, locale),
       },
       {
         key: 'actions',
-        header: t('modules.glossary.termsTab.columns.actions'),
+        header: t('glossary:termsTab.columns.actions'),
         className: 'w-12',
         render: (row) => (
           <RowActions actions={[
-            { label: t('modules.glossary.termsTab.rowActions.edit'), onClick: () => setEditingTerm(row) },
-            { label: t('modules.glossary.termsTab.rowActions.delete'), onClick: () => setDeletingTerm(row), variant: 'danger' },
+            { label: t('glossary:termsTab.rowActions.edit'), onClick: () => setEditingTerm(row) },
+            { label: t('glossary:termsTab.rowActions.delete'), onClick: () => setDeletingTerm(row), variant: 'danger' },
           ]} />
         ),
       },
@@ -106,19 +106,19 @@ export function CategoryTermsTab() {
               >
                 <ToolbarButton variant="secondary" onClick={() => setImportOpen(true)}>
                   <Upload size={14} />
-                  {t('modules.glossary.termsTab.toolbar.import')}
+                  {t('glossary:termsTab.toolbar.import')}
                 </ToolbarButton>
                 <ToolbarButton variant="primary" onClick={() => setCreateOpen(true)}>
                   <Plus size={14} />
-                  {t('modules.glossary.termsTab.toolbar.create')}
+                  {t('glossary:termsTab.toolbar.create')}
                 </ToolbarButton>
               </FilterToolbarActions>
             }
           >
             <TextField
-              label={t('modules.glossary.termsTab.toolbar.searchLabel')}
+              label={t('glossary:termsTab.toolbar.searchLabel')}
               fieldSize="compact"
-              placeholder={t('modules.glossary.termsTab.toolbar.searchPlaceholder')}
+              placeholder={t('glossary:termsTab.toolbar.searchPlaceholder')}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -146,12 +146,12 @@ export function CategoryTermsTab() {
           loading={termQuery.isLoading}
           emptyState={
             <EmptyState
-              title={t('modules.glossary.termsTab.emptyTitle')}
-              description={t('modules.glossary.termsTab.emptyDescription')}
+              title={t('glossary:termsTab.emptyTitle')}
+              description={t('glossary:termsTab.emptyDescription')}
               action={
                 <Button onClick={() => setCreateOpen(true)}>
                   <Plus size={16} />
-                  {t('modules.glossary.termsTab.emptyAction')}
+                  {t('glossary:termsTab.emptyAction')}
                 </Button>
               }
             />
@@ -196,9 +196,9 @@ export function CategoryTermsTab() {
 
       <ConfirmDialog
         open={deletingTerm !== null}
-        title={t('modules.glossary.termsTab.deleteTitle')}
-        description={t('modules.glossary.termsTab.deleteDescription', { name: deletingTerm?.term ?? '' })}
-        confirmLabel={t('modules.glossary.termsTab.confirmDelete')}
+        title={t('glossary:termsTab.deleteTitle')}
+        description={t('glossary:termsTab.deleteDescription', { name: deletingTerm?.term ?? '' })}
+        confirmLabel={t('glossary:termsTab.confirmDelete')}
         loading={termMutations.remove.isPending}
         error={termMutations.remove.error ? getErrorMessage(termMutations.remove.error) : null}
         onClose={() => {

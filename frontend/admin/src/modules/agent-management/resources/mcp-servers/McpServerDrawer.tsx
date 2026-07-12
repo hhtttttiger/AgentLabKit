@@ -8,7 +8,7 @@ import { JsonEditor } from '@/shared/ui/JsonEditor';
 import type { CreateMcpServerRequest, McpServerDetailView, McpTransport } from './types';
 import { emptyMcpServerDraft } from './types';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 const transportOptions: { value: McpTransport; label: string }[] = [
   { value: 'stdio', label: 'stdio' },
@@ -49,7 +49,7 @@ export function McpServerDrawer({
   onClose: () => void;
   onSubmit: (model: CreateMcpServerRequest) => Promise<void>;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const [draft, setDraft] = useState<CreateMcpServerRequest>(emptyMcpServerDraft);
   const [tagsInput, setTagsInput] = useState('');
   const waitingForEditDetail = mode === 'edit' && open && initialValue === null && !error;

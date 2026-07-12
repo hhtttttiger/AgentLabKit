@@ -54,20 +54,20 @@ export function validateFeatureValueInput(
   valueInput: string,
 ) {
   if (definition.valueType === 'boolean') {
-    return valueInput === 'true' || valueInput === 'false' ? null : 'modules.modelManagement.featureValidation.booleanRequired';
+    return valueInput === 'true' || valueInput === 'false' ? null : 'modelManagement:featureValidation.booleanRequired';
   }
 
   if (definition.valueType === 'int') {
-    return /^-?\d+$/.test(valueInput.trim()) ? null : 'modules.modelManagement.featureValidation.integerRequired';
+    return /^-?\d+$/.test(valueInput.trim()) ? null : 'modelManagement:featureValidation.integerRequired';
   }
 
   if (definition.valueType === 'number') {
-    return Number.isFinite(Number(valueInput.trim())) ? null : 'modules.modelManagement.featureValidation.numberRequired';
+    return Number.isFinite(Number(valueInput.trim())) ? null : 'modelManagement:featureValidation.numberRequired';
   }
 
   if (definition.valueType === 'enum') {
     const allowed = parseAllowedValues(definition.allowedValuesJson ?? []);
-    return allowed.length === 0 || allowed.includes(valueInput) ? null : 'modules.modelManagement.featureValidation.enumRequired';
+    return allowed.length === 0 || allowed.includes(valueInput) ? null : 'modelManagement:featureValidation.enumRequired';
   }
 
   return null;
@@ -114,8 +114,8 @@ export function CardFeatureBadges({
   emptyLabel?: string;
   limit?: number;
 }) {
-  const { t } = useTranslation();
-  const resolvedEmptyLabel = emptyLabel ?? t('modules.modelManagement.models.featureSection.noFeatures');
+  const { t } = useTranslation(['common', 'modelManagement']);
+  const resolvedEmptyLabel = emptyLabel ?? t('modelManagement:models.featureSection.noFeatures');
   if (features.length === 0) {
     return <span className="text-xs text-text-muted">{resolvedEmptyLabel}</span>;
   }

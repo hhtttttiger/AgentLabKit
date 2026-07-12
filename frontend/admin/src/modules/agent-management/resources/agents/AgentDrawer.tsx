@@ -8,7 +8,7 @@ import { JsonEditor } from '@/shared/ui/JsonEditor';
 import type { AgentDetailView, CreateAgentRequest } from '../../lib/contracts';
 import { emptyAgentDraft } from './types';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 function validateDraft(draft: CreateAgentRequest, t: (key: string) => string) {
   const errors: Partial<Record<keyof CreateAgentRequest, string>> = {};
@@ -34,7 +34,7 @@ export function AgentDrawer({
   onClose: () => void;
   onSubmit: (model: CreateAgentRequest) => Promise<void>;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const [draft, setDraft] = useState<CreateAgentRequest>(emptyAgentDraft);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 

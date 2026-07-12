@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import type { SpanData } from '../../lib/contracts';
 
 export function TraceDetailPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'observability']);
   const { traceId } = useParams<{ traceId: string }>();
   const navigate = useNavigate();
   const [selectedSpanId, setSelectedSpanId] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export function TraceDetailPage() {
   if (isError || !detail) {
     return (
       <div className="p-6">
-        <InlineMessage tone="error">{t('modules.observability.traces.detailLoadError')}</InlineMessage>
+        <InlineMessage tone="error">{t('observability:traces.detailLoadError')}</InlineMessage>
       </div>
     );
   }
@@ -40,10 +40,10 @@ export function TraceDetailPage() {
   const totalTokens = trace.totalInputTokens + trace.totalOutputTokens;
 
   const metrics = [
-    { label: t('modules.observability.traces.columns.duration'), value: formatDuration(trace.totalDurationMs), accent: 'blue' as const },
-    { label: t('modules.observability.traces.metrics.totalTokens'), value: totalTokens.toLocaleString(), accent: 'violet' as const },
-    { label: t('modules.observability.traces.columns.spanCount'), value: String(trace.spanCount), accent: 'teal' as const },
-    { label: t('modules.observability.traces.columns.status'), value: trace.status, accent: (trace.status === 'ok' ? 'teal' : 'amber') as 'teal' | 'amber' },
+    { label: t('observability:traces.columns.duration'), value: formatDuration(trace.totalDurationMs), accent: 'blue' as const },
+    { label: t('observability:traces.metrics.totalTokens'), value: totalTokens.toLocaleString(), accent: 'violet' as const },
+    { label: t('observability:traces.columns.spanCount'), value: String(trace.spanCount), accent: 'teal' as const },
+    { label: t('observability:traces.columns.status'), value: trace.status, accent: (trace.status === 'ok' ? 'teal' : 'amber') as 'teal' | 'amber' },
   ];
 
   return (
@@ -51,7 +51,7 @@ export function TraceDetailPage() {
       {/* Back + header */}
       <div className="flex items-center gap-4">
         <button onClick={() => navigate('/observability')} className="text-sm text-text-secondary hover:text-primary">
-          {t('modules.observability.traces.detail.backToList')}
+          {t('observability:traces.detail.backToList')}
         </button>
         <h2 className="font-mono text-sm text-text-muted">
           Trace: {trace.traceId}
@@ -68,28 +68,28 @@ export function TraceDetailPage() {
       {/* Waterfall chart */}
       <div className="overflow-x-auto rounded-[2px] border border-border bg-surface px-4 py-4">
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
-          {t('modules.observability.traces.detail.waterfall')}
+          {t('observability:traces.detail.waterfall')}
         </h3>
         <TraceWaterfallChart
           spans={spans}
           traceStart={trace.startedAtUtc}
-          emptyText={t('modules.observability.traces.detail.noSpanData')}
+          emptyText={t('observability:traces.detail.noSpanData')}
         />
       </div>
 
       {/* Span list */}
       <div className="overflow-x-auto rounded-[2px] border border-border bg-surface">
         <div className="px-6 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
-          {t('modules.observability.traces.detail.spanList')} ({spans.length})
+          {t('observability:traces.detail.spanList')} ({spans.length})
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-text-muted">
-              <th className="px-6 pb-2 font-medium">{t('modules.observability.traces.detail.columns.kind')}</th>
-              <th className="pb-2 font-medium">{t('modules.observability.traces.detail.columns.name')}</th>
-              <th className="pb-2 font-medium text-center">{t('modules.observability.traces.detail.columns.status')}</th>
-              <th className="pb-2 font-medium text-right">{t('modules.observability.traces.detail.columns.duration')}</th>
-              <th className="pb-2 font-medium text-right">{t('modules.observability.traces.detail.columns.actions')}</th>
+              <th className="px-6 pb-2 font-medium">{t('observability:traces.detail.columns.kind')}</th>
+              <th className="pb-2 font-medium">{t('observability:traces.detail.columns.name')}</th>
+              <th className="pb-2 font-medium text-center">{t('observability:traces.detail.columns.status')}</th>
+              <th className="pb-2 font-medium text-right">{t('observability:traces.detail.columns.duration')}</th>
+              <th className="pb-2 font-medium text-right">{t('observability:traces.detail.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -117,8 +117,8 @@ export function TraceDetailPage() {
                 <td className="py-2 text-right">
                   <button className="text-xs text-primary hover:underline">
                     {selectedSpanId === span.spanId
-                      ? t('modules.observability.traces.detail.collapse')
-                      : t('modules.observability.traces.detail.expand')}
+                      ? t('observability:traces.detail.collapse')
+                      : t('observability:traces.detail.expand')}
                   </button>
                 </td>
               </tr>
@@ -129,7 +129,7 @@ export function TraceDetailPage() {
         {/* Selected span detail */}
         {selectedSpan && (
           <div className="border-t border-border bg-background-sunken px-6 py-4">
-            <h4 className="mb-2 text-xs font-semibold text-text-muted">{t('modules.observability.traces.detail.spanAttributes')}</h4>
+            <h4 className="mb-2 text-xs font-semibold text-text-muted">{t('observability:traces.detail.spanAttributes')}</h4>
             <pre className="max-h-48 overflow-auto rounded-[2px] bg-background p-3 text-xs text-text-secondary">
               {JSON.stringify({ ...selectedSpan, attributes: selectedSpan.attributes }, null, 2)}
             </pre>

@@ -23,13 +23,13 @@ export interface ModelTestDialogProps {
   onClose: () => void;
 }
 
-const NS = 'modules.modelManagement.models.test';
+const NS = 'modelManagement:models.test';
 
 /** Maximum number of messages retained in the test dialog to prevent unbounded memory growth. */
 const MAX_MESSAGES = 500;
 
 export function ModelTestDialog({ open, model, onClose }: ModelTestDialogProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [diagnoses, setDiagnoses] = useState<DiagnosisMap>({});
   const [input, setInput] = useState('');
@@ -201,7 +201,7 @@ export function ModelTestDialog({ open, model, onClose }: ModelTestDialogProps) 
 }
 
 function DiagnosisBar({ diagnosis, generating }: { diagnosis?: ModelTestDiagnosis; generating: boolean }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const items: ReactNode[] = [];
   if (diagnosis?.instanceKey) {
     items.push(<span className="font-medium text-text-secondary">{diagnosis.instanceKey}</span>);

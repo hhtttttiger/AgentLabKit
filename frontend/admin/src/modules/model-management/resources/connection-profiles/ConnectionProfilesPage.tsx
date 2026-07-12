@@ -22,7 +22,7 @@ import { defaultConnectionProfileFilters, toConnectionProfileQuery } from './typ
 import { useConnectionProfileList, useConnectionProfileMutations } from './hooks';
 
 export function ConnectionProfilesPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const { toast } = useToast();
   const [filters, setFilters] = useState(defaultConnectionProfileFilters);
   const [editingItem, setEditingItem] = useState<LlmConnectionProfileView | null>(null);
@@ -39,7 +39,7 @@ export function ConnectionProfilesPage() {
     () => [
       {
         key: 'profileKey',
-        header: t('modules.modelManagement.connectionProfiles.page.columns.profileKey'),
+        header: t('modelManagement:connectionProfiles.page.columns.profileKey'),
         render: (row) => (
           <div>
             <div className="font-medium text-text">{row.displayName}</div>
@@ -54,21 +54,21 @@ export function ConnectionProfilesPage() {
       },
       {
         key: 'endpoint',
-        header: t('modules.modelManagement.connectionProfiles.page.columns.endpoint'),
+        header: t('modelManagement:connectionProfiles.page.columns.endpoint'),
         render: (row) => row.baseUrl ?? row.webSocketBaseUrl ?? '-',
       },
       {
         key: 'status',
-        header: t('modules.modelManagement.connectionProfiles.page.columns.status'),
-        render: (row) => <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modules.modelManagement.connectionProfiles.page.status.enabled') : t('modules.modelManagement.connectionProfiles.page.status.disabled')}</Badge>,
+        header: t('modelManagement:connectionProfiles.page.columns.status'),
+        render: (row) => <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modelManagement:connectionProfiles.page.status.enabled') : t('modelManagement:connectionProfiles.page.status.disabled')}</Badge>,
       },
       {
         key: 'actions',
-        header: t('modules.modelManagement.connectionProfiles.page.columns.actions'),
+        header: t('modelManagement:connectionProfiles.page.columns.actions'),
         render: (row) => (
           <RowActions actions={[
-            { label: t('modules.modelManagement.connectionProfiles.page.rowActions.edit'), onClick: () => setEditingItem(row) },
-            { label: t('modules.modelManagement.connectionProfiles.page.rowActions.delete'), onClick: () => setDeletingItem(row), variant: 'danger' },
+            { label: t('modelManagement:connectionProfiles.page.rowActions.edit'), onClick: () => setEditingItem(row) },
+            { label: t('modelManagement:connectionProfiles.page.rowActions.delete'), onClick: () => setDeletingItem(row), variant: 'danger' },
           ]} />
         ),
       },
@@ -91,18 +91,18 @@ export function ConnectionProfilesPage() {
               >
                 <ToolbarButton variant="primary" onClick={() => setCreateOpen(true)}>
                   <Plus size={14} />
-                  {t('modules.modelManagement.connectionProfiles.page.newProfile')}
+                  {t('modelManagement:connectionProfiles.page.newProfile')}
                 </ToolbarButton>
               </FilterToolbarActions>
             }
           >
             <SelectField
-              label={t('modules.modelManagement.connectionProfiles.page.filters.provider')}
+              label={t('modelManagement:connectionProfiles.page.filters.provider')}
               fieldSize="compact"
               value={filters.provider}
               onChange={(event) => setFilters((current) => ({ ...current, provider: event.target.value as typeof current.provider, page: 1 }))}
             >
-              <option value="">{t('modules.modelManagement.connectionProfiles.page.filters.allProviders')}</option>
+              <option value="">{t('modelManagement:connectionProfiles.page.filters.allProviders')}</option>
               {providerOptions.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
@@ -111,7 +111,7 @@ export function ConnectionProfilesPage() {
             </SelectField>
             <div className="filter-narrow">
               <SelectField
-                label={t('modules.modelManagement.connectionProfiles.page.filters.enableStatus')}
+                label={t('modelManagement:connectionProfiles.page.filters.enableStatus')}
                 fieldSize="compact"
                 value={filters.isEnabled}
                 onChange={(event) => setFilters((current) => ({ ...current, isEnabled: event.target.value as typeof current.isEnabled, page: 1 }))}
@@ -142,8 +142,8 @@ export function ConnectionProfilesPage() {
           loading={listQuery.isLoading}
           emptyState={
             <EmptyState
-              title={t('modules.modelManagement.connectionProfiles.page.emptyTitle')}
-              action={<Button onClick={() => setCreateOpen(true)}>{t('modules.modelManagement.models.page.createModel')}</Button>}
+              title={t('modelManagement:connectionProfiles.page.emptyTitle')}
+              action={<Button onClick={() => setCreateOpen(true)}>{t('modelManagement:models.page.createModel')}</Button>}
             />
           }
         />
@@ -182,9 +182,9 @@ export function ConnectionProfilesPage() {
 
       <ConfirmDialog
         open={deletingItem !== null}
-        title={t('modules.modelManagement.connectionProfiles.page.deleteTitle')}
-        description={deletingItem ? t('modules.modelManagement.connectionProfiles.page.deleteDescription', { name: deletingItem.displayName }) : ''}
-        confirmLabel={t('modules.modelManagement.connectionProfiles.page.confirmDelete')}
+        title={t('modelManagement:connectionProfiles.page.deleteTitle')}
+        description={deletingItem ? t('modelManagement:connectionProfiles.page.deleteDescription', { name: deletingItem.displayName }) : ''}
+        confirmLabel={t('modelManagement:connectionProfiles.page.confirmDelete')}
         loading={mutations.remove.isPending}
         onClose={() => {
           setDeletingItem(null);

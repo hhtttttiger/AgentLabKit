@@ -13,7 +13,7 @@ import type { LlmModelView } from '../../lib/contracts';
 import { testEmbedding, type EmbeddingTestRequest } from './test-api';
 import type { EmbeddingTestResult } from './test-types';
 
-const NS = 'modules.modelManagement.models.embeddingTest';
+const NS = 'modelManagement:models.embeddingTest';
 
 export function ModelEmbeddingTestDialog({
   open,
@@ -24,7 +24,7 @@ export function ModelEmbeddingTestDialog({
   model: LlmModelView | null;
   onClose: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const [text, setText] = useState('');
   const [dimensions, setDimensions] = useState('');
   const [loading, setLoading] = useState(false);

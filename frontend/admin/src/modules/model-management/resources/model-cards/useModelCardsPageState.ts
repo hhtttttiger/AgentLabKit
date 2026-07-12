@@ -55,7 +55,7 @@ export type ModelsPageState = {
 
 export function useModelsPageState(): ModelsPageState {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const { toast } = useToast();
   const [filters, setFilters] = useState(defaultModelFilters);
   const [editingItem, setEditingItem] = useState<LlmModelView | null>(null);
@@ -165,7 +165,7 @@ export function useModelsPageState(): ModelsPageState {
       open: deletingItem !== null,
       loading: mutations.remove.isPending,
       description: deletingItem
-        ? t('modules.modelManagement.models.deleteDialog.description', { name: deletingItem.displayName })
+        ? t('modelManagement:models.deleteDialog.description', { name: deletingItem.displayName })
         : '',
       onClose: closeDeleteDialog,
       onConfirm: async () => {

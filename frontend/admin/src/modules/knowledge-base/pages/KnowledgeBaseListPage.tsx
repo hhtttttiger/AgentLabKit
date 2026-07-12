@@ -20,7 +20,7 @@ import { Pagination } from '@/shared/ui/Pagination';
 import { SkeletonCards } from '@/shared/ui/Skeleton';
 
 export function KnowledgeBaseListPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const navigate = useNavigate();
   const [filters, setFilters] = useState<KbListFilters>(defaultKbListFilters);
   const [createOpen, setCreateOpen] = useState(false);
@@ -36,13 +36,13 @@ export function KnowledgeBaseListPage() {
 
   return (
     <PageFrame
-      title={t('modules.knowledgeBase.list.title')}
+      title={t('knowledgeBase:list.title')}
       scroll={false}
-      description={t('modules.knowledgeBase.list.description')}
+      description={t('knowledgeBase:list.description')}
       actions={
         <Button onClick={() => setCreateOpen(true)}>
           <Plus size={16} />
-          {t('modules.knowledgeBase.list.create')}
+          {t('knowledgeBase:list.create')}
         </Button>
       }
     >
@@ -60,22 +60,22 @@ export function KnowledgeBaseListPage() {
             }
           >
             <TextField
-              label={t('modules.knowledgeBase.list.searchLabel')}
+              label={t('knowledgeBase:list.searchLabel')}
               fieldSize="compact"
-              placeholder={t('modules.knowledgeBase.list.searchPlaceholder')}
+              placeholder={t('knowledgeBase:list.searchPlaceholder')}
               value={filters.keyword}
               onChange={(e) => setFilters((f) => ({ ...f, keyword: e.target.value, page: 1 }))}
             />
             <SelectField
-              label={t('modules.knowledgeBase.list.statusLabel')}
+              label={t('knowledgeBase:list.statusLabel')}
               fieldSize="compact"
               value={filters.status}
               onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value as KbListFilters['status'], page: 1 }))}
             >
-              <option value="all">{t('modules.knowledgeBase.list.statuses.all')}</option>
-              <option value="Active">{t('modules.knowledgeBase.list.statuses.active')}</option>
-              <option value="Processing">{t('modules.knowledgeBase.list.statuses.processing')}</option>
-              <option value="Disabled">{t('modules.knowledgeBase.list.statuses.disabled')}</option>
+              <option value="all">{t('knowledgeBase:list.statuses.all')}</option>
+              <option value="Active">{t('knowledgeBase:list.statuses.active')}</option>
+              <option value="Processing">{t('knowledgeBase:list.statuses.processing')}</option>
+              <option value="Disabled">{t('knowledgeBase:list.statuses.disabled')}</option>
             </SelectField>
           </FilterToolbar>
         }
@@ -95,9 +95,9 @@ export function KnowledgeBaseListPage() {
           <SkeletonCards />
         ) : items.length === 0 ? (
           <EmptyState
-            title={t('modules.knowledgeBase.list.emptyTitle')}
-            description={t('modules.knowledgeBase.list.emptyDescription')}
-            action={<Button onClick={() => setCreateOpen(true)}>{t('modules.knowledgeBase.list.create')}</Button>}
+            title={t('knowledgeBase:list.emptyTitle')}
+            description={t('knowledgeBase:list.emptyDescription')}
+            action={<Button onClick={() => setCreateOpen(true)}>{t('knowledgeBase:list.create')}</Button>}
           />
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -141,8 +141,8 @@ export function KnowledgeBaseListPage() {
       {/* Delete Confirm */}
       <ConfirmDialog
         open={deletingItem !== null}
-        title={t('modules.knowledgeBase.list.deleteTitle')}
-        description={t('modules.knowledgeBase.list.deleteDescription', { name: deletingItem?.name ?? '' })}
+        title={t('knowledgeBase:list.deleteTitle')}
+        description={t('knowledgeBase:list.deleteDescription', { name: deletingItem?.name ?? '' })}
         confirmLabel={t('actions.delete')}
         loading={mutations.remove.isPending}
         onConfirm={() => {

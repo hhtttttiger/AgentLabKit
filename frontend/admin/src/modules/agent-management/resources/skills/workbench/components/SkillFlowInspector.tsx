@@ -112,8 +112,8 @@ function getTaskBranchTone(kind: SkillFlowTransition['kind']) {
 
 
 export function SkillFlowInspector(props: InspectorProps) {
-  const { t } = useTranslation('common');
-  const wb = 'modules.agentManagement.skills.workbench';
+  const { t } = useTranslation(['common', 'agentManagement']);
+  const wb = 'agentManagement.skills.workbench';
   const wbi = `${wb}.inspector`;
   const selectedState = getSelectedState(props.document, props.selection);
   const selectedTransition = getSelectedTransition(props.document, props.selection);
@@ -192,8 +192,8 @@ function DecisionStateInspector(props: {
   onAddBranch?: (stateId: string, targetKind: 'terminal' | 'handoff') => void;
   onUpdateDecisionState?: (stateId: string, patch: { title?: string; question?: string }) => void;
 }) {
-  const { t } = useTranslation('common');
-  const wbi = 'modules.agentManagement.skills.workbench.inspector';
+  const { t } = useTranslation(['common', 'agentManagement']);
+  const wbi = 'agentManagement.skills.workbench.inspector';
   const outgoingTransitions = Object.values(props.document.transitions).filter(
     (transition) => transition.fromStateId === props.state.id,
   );
@@ -258,8 +258,8 @@ function HandoffStateInspector(props: {
     patch: { title?: string; handoffType?: 'human' | 'ticket' | 'other_agent'; summaryTemplate?: string },
   ) => void;
 }) {
-  const { t } = useTranslation('common');
-  const wbi = 'modules.agentManagement.skills.workbench.inspector';
+  const { t } = useTranslation(['common', 'agentManagement']);
+  const wbi = 'agentManagement.skills.workbench.inspector';
   return (
     <div className="space-y-4">
       <InspectorDeleteButton label={t(`${wbi}.deleteHandoff`)} onDelete={props.onDeleteState} stateId={props.state.id} />
@@ -302,8 +302,8 @@ function TerminalStateInspector(props: {
     patch: { title?: string; outcome?: 'resolved' | 'blocked' | 'cancelled'; resolutionNote?: string },
   ) => void;
 }) {
-  const { t } = useTranslation('common');
-  const wbi = 'modules.agentManagement.skills.workbench.inspector';
+  const { t } = useTranslation(['common', 'agentManagement']);
+  const wbi = 'agentManagement.skills.workbench.inspector';
   return (
     <div className="space-y-4">
       <InspectorDeleteButton label={t(`${wbi}.deleteTerminal`)} onDelete={props.onDeleteState} stateId={props.state.id} />
@@ -345,8 +345,8 @@ function TransitionInspector(props: {
     patch: Partial<Pick<SkillFlowTransition, 'label' | 'kind' | 'priority' | 'predicate'>>,
   ) => void;
 }) {
-  const { t } = useTranslation('common');
-  const wb = 'modules.agentManagement.skills.workbench';
+  const { t } = useTranslation(['common', 'agentManagement']);
+  const wb = 'agentManagement.skills.workbench';
   const wbi = `${wb}.inspector`;
   const transitionKindOptions = [
     { value: 'default', label: t(`${wb}.edgeTypes.default`) },
@@ -503,8 +503,8 @@ function TaskStateInspector(props: {
   ) => void;
   onUpdateToolPlanReason?: (stateId: string, toolId: string, reason: string) => void;
 }) {
-  const { t } = useTranslation('common');
-  const wb = 'modules.agentManagement.skills.workbench';
+  const { t } = useTranslation(['common', 'agentManagement']);
+  const wb = 'agentManagement.skills.workbench';
   const wbi = `${wb}.inspector`;
   const [toolPickerOpen, setToolPickerOpen] = useState(false);
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);

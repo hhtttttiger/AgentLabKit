@@ -19,7 +19,7 @@ type Props = {
 };
 
 export function FolderManagerDrawer({ kbId, open, onClose }: Props) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const { data: folders = [] } = useFolderList(kbId);
   const { remove, update } = useFolderMutations(kbId);
   const [createParentId, setCreateParentId] = useState<string | null>(null);
@@ -162,7 +162,7 @@ export function FolderManagerDrawer({ kbId, open, onClose }: Props) {
       >
         <div className="space-y-2">
           {rootFolders.length === 0 ? (
-            <EmptyState title={t('modules.knowledgeBase.detail.folderEmptyTitle')} />
+            <EmptyState title={t('knowledgeBase:detail.folderEmptyTitle')} />
           ) : (
             rootFolders.map((folder) => renderFolder(folder))
           )}

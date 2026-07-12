@@ -25,7 +25,7 @@ export function useModelInstancesByModel(modelKey: string | null) {
 
 export function useModelInstanceMutations() {
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   const invalidate = () =>
     Promise.all([

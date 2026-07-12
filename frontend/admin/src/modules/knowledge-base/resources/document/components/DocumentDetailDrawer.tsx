@@ -33,7 +33,7 @@ export function DocumentDetailDrawer({
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<Tab>('overview');
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const { toast } = useToast();
   useAdminLocale();
 

@@ -16,7 +16,7 @@ export function CategoryCard({
   onDelete: () => void;
   onClick: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'glossary']);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useAdminLocale();
@@ -52,7 +52,7 @@ export function CategoryCard({
 
         <div ref={menuRef} className="relative">
           <button
-            aria-label={t('modules.glossary.categoryCard.menuLabel')}
+            aria-label={t('glossary:categoryCard.menuLabel')}
             className="rounded-lg p-1.5 text-text-muted hover:bg-state-hover hover:text-text"
             onClick={(e) => {
               e.stopPropagation();
@@ -72,7 +72,7 @@ export function CategoryCard({
                 }}
               >
                 <Pencil size={14} />
-                {t('modules.glossary.categoryCard.actions.edit')}
+                {t('glossary:categoryCard.actions.edit')}
               </button>
               <button
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-error-text hover:bg-state-hover"
@@ -83,7 +83,7 @@ export function CategoryCard({
                 }}
               >
                 <Trash2 size={14} />
-                {t('modules.glossary.categoryCard.actions.delete')}
+                {t('glossary:categoryCard.actions.delete')}
               </button>
             </div>
           )}

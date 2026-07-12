@@ -25,7 +25,7 @@ export function useModelDetail(modelKey: string | undefined) {
 
 export function useModelMutations(options?: { onCreated?: (modelKey: string) => void }) {
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   const invalidate = () =>
     Promise.all([
@@ -67,7 +67,7 @@ export function useModelMutations(options?: { onCreated?: (modelKey: string) => 
 
 export function useModelFeatureMutations() {
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   const invalidate = () =>
     Promise.all([

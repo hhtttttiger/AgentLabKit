@@ -9,12 +9,12 @@ import { JsonEditor } from '@/shared/ui/JsonEditor';
 import type { CreateToolDefinitionRequest, ToolSummaryView } from './types';
 import { emptyToolDraft } from './types';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 const HTTP_METHODS = ['POST', 'GET', 'PUT', 'PATCH'];
 
 function BuiltinReadOnlyView({ tool }: { tool: ToolSummaryView }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   return (
     <div className="space-y-6">
       <InlineMessage tone="info">
@@ -76,7 +76,7 @@ function HttpExternalForm({
   mode: 'create' | 'edit';
   onChangeDraft: (updated: CreateToolDefinitionRequest) => void;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const set = <K extends keyof CreateToolDefinitionRequest>(
     key: K,
     value: CreateToolDefinitionRequest[K],
@@ -246,7 +246,7 @@ export function ToolDrawer({
   errorMessage,
   loading,
 }: ToolDrawerProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const isBuiltin = editingTool?.sourceType === 'builtin';
   const mode = editingTool ? 'edit' : 'create';
 

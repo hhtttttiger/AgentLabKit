@@ -7,7 +7,7 @@ import {
   SUPPORTED_ADMIN_LOCALES,
   normalizeAdminLocale,
 } from './config';
-import { adminI18nResources } from './resources';
+import { adminI18nResources, ALL_NAMESPACES } from './resources';
 
 function loadInitialLocale() {
   try {
@@ -24,7 +24,7 @@ void i18n
   .init({
     resources: adminI18nResources,
     defaultNS: 'common',
-    ns: ['common'],
+    ns: [...ALL_NAMESPACES],
     lng: loadInitialLocale(),
     fallbackLng: DEFAULT_ADMIN_LOCALE,
     supportedLngs: [...SUPPORTED_ADMIN_LOCALES],

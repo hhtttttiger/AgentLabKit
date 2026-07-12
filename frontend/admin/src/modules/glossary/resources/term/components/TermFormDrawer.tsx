@@ -74,7 +74,7 @@ export function TermFormDrawer({
   onClose: () => void;
   onSubmit: (payload: GlossaryTermCreateRequest | GlossaryTermUpdateRequest) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'glossary']);
   const [draft, setDraft] = useState<TermDraft>(toDraft(initialValue, defaultCategoryId));
   const showFixedCategory = Boolean(
     defaultCategoryId
@@ -88,8 +88,8 @@ export function TermFormDrawer({
 
   const validation = useMemo(
     () => ({
-      categoryId: draft.categoryId ? null : t('modules.glossary.termForm.validation.categoryRequired'),
-      term: draft.term.trim() ? null : t('modules.glossary.termForm.validation.termRequired'),
+      categoryId: draft.categoryId ? null : t('glossary:termForm.validation.categoryRequired'),
+      term: draft.term.trim() ? null : t('glossary:termForm.validation.termRequired'),
     }),
     [draft.categoryId, draft.term, t],
   );
@@ -97,13 +97,13 @@ export function TermFormDrawer({
   return (
     <FormModal
       open={open}
-      title={mode === 'create' ? t('modules.glossary.termForm.titleCreate') : t('modules.glossary.termForm.titleEdit')}
-      description={t('modules.glossary.termForm.description')}
+      title={mode === 'create' ? t('glossary:termForm.titleCreate') : t('glossary:termForm.titleEdit')}
+      description={t('glossary:termForm.description')}
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            {t('modules.glossary.termForm.actions.cancel')}
+            {t('glossary:termForm.actions.cancel')}
           </Button>
           <Button
             onClick={() =>
@@ -116,10 +116,10 @@ export function TermFormDrawer({
             disabled={loading || Boolean(validation.categoryId) || Boolean(validation.term)}
           >
             {loading
-              ? t('modules.glossary.termForm.actions.submitting')
+              ? t('glossary:termForm.actions.submitting')
               : mode === 'create'
-                ? t('modules.glossary.termForm.actions.create')
-                : t('modules.glossary.termForm.actions.save')}
+                ? t('glossary:termForm.actions.create')
+                : t('glossary:termForm.actions.save')}
           </Button>
         </div>
       }
@@ -128,19 +128,19 @@ export function TermFormDrawer({
         {error ? <InlineMessage tone="error">{getErrorMessage(error)}</InlineMessage> : null}
         {showFixedCategory ? (
             <div className="space-y-2">
-            <div className="text-sm font-medium text-text">{t('modules.glossary.termForm.fields.category')}</div>
+            <div className="text-sm font-medium text-text">{t('glossary:termForm.fields.category')}</div>
             <div className="rounded-[2px] border border-border-strong bg-background-subtle px-4 py-3 text-sm text-text">
               {defaultCategoryName}
             </div>
           </div>
         ) : (
             <SelectField
-            label={t('modules.glossary.termForm.fields.category')}
+            label={t('glossary:termForm.fields.category')}
             value={draft.categoryId}
             error={validation.categoryId}
             onChange={(event) => setDraft((current) => ({ ...current, categoryId: event.target.value }))}
           >
-            <option value="">{t('modules.glossary.termForm.fields.categoryPlaceholder')}</option>
+            <option value="">{t('glossary:termForm.fields.categoryPlaceholder')}</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -149,16 +149,16 @@ export function TermFormDrawer({
           </SelectField>
         )}
         <TextField
-          label={t('modules.glossary.termForm.fields.term')}
-          placeholder={t('modules.glossary.termForm.fields.termPlaceholder')}
+          label={t('glossary:termForm.fields.term')}
+          placeholder={t('glossary:termForm.fields.termPlaceholder')}
           value={draft.term}
           error={validation.term}
           onChange={(event) => setDraft((current) => ({ ...current, term: event.target.value }))}
         />
         <TextAreaField
-          label={t('modules.glossary.termForm.fields.synonyms')}
-          hint={t('modules.glossary.termForm.fields.synonymsHint')}
-          placeholder={t('modules.glossary.termForm.fields.synonymsPlaceholder')}
+          label={t('glossary:termForm.fields.synonyms')}
+          hint={t('glossary:termForm.fields.synonymsHint')}
+          placeholder={t('glossary:termForm.fields.synonymsPlaceholder')}
           value={draft.synonymsText}
           onChange={(event) => setDraft((current) => ({ ...current, synonymsText: event.target.value }))}
         />

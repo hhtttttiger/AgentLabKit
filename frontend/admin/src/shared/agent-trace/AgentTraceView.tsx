@@ -69,11 +69,11 @@ export function AgentTraceView({
   emptyTitle,
   emptyDescription,
 }: AgentTraceViewProps) {
-  const { t } = useTranslation();
-  const resolvedTitle = title ?? t('modules.aiChat.trace.title');
-  const resolvedDescription = description ?? t('modules.aiChat.trace.description');
-  const resolvedEmptyTitle = emptyTitle ?? t('modules.aiChat.trace.emptyTitle');
-  const resolvedEmptyDescription = emptyDescription ?? t('modules.aiChat.trace.emptyDescription');
+  const { t } = useTranslation(['common', 'aiChat']);
+  const resolvedTitle = title ?? t('aiChat:trace.title');
+  const resolvedDescription = description ?? t('aiChat:trace.description');
+  const resolvedEmptyTitle = emptyTitle ?? t('aiChat:trace.emptyTitle');
+  const resolvedEmptyDescription = emptyDescription ?? t('aiChat:trace.emptyDescription');
 
   if (!trace) {
     return (
@@ -131,7 +131,7 @@ export function AgentTraceView({
 
           {trace.appliedSkills.length ? (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-0.5 text-xs text-text-muted">{t('modules.aiChat.trace.skillsLabel')}</span>
+              <span className="mr-0.5 text-xs text-text-muted">{t('aiChat:trace.skillsLabel')}</span>
               {trace.appliedSkills.map((skill) => (
                 <SkillChip key={`${skill.skillKey}-${skill.order}`} skill={skill} />
               ))}
@@ -145,7 +145,7 @@ export function AgentTraceView({
               ))}
             </ol>
           ) : (
-            <p className="text-sm text-text-muted">{t('modules.aiChat.trace.tools.noResults')}</p>
+            <p className="text-sm text-text-muted">{t('aiChat:trace.tools.noResults')}</p>
           )}
         </div>
       </div>
@@ -218,7 +218,7 @@ function NodeMeta({ node }: { node: TimelineNode }) {
 }
 
 function NodeBody({ node }: { node: TimelineNode }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   switch (node.kind) {
     case 'tool':
       if (node.tool) return <ToolPayload tool={node.tool} extraMessage={node.message} />;
@@ -232,7 +232,7 @@ function NodeBody({ node }: { node: TimelineNode }) {
         <>
           {node.handoffReason ? (
             <p className="mt-1.5 text-xs leading-5 text-text-secondary">
-              {t('modules.aiChat.trace.reasonLabel')}: {node.handoffReason}
+              {t('aiChat:trace.reasonLabel')}: {node.handoffReason}
             </p>
           ) : null}
           {node.replyText ? <ProseText text={node.replyText} tone="muted" /> : null}
@@ -267,7 +267,7 @@ function ProseText({ text, tone }: { text: string; tone: 'primary' | 'muted' }) 
 }
 
 function ToolPayload({ tool, extraMessage }: { tool: AgentTraceToolEvent; extraMessage?: string }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   const [open, setOpen] = useState(false);
   const hasArgs = hasObjectKeys(tool.arguments);
   const hasOutput = Boolean(tool.outputText);
@@ -295,7 +295,7 @@ function ToolPayload({ tool, extraMessage }: { tool: AgentTraceToolEvent; extraM
             aria-expanded={open}
           >
             <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open ? 'rotate-180' : '')} />
-            {open ? t('modules.aiChat.trace.toolCollapse') : t('modules.aiChat.trace.toolExpand')}
+            {open ? t('aiChat:trace.toolCollapse') : t('aiChat:trace.toolExpand')}
           </button>
           <div className={cn('space-y-2', open ? '' : 'hidden')}>
             {hasArgs ? <CodeBlock label="Arguments" value={JSON.stringify(tool.arguments, null, 2)} /> : null}
@@ -330,7 +330,7 @@ function SkillChip({ skill }: { skill: AgentTraceAppliedSkill }) {
 }
 
 function RunDetailsFooter({ trace }: { trace: AgentExecutionTrace }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   const [open, setOpen] = useState(false);
   const rows: Array<[string, string]> = [
     ['Run', trace.runId],
@@ -347,7 +347,7 @@ function RunDetailsFooter({ trace }: { trace: AgentExecutionTrace }) {
       >
         <span className="inline-flex items-center gap-1.5">
           <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open ? 'rotate-180' : '')} />
-          {t('modules.aiChat.trace.runDetails')}
+          {t('aiChat:trace.runDetails')}
         </span>
         <span className="font-mono text-text-muted">{shortenId(trace.runId)}</span>
       </button>

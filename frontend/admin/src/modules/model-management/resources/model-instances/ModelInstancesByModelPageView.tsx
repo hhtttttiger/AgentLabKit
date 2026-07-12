@@ -21,7 +21,7 @@ function ModelSidebarItem({
   isSelected: boolean;
   onSelect: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   return (
     <button
       type="button"
@@ -40,25 +40,25 @@ function ModelSidebarItem({
           <div className="mt-0.5 text-xs text-text-muted truncate">{model.modelKey}</div>
         </div>
         <Badge tone={model.isEnabled ? 'success' : 'warning'}>
-          {model.isEnabled ? t('modules.modelManagement.modelInstances.page.status.enabled') : t('modules.modelManagement.modelInstances.page.status.disabled')}
+          {model.isEnabled ? t('modelManagement:modelInstances.page.status.enabled') : t('modelManagement:modelInstances.page.status.disabled')}
         </Badge>
       </div>
       <div className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">
         <Server size={12} />
-        <span>{t('modules.modelManagement.instancesByModel.instanceCount', { count: model.instanceCount })}</span>
+        <span>{t('modelManagement:instancesByModel.instanceCount', { count: model.instanceCount })}</span>
       </div>
     </button>
   );
 }
 
 export function ModelInstancesByModelPageView({ state }: { state: ModelInstancesByModelPageState }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   const columns = useMemo<TableColumn<LlmModelInstanceView>[]>(
     () => [
       {
         key: 'instanceKey',
-        header: t('modules.modelManagement.modelInstances.page.columns.instanceKey'),
+        header: t('modelManagement:modelInstances.page.columns.instanceKey'),
         render: (row) => (
           <div>
             <div className="font-medium text-[var(--color-ink)]">{row.instanceKey}</div>
@@ -68,26 +68,26 @@ export function ModelInstancesByModelPageView({ state }: { state: ModelInstances
       },
       {
         key: 'priority',
-        header: t('modules.modelManagement.modelInstances.page.columns.priority'),
+        header: t('modelManagement:modelInstances.page.columns.priority'),
         render: (row) => `${row.priority} / ${row.weight} / ${row.defaultTimeoutMs} ms`,
       },
       {
         key: 'status',
-        header: t('modules.modelManagement.modelInstances.page.columns.status'),
+        header: t('modelManagement:modelInstances.page.columns.status'),
         render: (row) => (
           <div className="flex gap-2">
             <Badge tone={row.isEnabled ? 'success' : 'warning'}>
-              {row.isEnabled ? t('modules.modelManagement.modelInstances.page.status.enabled') : t('modules.modelManagement.modelInstances.page.status.disabled')}
+              {row.isEnabled ? t('modelManagement:modelInstances.page.status.enabled') : t('modelManagement:modelInstances.page.status.disabled')}
             </Badge>
             <Badge tone={row.isHealthy ? 'success' : 'danger'}>
-              {row.isHealthy ? t('modules.modelManagement.modelInstances.page.status.healthy') : t('modules.modelManagement.modelInstances.page.status.unhealthy')}
+              {row.isHealthy ? t('modelManagement:modelInstances.page.status.healthy') : t('modelManagement:modelInstances.page.status.unhealthy')}
             </Badge>
           </div>
         ),
       },
       {
         key: 'actions',
-        header: t('modules.modelManagement.modelInstances.page.columns.actions'),
+        header: t('modelManagement:modelInstances.page.columns.actions'),
         render: (row) => (
           <div className="flex gap-1">
             <button
@@ -95,7 +95,7 @@ export function ModelInstancesByModelPageView({ state }: { state: ModelInstances
               onClick={() => state.openEdit(row)}
               className="text-xs text-primary hover:underline"
             >
-              {t('modules.modelManagement.modelInstances.page.rowActions.edit')}
+              {t('modelManagement:modelInstances.page.rowActions.edit')}
             </button>
             <span className="text-border">|</span>
             <button
@@ -103,7 +103,7 @@ export function ModelInstancesByModelPageView({ state }: { state: ModelInstances
               onClick={() => state.requestDelete(row)}
               className="text-xs text-error hover:underline"
             >
-              {t('modules.modelManagement.modelInstances.page.rowActions.delete')}
+              {t('modelManagement:modelInstances.page.rowActions.delete')}
             </button>
           </div>
         ),
@@ -120,7 +120,7 @@ export function ModelInstancesByModelPageView({ state }: { state: ModelInstances
       {/* Left: Model sidebar */}
       <div className="flex w-64 shrink-0 flex-col gap-2 overflow-y-auto">
         <div className="text-xs font-medium text-text-muted uppercase tracking-wider px-1">
-          {t('modules.modelManagement.instancesByModel.modelList')}
+          {t('modelManagement:instancesByModel.modelList')}
         </div>
         {state.models.isLoading ? (
           <div className="space-y-2">
@@ -130,7 +130,7 @@ export function ModelInstancesByModelPageView({ state }: { state: ModelInstances
           </div>
         ) : state.models.items.length === 0 ? (
           <div className="text-sm text-text-muted py-4 text-center">
-            {t('modules.modelManagement.instancesByModel.noModels')}
+            {t('modelManagement:instancesByModel.noModels')}
           </div>
         ) : (
           <div className="space-y-1.5">
@@ -155,14 +155,14 @@ export function ModelInstancesByModelPageView({ state }: { state: ModelInstances
                 showHints={false}
                 columns={3}
                 items={[
-                  { label: t('modules.modelManagement.modelInstances.page.metrics.total'), value: state.instances.totalCount, hint: '' },
-                  { label: t('modules.modelManagement.modelInstances.page.metrics.enabled'), value: enabledCount, hint: '' },
-                  { label: t('modules.modelManagement.modelInstances.page.metrics.healthy'), value: healthyCount, hint: '' },
+                  { label: t('modelManagement:modelInstances.page.metrics.total'), value: state.instances.totalCount, hint: '' },
+                  { label: t('modelManagement:modelInstances.page.metrics.enabled'), value: enabledCount, hint: '' },
+                  { label: t('modelManagement:modelInstances.page.metrics.healthy'), value: healthyCount, hint: '' },
                 ]}
               />
               <Button onClick={state.openCreate} className="shrink-0">
                 <Plus size={14} />
-                {t('modules.modelManagement.modelInstances.page.newInstance')}
+                {t('modelManagement:modelInstances.page.newInstance')}
               </Button>
             </div>
 
@@ -174,12 +174,12 @@ export function ModelInstancesByModelPageView({ state }: { state: ModelInstances
                 loading={state.instances.isLoading}
                 emptyState={
                   <EmptyState
-                    title={t('modules.modelManagement.instancesByModel.emptyTitle')}
-                    description={t('modules.modelManagement.instancesByModel.emptyDescription')}
+                    title={t('modelManagement:instancesByModel.emptyTitle')}
+                    description={t('modelManagement:instancesByModel.emptyDescription')}
                     action={
                       <Button onClick={state.openCreate}>
                         <Plus size={14} />
-                        {t('modules.modelManagement.modelInstances.page.newInstance')}
+                        {t('modelManagement:modelInstances.page.newInstance')}
                       </Button>
                     }
                   />
@@ -190,8 +190,8 @@ export function ModelInstancesByModelPageView({ state }: { state: ModelInstances
         ) : (
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
-              title={t('modules.modelManagement.instancesByModel.selectModel')}
-              description={t('modules.modelManagement.instancesByModel.selectModelHint')}
+              title={t('modelManagement:instancesByModel.selectModel')}
+              description={t('modelManagement:instancesByModel.selectModelHint')}
             />
           </div>
         )}
@@ -211,9 +211,9 @@ export function ModelInstancesByModelPageView({ state }: { state: ModelInstances
 
       <ConfirmDialog
         open={state.deleteDialog.open}
-        title={t('modules.modelManagement.modelInstances.page.deleteTitle')}
+        title={t('modelManagement:modelInstances.page.deleteTitle')}
         description={state.deleteDialog.description}
-        confirmLabel={t('modules.modelManagement.modelInstances.page.confirmDelete')}
+        confirmLabel={t('modelManagement:modelInstances.page.confirmDelete')}
         loading={state.deleteDialog.loading}
         onClose={state.deleteDialog.onClose}
         onConfirm={state.deleteDialog.onConfirm}

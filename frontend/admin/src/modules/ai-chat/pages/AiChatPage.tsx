@@ -28,7 +28,7 @@ type AiChatPageProps = {
 };
 
 export function AiChatPage({ agentOptions, modelOptions }: AiChatPageProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
 
   // ── Model selection ────────────────────────────────────────────────
 
@@ -170,13 +170,13 @@ export function AiChatPage({ agentOptions, modelOptions }: AiChatPageProps) {
                 trace={currentSession?.modelType === 'agent' ? currentTrace : null}
                 emptyTitle={
                   currentSession?.modelType === 'model'
-                    ? t('modules.aiChat.trace.cardModeTitle')
-                    : t('modules.aiChat.trace.emptyTitle')
+                    ? t('aiChat:trace.cardModeTitle')
+                    : t('aiChat:trace.emptyTitle')
                 }
                 emptyDescription={
                   currentSession?.modelType === 'model'
-                    ? t('modules.aiChat.trace.cardModeDescription')
-                    : t('modules.aiChat.trace.noTraceDescription')
+                    ? t('aiChat:trace.cardModeDescription')
+                    : t('aiChat:trace.noTraceDescription')
                 }
               />
             </div>

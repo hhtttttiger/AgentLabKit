@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useToast } from '@/shared/ui/Toast';
 
 export function DatasetDetailPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'evaluation']);
   const { toast } = useToast();
   const { datasetId } = useParams<{ datasetId: string }>();
   const navigate = useNavigate();

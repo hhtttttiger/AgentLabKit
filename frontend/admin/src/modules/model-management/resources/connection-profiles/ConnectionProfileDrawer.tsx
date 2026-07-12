@@ -38,8 +38,8 @@ function HintTooltip({ content }: { content: string }) {
 function validateDraft(draft: LlmConnectionProfileWriteModel, t: (key: string) => string) {
   const errors: Partial<Record<keyof LlmConnectionProfileWriteModel, string>> = {};
 
-  if (!draft.profileKey.trim()) errors.profileKey = t('modules.modelManagement.connectionProfiles.drawer.validation.profileKeyRequired');
-  if (!draft.displayName.trim()) errors.displayName = t('modules.modelManagement.connectionProfiles.drawer.validation.displayNameRequired');
+  if (!draft.profileKey.trim()) errors.profileKey = t('modelManagement:connectionProfiles.drawer.validation.profileKeyRequired');
+  if (!draft.displayName.trim()) errors.displayName = t('modelManagement:connectionProfiles.drawer.validation.displayNameRequired');
 
   return errors;
 }
@@ -64,7 +64,7 @@ export function ConnectionProfileDrawer({
   const [draft, setDraft] = useState<LlmConnectionProfileWriteModel>(emptyConnectionProfileDraft);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [rawExtraJson, setRawExtraJson] = useState('{}');
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   useEffect(() => {
     setDraft(initialValue ?? emptyConnectionProfileDraft);
@@ -96,19 +96,19 @@ export function ConnectionProfileDrawer({
   return (
     <FormModal
       open={open}
-      title={mode === 'create' ? t('modules.modelManagement.connectionProfiles.drawer.titleCreate') : t('modules.modelManagement.connectionProfiles.drawer.titleEdit')}
-      description={t('modules.modelManagement.connectionProfiles.drawer.description')}
+      title={mode === 'create' ? t('modelManagement:connectionProfiles.drawer.titleCreate') : t('modelManagement:connectionProfiles.drawer.titleEdit')}
+      description={t('modelManagement:connectionProfiles.drawer.description')}
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            {t('modules.modelManagement.connectionProfiles.drawer.actions.cancel')}
+            {t('modelManagement:connectionProfiles.drawer.actions.cancel')}
           </Button>
           <Button
             onClick={() => onSubmit(toConnectionProfileDraft(draft))}
             disabled={loading || Object.keys(validationErrors).length > 0}
           >
-            {loading ? t('modules.modelManagement.connectionProfiles.drawer.actions.submitting') : mode === 'create' ? t('modules.modelManagement.connectionProfiles.drawer.actions.create') : t('modules.modelManagement.connectionProfiles.drawer.actions.save')}
+            {loading ? t('modelManagement:connectionProfiles.drawer.actions.submitting') : mode === 'create' ? t('modelManagement:connectionProfiles.drawer.actions.create') : t('modelManagement:connectionProfiles.drawer.actions.save')}
           </Button>
         </div>
       }
@@ -117,13 +117,13 @@ export function ConnectionProfileDrawer({
         {error ? <InlineMessage tone="error">{error}</InlineMessage> : null}
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            label={t('modules.modelManagement.connectionProfiles.drawer.fields.profileKey')}
+            label={t('modelManagement:connectionProfiles.drawer.fields.profileKey')}
             value={draft.profileKey}
             error={validationErrors.profileKey}
             onChange={(event) => setDraft((current) => ({ ...current, profileKey: event.target.value }))}
           />
           <TextField
-            label={t('modules.modelManagement.connectionProfiles.drawer.fields.displayName')}
+            label={t('modelManagement:connectionProfiles.drawer.fields.displayName')}
             value={draft.displayName}
             error={validationErrors.displayName}
             onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))}
@@ -140,53 +140,53 @@ export function ConnectionProfileDrawer({
             ))}
           </SelectField>
           <TextField
-            label={t('modules.modelManagement.connectionProfiles.drawer.fields.baseUrl')}
+            label={t('modelManagement:connectionProfiles.drawer.fields.baseUrl')}
             labelSuffix={
-              <HintTooltip content={t('modules.modelManagement.connectionProfiles.drawer.fields.baseUrlHint')} />
+              <HintTooltip content={t('modelManagement:connectionProfiles.drawer.fields.baseUrlHint')} />
             }
             value={draft.baseUrl ?? ''}
             placeholder="https://api.openai.com/v1/"
             onChange={(event) => setDraft((current) => ({ ...current, baseUrl: event.target.value }))}
           />
           <TextField
-            label={t('modules.modelManagement.connectionProfiles.drawer.fields.wsUrl')}
+            label={t('modelManagement:connectionProfiles.drawer.fields.wsUrl')}
             labelSuffix={
-              <HintTooltip content={t('modules.modelManagement.connectionProfiles.drawer.fields.wsUrlHint')} />
+              <HintTooltip content={t('modelManagement:connectionProfiles.drawer.fields.wsUrlHint')} />
             }
             value={draft.webSocketBaseUrl ?? ''}
             onChange={(event) => setDraft((current) => ({ ...current, webSocketBaseUrl: event.target.value }))}
           />
           <TextField
-            label={t('modules.modelManagement.connectionProfiles.drawer.fields.apiVersion')}
+            label={t('modelManagement:connectionProfiles.drawer.fields.apiVersion')}
             labelSuffix={
-              <HintTooltip content={t('modules.modelManagement.connectionProfiles.drawer.fields.apiVersionHint')} />
+              <HintTooltip content={t('modelManagement:connectionProfiles.drawer.fields.apiVersionHint')} />
             }
             value={draft.apiVersion ?? ''}
-            placeholder={t('modules.modelManagement.connectionProfiles.drawer.fields.apiVersionPlaceholder')}
+            placeholder={t('modelManagement:connectionProfiles.drawer.fields.apiVersionPlaceholder')}
             onChange={(event) => setDraft((current) => ({ ...current, apiVersion: event.target.value }))}
           />
           <TextField label="Region" value={draft.region ?? ''} onChange={(event) => setDraft((current) => ({ ...current, region: event.target.value }))} />
         </div>
-        <ToggleField label={t('modules.modelManagement.connectionProfiles.drawer.fields.enableConnection')} checked={draft.isEnabled} onChange={(checked) => setDraft((current) => ({ ...current, isEnabled: checked }))} />
+        <ToggleField label={t('modelManagement:connectionProfiles.drawer.fields.enableConnection')} checked={draft.isEnabled} onChange={(checked) => setDraft((current) => ({ ...current, isEnabled: checked }))} />
         <div className="rounded-[2px] border border-border bg-surface">
           <button
             type="button"
             className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-text"
             onClick={() => setAdvancedOpen((current) => !current)}
           >
-            <span>{t('modules.modelManagement.connectionProfiles.drawer.advanced.sectionTitle')}</span>
-            <span className="text-text-muted">{advancedOpen ? t('modules.modelManagement.connectionProfiles.drawer.advanced.collapse') : t('modules.modelManagement.connectionProfiles.drawer.advanced.expand')}</span>
+            <span>{t('modelManagement:connectionProfiles.drawer.advanced.sectionTitle')}</span>
+            <span className="text-text-muted">{advancedOpen ? t('modelManagement:connectionProfiles.drawer.advanced.collapse') : t('modelManagement:connectionProfiles.drawer.advanced.expand')}</span>
           </button>
           {advancedOpen ? (
             <div className="border-t border-border p-4">
               <JsonEditor
-                label={t('modules.modelManagement.connectionProfiles.drawer.fields.extraJson')}
+                label={t('modelManagement:connectionProfiles.drawer.fields.extraJson')}
                 kind="object"
                 value={rawExtraJson}
                 onChange={(value) => {
                   setRawExtraJson(value);
                 }}
-                hint={t('modules.modelManagement.connectionProfiles.drawer.fields.extraJsonHint')}
+                hint={t('modelManagement:connectionProfiles.drawer.fields.extraJsonHint')}
               />
             </div>
           ) : null}

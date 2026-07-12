@@ -14,7 +14,7 @@ import { ModelInstanceDrawer } from '../../model-instances/ModelInstanceDrawer';
 export function ModelInstancesTab() {
   const { modelKey } = useParams<{ modelKey: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const detailQuery = useModelDetail(modelKey);
   const instanceMutations = useModelInstanceMutations();
   const instancesQuery = useModelInstancesByModel(modelKey ?? null);
@@ -40,11 +40,11 @@ export function ModelInstancesTab() {
   const card = detailQuery.data;
 
   if (detailQuery.isError) {
-    return <InlineMessage tone="error">{t('modules.modelManagement.models.tabs.loadFailed')}</InlineMessage>;
+    return <InlineMessage tone="error">{t('modelManagement:models.tabs.loadFailed')}</InlineMessage>;
   }
 
   if (!card && detailQuery.isLoading) {
-    return <div className="text-sm text-text-secondary">{t('modules.modelManagement.models.tabs.loading')}</div>;
+    return <div className="text-sm text-text-secondary">{t('modelManagement:models.tabs.loading')}</div>;
   }
 
   if (!card) return null;
@@ -52,20 +52,20 @@ export function ModelInstancesTab() {
   const instances = instancesQuery.data?.items ?? [];
   const healthyInstanceCount = instances.filter((i) => i.isHealthy).length;
   const enabledInstanceCount = instances.filter((i) => i.isEnabled).length;
-  const regionCount = new Set(instances.map((i) => i.region ?? t('modules.modelManagement.models.tabs.instances.defaultRegion'))).size;
+  const regionCount = new Set(instances.map((i) => i.region ?? t('modelManagement:models.tabs.instances.defaultRegion'))).size;
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-text-secondary">{t('modules.modelManagement.models.tabs.instances.description')}</p>
-        <Button onClick={openCreate}>{t('modules.modelManagement.models.tabs.instances.addButton')}</Button>
+        <p className="text-sm text-text-secondary">{t('modelManagement:models.tabs.instances.description')}</p>
+        <Button onClick={openCreate}>{t('modelManagement:models.tabs.instances.addButton')}</Button>
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">
-        <InstanceStat label={t('modules.modelManagement.models.tabs.instances.stats.total')} value={`${instances.length}`} />
-        <InstanceStat label={t('modules.modelManagement.models.tabs.instances.stats.healthy')} value={instances.length ? `${Math.round((healthyInstanceCount / instances.length) * 100)}%` : '0%'} />
-        <InstanceStat label={t('modules.modelManagement.models.tabs.instances.stats.enabled')} value={`${enabledInstanceCount}`} />
-        <InstanceStat label={t('modules.modelManagement.models.tabs.instances.stats.regions')} value={`${regionCount}`} />
+        <InstanceStat label={t('modelManagement:models.tabs.instances.stats.total')} value={`${instances.length}`} />
+        <InstanceStat label={t('modelManagement:models.tabs.instances.stats.healthy')} value={instances.length ? `${Math.round((healthyInstanceCount / instances.length) * 100)}%` : '0%'} />
+        <InstanceStat label={t('modelManagement:models.tabs.instances.stats.enabled')} value={`${enabledInstanceCount}`} />
+        <InstanceStat label={t('modelManagement:models.tabs.instances.stats.regions')} value={`${regionCount}`} />
       </div>
 
       {instances.length ? (
@@ -80,32 +80,32 @@ export function ModelInstancesTab() {
                   <div className="font-semibold text-text">{instance.instanceKey}</div>
                   <div className="mt-1 text-sm text-text-secondary">{instance.modelName}</div>
                   <div className="mt-2 text-xs text-text-muted">
-                    {instance.providerDeploymentName ?? t('modules.modelManagement.models.tabs.instances.defaultDeploy')} / {instance.region ?? t('modules.modelManagement.models.tabs.instances.defaultRegion')}
+                    {instance.providerDeploymentName ?? t('modelManagement:models.tabs.instances.defaultDeploy')} / {instance.region ?? t('modelManagement:models.tabs.instances.defaultRegion')}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge tone={instance.isEnabled ? 'success' : 'warning'}>{instance.isEnabled ? t('modules.modelManagement.models.tabs.instances.status.enabled') : t('modules.modelManagement.models.tabs.instances.status.disabled')}</Badge>
-                  <Badge tone={instance.isHealthy ? 'success' : 'danger'}>{instance.isHealthy ? t('modules.modelManagement.models.tabs.instances.status.healthy') : t('modules.modelManagement.models.tabs.instances.status.unhealthy')}</Badge>
+                  <Badge tone={instance.isEnabled ? 'success' : 'warning'}>{instance.isEnabled ? t('modelManagement:models.tabs.instances.status.enabled') : t('modelManagement:models.tabs.instances.status.disabled')}</Badge>
+                  <Badge tone={instance.isHealthy ? 'success' : 'danger'}>{instance.isHealthy ? t('modelManagement:models.tabs.instances.status.healthy') : t('modelManagement:models.tabs.instances.status.unhealthy')}</Badge>
                 </div>
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <DetailField label={t('modules.modelManagement.models.tabs.instances.fields.deployName')} value={instance.providerDeploymentName ?? t('modules.modelManagement.models.tabs.instances.defaultDeploy')} />
-                <DetailField label={t('modules.modelManagement.models.tabs.instances.fields.region')} value={instance.region ?? t('modules.modelManagement.models.tabs.instances.defaultRegion')} />
-                <DetailField label={t('modules.modelManagement.models.tabs.instances.fields.priority')} value={`${instance.priority}`} />
-                <DetailField label={t('modules.modelManagement.models.tabs.instances.fields.weight')} value={`${instance.weight}`} />
-                <DetailField label={t('modules.modelManagement.models.tabs.instances.fields.timeout')} value={`${instance.defaultTimeoutMs} ms`} />
-                <DetailField label={t('modules.modelManagement.models.tabs.instances.fields.type')} value={instance.type} />
+                <DetailField label={t('modelManagement:models.tabs.instances.fields.deployName')} value={instance.providerDeploymentName ?? t('modelManagement:models.tabs.instances.defaultDeploy')} />
+                <DetailField label={t('modelManagement:models.tabs.instances.fields.region')} value={instance.region ?? t('modelManagement:models.tabs.instances.defaultRegion')} />
+                <DetailField label={t('modelManagement:models.tabs.instances.fields.priority')} value={`${instance.priority}`} />
+                <DetailField label={t('modelManagement:models.tabs.instances.fields.weight')} value={`${instance.weight}`} />
+                <DetailField label={t('modelManagement:models.tabs.instances.fields.timeout')} value={`${instance.defaultTimeoutMs} ms`} />
+                <DetailField label={t('modelManagement:models.tabs.instances.fields.type')} value={instance.type} />
               </div>
 
               <div className="mt-4 flex justify-end">
-                <Button variant="secondary" onClick={() => setEditingInstance(instance)}>{t('modules.modelManagement.models.tabs.instances.editButton')}</Button>
+                <Button variant="secondary" onClick={() => setEditingInstance(instance)}>{t('modelManagement:models.tabs.instances.editButton')}</Button>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <EmptyState title={t('modules.modelManagement.models.tabs.instances.empty')} />
+        <EmptyState title={t('modelManagement:models.tabs.instances.empty')} />
       )}
 
       <ModelInstanceDrawer

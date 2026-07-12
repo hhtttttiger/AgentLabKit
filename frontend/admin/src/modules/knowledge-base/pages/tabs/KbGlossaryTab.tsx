@@ -19,7 +19,7 @@ function sameIds(left: string[], right: string[]) {
 
 export function KbGlossaryTab() {
   const { kbId } = useParams<{ kbId: string }>();
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const bindingQuery = useKbGlossaryBinding(kbId);
   const mutations = useKbGlossaryBindingMutations();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -44,9 +44,9 @@ export function KbGlossaryTab() {
         <div className="rounded-[2px] border border-border bg-surface/80 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-text">{t('modules.knowledgeBase.detail.sections.glossary')}</h2>
+              <h2 className="text-xl font-semibold text-text">{t('knowledgeBase:detail.sections.glossary')}</h2>
               <p className="mt-2 text-sm leading-6 text-text-secondary">
-                {t('modules.knowledgeBase.detail.glossaryBindingDescription')}
+                {t('knowledgeBase:detail.glossaryBindingDescription')}
               </p>
             </div>
             {bindingQuery.data && bindingQuery.data.categories.length > 0 ? (
@@ -60,7 +60,7 @@ export function KbGlossaryTab() {
                 }}
                 disabled={mutations.replace.isPending || !isDirty}
               >
-                {mutations.replace.isPending ? t('modules.knowledgeBase.detail.glossarySaving') : t('modules.knowledgeBase.detail.glossarySave')}
+                {mutations.replace.isPending ? t('knowledgeBase:detail.glossarySaving') : t('knowledgeBase:detail.glossarySave')}
               </Button>
             ) : null}
           </div>
@@ -71,7 +71,7 @@ export function KbGlossaryTab() {
         ) : null}
 
         {shouldShowReloadWarning ? (
-          <InlineMessage tone="info">{t('modules.knowledgeBase.detail.glossaryRefreshFailed')}</InlineMessage>
+          <InlineMessage tone="info">{t('knowledgeBase:detail.glossaryRefreshFailed')}</InlineMessage>
         ) : null}
 
         {bindingQuery.isLoading ? (
@@ -82,8 +82,8 @@ export function KbGlossaryTab() {
           </div>
         ) : bindingQuery.data && bindingQuery.data.categories.length === 0 ? (
           <EmptyState
-            title={t('modules.knowledgeBase.detail.glossaryEmptyTitle')}
-            description={t('modules.knowledgeBase.detail.glossaryEmptyDescription')}
+            title={t('knowledgeBase:detail.glossaryEmptyTitle')}
+            description={t('knowledgeBase:detail.glossaryEmptyDescription')}
           />
         ) : (
           <div className="space-y-3">
@@ -111,7 +111,7 @@ export function KbGlossaryTab() {
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-text">{category.name}</span>
                     <span className="mt-2 block text-sm leading-6 text-text-secondary">
-                      {category.description?.trim() ? category.description : t('modules.knowledgeBase.detail.glossaryDescriptionFallback')}
+                      {category.description?.trim() ? category.description : t('knowledgeBase:detail.glossaryDescriptionFallback')}
                     </span>
                   </span>
                 </label>

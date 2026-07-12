@@ -26,7 +26,7 @@ const EMPTY_FORM: BudgetForm = { scopeType: 'global', scopeKey: '*', monthlyLimi
 // ── 组件 ──────────────────────────────────────────────────────────────
 
 export function BudgetsPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'costAnalysis']);
   const { data: budgets, isLoading, isError, error } = useBudgetList();
   const createMutation = useCreateBudget();
   const deleteMutation = useDeleteBudget();
@@ -69,38 +69,38 @@ export function BudgetsPage() {
     return (
       <div className="p-6">
         <InlineMessage tone="error">
-          {error?.message ?? t('modules.costAnalysis.budgets.error')}
+          {error?.message ?? t('costAnalysis:budgets.error')}
         </InlineMessage>
       </div>
     );
   }
 
-  const scopeLabel = (scopeType: string) => t(`modules.costAnalysis.budgets.scope.${scopeType}`, scopeType);
+  const scopeLabel = (scopeType: string) => t(`costAnalysis:budgets.scope.${scopeType}`, scopeType);
 
   return (
     <div className="flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-text">{t('modules.costAnalysis.budgets.title')}</h2>
-        <Button onClick={() => setOpen(true)}>{t('modules.costAnalysis.budgets.createBudget')}</Button>
+        <h2 className="text-lg font-semibold text-text">{t('costAnalysis:budgets.title')}</h2>
+        <Button onClick={() => setOpen(true)}>{t('costAnalysis:budgets.createBudget')}</Button>
       </div>
 
       {/* 创建预算模态框 */}
       <FormModal
         open={open}
-        title={t('modules.costAnalysis.budgets.form.title')}
-        description={t('modules.costAnalysis.budgets.form.description')}
+        title={t('costAnalysis:budgets.form.title')}
+        description={t('costAnalysis:budgets.form.description')}
         onClose={() => setOpen(false)}
         footer={
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setOpen(false)}>
-              {t('modules.costAnalysis.budgets.actions.cancel')}
+              {t('costAnalysis:budgets.actions.cancel')}
             </Button>
             <Button
               variant="primary"
               onClick={handleCreate}
               disabled={createMutation.isPending || !form.scopeKey || !form.monthlyLimitUsd}
             >
-              {createMutation.isPending ? t('modules.costAnalysis.budgets.actions.creating') : t('modules.costAnalysis.budgets.actions.create')}
+              {createMutation.isPending ? t('costAnalysis:budgets.actions.creating') : t('costAnalysis:budgets.actions.create')}
             </Button>
           </div>
         }
@@ -108,7 +108,7 @@ export function BudgetsPage() {
         <div className="flex flex-col gap-4">
           {/* 范围类型 */}
           <SelectField
-            label={t('modules.costAnalysis.budgets.form.scopeType')}
+            label={t('costAnalysis:budgets.form.scopeType')}
             value={form.scopeType}
             onChange={(e) => {
               const st = e.target.value;
@@ -122,10 +122,10 @@ export function BudgetsPage() {
 
           {/* scopeKey — 按类型动态切换 */}
           {form.scopeType === 'global' ? (
-            <TextField label={t('modules.costAnalysis.budgets.form.scopeKey')} value="*" disabled />
+            <TextField label={t('costAnalysis:budgets.form.scopeKey')} value="*" disabled />
           ) : form.scopeType === 'model' ? (
             <SelectField
-              label={t('modules.costAnalysis.budgets.form.scopeKey')}
+              label={t('costAnalysis:budgets.form.scopeKey')}
               value={form.scopeKey}
               onChange={(e) => setForm({ ...form, scopeKey: e.target.value })}
             >
@@ -136,7 +136,7 @@ export function BudgetsPage() {
             </SelectField>
           ) : form.scopeType === 'agent' ? (
             <SelectField
-              label={t('modules.costAnalysis.budgets.form.scopeKey')}
+              label={t('costAnalysis:budgets.form.scopeKey')}
               value={form.scopeKey}
               onChange={(e) => setForm({ ...form, scopeKey: e.target.value })}
             >
@@ -147,7 +147,7 @@ export function BudgetsPage() {
             </SelectField>
           ) : (
             <SelectField
-              label={t('modules.costAnalysis.budgets.form.scopeKey')}
+              label={t('costAnalysis:budgets.form.scopeKey')}
               value={form.scopeKey}
               onChange={(e) => setForm({ ...form, scopeKey: e.target.value })}
             >
@@ -160,7 +160,7 @@ export function BudgetsPage() {
 
           {/* 月度预算 */}
           <TextField
-            label={t('modules.costAnalysis.budgets.form.monthlyLimit')}
+            label={t('costAnalysis:budgets.form.monthlyLimit')}
             type="number"
             value={String(form.monthlyLimitUsd)}
             onChange={(e) => setForm({ ...form, monthlyLimitUsd: Number(e.target.value) })}
@@ -168,7 +168,7 @@ export function BudgetsPage() {
 
           {/* 告警阈值 */}
           <TextField
-            label={t('modules.costAnalysis.budgets.form.alertThreshold')}
+            label={t('costAnalysis:budgets.form.alertThreshold')}
             type="number"
             min={0}
             max={100}
@@ -180,17 +180,17 @@ export function BudgetsPage() {
 
       {/* 预算列表 */}
       {!budgets?.length ? (
-        <EmptyState title={t('modules.costAnalysis.budgets.emptyTitle')} description={t('modules.costAnalysis.budgets.emptyDescription')} />
+        <EmptyState title={t('costAnalysis:budgets.emptyTitle')} description={t('costAnalysis:budgets.emptyDescription')} />
       ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-text-muted">
-              <th className="pb-2 font-medium">{t('modules.costAnalysis.budgets.form.scopeType')}</th>
-              <th className="pb-2 font-medium">{t('modules.costAnalysis.budgets.form.scopeKey')}</th>
-              <th className="pb-2 font-medium text-right">{t('modules.costAnalysis.budgets.columns.limit')}</th>
-              <th className="pb-2 font-medium text-right">{t('modules.costAnalysis.budgets.form.alertThreshold')}</th>
-              <th className="pb-2 font-medium text-center">{t('modules.costAnalysis.budgets.columns.status')}</th>
-              <th className="pb-2 font-medium text-right">{t('modules.costAnalysis.budgets.columns.actions')}</th>
+              <th className="pb-2 font-medium">{t('costAnalysis:budgets.form.scopeType')}</th>
+              <th className="pb-2 font-medium">{t('costAnalysis:budgets.form.scopeKey')}</th>
+              <th className="pb-2 font-medium text-right">{t('costAnalysis:budgets.columns.limit')}</th>
+              <th className="pb-2 font-medium text-right">{t('costAnalysis:budgets.form.alertThreshold')}</th>
+              <th className="pb-2 font-medium text-center">{t('costAnalysis:budgets.columns.status')}</th>
+              <th className="pb-2 font-medium text-right">{t('costAnalysis:budgets.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -202,16 +202,16 @@ export function BudgetsPage() {
                 <td className="py-2 text-right text-text-secondary">{b.alertThresholdPct}%</td>
                 <td className="py-2 text-center">
                   <span className={`inline-block rounded-[2px] px-2 py-0.5 text-xs ${b.isEnabled ? 'bg-success/10 text-success' : 'bg-text-muted/10 text-text-muted'}`}>
-                    {t(b.isEnabled ? 'modules.costAnalysis.budgets.status.active' : 'modules.costAnalysis.budgets.status.inactive')}
+                    {t(b.isEnabled ? 'costAnalysis:budgets.status.active' : 'costAnalysis:budgets.status.inactive')}
                   </span>
                 </td>
                 <td className="py-2 text-right">
                   <button
                     className="text-xs text-error hover:underline"
                     onClick={() => deleteMutation.mutate(b.id)}
-                    aria-label={`${t('modules.costAnalysis.budgets.actions.delete')} ${b.scopeType}:${b.scopeKey}`}
+                    aria-label={`${t('costAnalysis:budgets.actions.delete')} ${b.scopeType}:${b.scopeKey}`}
                   >
-                    {t('modules.costAnalysis.budgets.actions.delete')}
+                    {t('costAnalysis:budgets.actions.delete')}
                   </button>
                 </td>
               </tr>

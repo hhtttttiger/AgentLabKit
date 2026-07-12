@@ -30,10 +30,10 @@ import {
 import { useSkillList, useSkillMutations } from './hooks';
 import { SkillDrawer } from './SkillDrawer';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 export function SkillsPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [filters, setFilters] = useState(defaultSkillFilters);

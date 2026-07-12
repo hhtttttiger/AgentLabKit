@@ -11,7 +11,7 @@ import type { CreateSkillRequest, PromptSection, SkillDetailView, SkillSummaryVi
 import { emptySkillDraft } from './types';
 import { useSkill } from './hooks';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 const SKILL_KEY_PATTERN = /^[a-z][a-z0-9_.-]*$/;
 
@@ -75,7 +75,7 @@ function PromptSectionRow({
   onRemove: () => void;
   errors: Record<string, string>;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   return (
     <div className="rounded-[2px] border border-border bg-background-subtle p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -127,7 +127,7 @@ function ToolBindingRow({
   onRemove: () => void;
   errors: Record<string, string>;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
 
   const invocationModeOptions: { value: InvocationMode; label: string }[] = [
     { value: 'auto', label: t(`${am}.skills.drawer.invocationModeAuto`) },
@@ -199,7 +199,7 @@ export function SkillDrawer({
   onClose: () => void;
   onSubmit: (model: CreateSkillRequest) => Promise<void>;
 }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const [draft, setDraft] = useState<CreateSkillRequest>(emptySkillDraft);
   const [configOpen, setConfigOpen] = useState(false);
   const skillKeyForDetail = mode === 'edit' && initialValue ? initialValue.skillKey : '';

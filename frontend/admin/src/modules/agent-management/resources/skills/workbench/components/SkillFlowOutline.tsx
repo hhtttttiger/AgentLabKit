@@ -32,8 +32,8 @@ function SkillFlowOutlineRow({
   onInsertAfter: (id: string) => void;
   onInsertDecisionAfter: (id: string) => void;
 }) {
-  const { t } = useTranslation('common');
-  const wb = 'modules.agentManagement.skills.workbench';
+  const { t } = useTranslation(['common', 'agentManagement']);
+  const wb = 'agentManagement.skills.workbench';
   const kindLabelMap: Record<string, string> = {
     task: t(`${wb}.nodeLabels.task`),
     decision: t(`${wb}.nodeLabels.decision`),

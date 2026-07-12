@@ -29,7 +29,7 @@ import {
   type TaskBranchDraft,
 } from './workbench/state/useSkillFlowBuilderStore';
 
-const am = 'modules.agentManagement';
+const am = 'agentManagement';
 
 function serializeRemoteSkill({
   skillKey,
@@ -56,7 +56,7 @@ type PendingRemoteUpdate = {
 };
 
 function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const navigate = useNavigate();
   const skillQuery = useSkill(skillKey);
   const mutations = useSkillMutations();

@@ -16,7 +16,7 @@ export function CategoryItem({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'glossary']);
   return (
     <div
       className={cn(
@@ -27,15 +27,15 @@ export function CategoryItem({
       <button type="button" className="w-full text-left" onClick={onSelect}>
         <div className="text-sm font-semibold text-text">{category.name}</div>
         <div className="mt-2 text-sm leading-6 text-text-secondary">
-          {category.description?.trim() ? category.description : t('modules.glossary.categoryItem.descriptionFallback')}
+          {category.description?.trim() ? category.description : t('glossary:categoryItem.descriptionFallback')}
         </div>
       </button>
       <div className="mt-4 flex gap-2">
         <Button variant="secondary" className="min-h-control-sm px-3 py-2 text-xs" onClick={onEdit}>
-          {t('modules.glossary.categoryItem.actions.edit')}
+          {t('glossary:categoryItem.actions.edit')}
         </Button>
         <Button variant="ghost" className="min-h-control-sm px-3 py-2 text-xs" onClick={onDelete}>
-          {t('modules.glossary.categoryItem.actions.delete')}
+          {t('glossary:categoryItem.actions.delete')}
         </Button>
       </div>
     </div>

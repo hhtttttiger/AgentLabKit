@@ -26,10 +26,10 @@ import type { UsagePageState } from './useUsagePageState';
 type ViewMode = 'table' | 'grid';
 
 function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'modelMonitoring']);
   const options: { value: ViewMode; icon: typeof List; label: string }[] = [
-    { value: 'table', icon: List, label: t('modules.modelMonitoring.usage.viewToggle.list') },
-    { value: 'grid', icon: LayoutGrid, label: t('modules.modelMonitoring.usage.viewToggle.card') },
+    { value: 'table', icon: List, label: t('modelMonitoring:usage.viewToggle.list') },
+    { value: 'grid', icon: LayoutGrid, label: t('modelMonitoring:usage.viewToggle.card') },
   ];
   return (
     <div className="flex overflow-hidden rounded-[2px] border border-border">
@@ -58,22 +58,22 @@ function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: View
 // ---------------------------------------------------------------------------
 
 function GridView({ state }: { state: UsagePageState }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'modelMonitoring']);
   const { overviewQuery, overview } = state;
 
   if (overviewQuery.isLoading) return <SkeletonCards />;
   if (overviewQuery.isError) {
     return (
       <InlineMessage tone="error">
-        {overviewQuery.error?.message ?? t('modules.modelMonitoring.usage.grid.error')}
+        {overviewQuery.error?.message ?? t('modelMonitoring:usage.grid.error')}
       </InlineMessage>
     );
   }
   if (!overview.modelSummaries.length) {
     return (
       <EmptyState
-        title={t('modules.modelMonitoring.usage.grid.empty.title')}
-        description={t('modules.modelMonitoring.usage.grid.empty.description')}
+        title={t('modelMonitoring:usage.grid.empty.title')}
+        description={t('modelMonitoring:usage.grid.empty.description')}
       />
     );
   }
@@ -96,27 +96,27 @@ function GridView({ state }: { state: UsagePageState }) {
 // ---------------------------------------------------------------------------
 
 function UsageDetailDrawer({ state }: { state: UsagePageState }) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'modelMonitoring']);
   const { detail } = state;
   const cardName = state.overview.modelSummaries.find((row) => row.modelKey === detail.modelKey)?.displayName ?? detail.modelKey;
 
   const columns = useMemo<TableColumn<UsageRequestRow>[]>(
     () => [
-      { key: 'startedAt', header: t('modules.modelMonitoring.usage.detail.table.headers.startedAt'), render: (row) => formatDateTime(row.startedAtUtc) },
-      { key: 'requestId', header: t('modules.modelMonitoring.usage.detail.table.headers.requestId'), render: (row) => <span className="font-mono text-xs text-text">{row.requestId}</span> },
-      { key: 'capability', header: t('modules.modelMonitoring.usage.detail.table.headers.capability'), render: (row) => row.capability },
-      { key: 'attempts', header: t('modules.modelMonitoring.usage.detail.table.headers.attempts'), render: (row) => formatNumber(row.attemptCount) },
-      { key: 'inputTokens', header: t('modules.modelMonitoring.usage.detail.table.headers.inputTokens'), render: (row) => formatCompact(row.totalInputTokens) },
-      { key: 'outputTokens', header: t('modules.modelMonitoring.usage.detail.table.headers.outputTokens'), render: (row) => formatCompact(row.totalOutputTokens) },
-      { key: 'latency', header: t('modules.modelMonitoring.usage.detail.table.headers.latency'), render: (row) => formatLatency(row.totalDurationMs) },
+      { key: 'startedAt', header: t('modelMonitoring:usage.detail.table.headers.startedAt'), render: (row) => formatDateTime(row.startedAtUtc) },
+      { key: 'requestId', header: t('modelMonitoring:usage.detail.table.headers.requestId'), render: (row) => <span className="font-mono text-xs text-text">{row.requestId}</span> },
+      { key: 'capability', header: t('modelMonitoring:usage.detail.table.headers.capability'), render: (row) => row.capability },
+      { key: 'attempts', header: t('modelMonitoring:usage.detail.table.headers.attempts'), render: (row) => formatNumber(row.attemptCount) },
+      { key: 'inputTokens', header: t('modelMonitoring:usage.detail.table.headers.inputTokens'), render: (row) => formatCompact(row.totalInputTokens) },
+      { key: 'outputTokens', header: t('modelMonitoring:usage.detail.table.headers.outputTokens'), render: (row) => formatCompact(row.totalOutputTokens) },
+      { key: 'latency', header: t('modelMonitoring:usage.detail.table.headers.latency'), render: (row) => formatLatency(row.totalDurationMs) },
       {
         key: 'status',
-        header: t('modules.modelMonitoring.usage.detail.table.headers.result'),
+        header: t('modelMonitoring:usage.detail.table.headers.result'),
         render: (row) =>
           row.success ? (
-            <Badge tone="success">{t('modules.modelMonitoring.usage.detail.table.status.success')}</Badge>
+            <Badge tone="success">{t('modelMonitoring:usage.detail.table.status.success')}</Badge>
           ) : (
-            <Badge tone="danger">{row.errorCode ?? t('modules.modelMonitoring.usage.detail.table.status.failure')}</Badge>
+            <Badge tone="danger">{row.errorCode ?? t('modelMonitoring:usage.detail.table.status.failure')}</Badge>
           ),
       },
     ],
@@ -124,17 +124,17 @@ function UsageDetailDrawer({ state }: { state: UsagePageState }) {
   );
 
   return (
-    <FormModal open={detail.open} onClose={detail.onClose} title={`${cardName} — ${t('modules.modelMonitoring.usage.detail.drawerTitle')}`}>
+    <FormModal open={detail.open} onClose={detail.onClose} title={`${cardName} — ${t('modelMonitoring:usage.detail.drawerTitle')}`}>
       <div className="space-y-4">
         <FilterToolbar compact>
           <DateField
-            label={t('modules.modelMonitoring.usage.detail.filters.startTime')}
+            label={t('modelMonitoring:usage.detail.filters.startTime')}
             fieldSize="compact"
             value={detail.filters.fromDate}
             onChange={(nextValue) => detail.patchFilters({ fromDate: nextValue, page: 1 })}
           />
           <DateField
-            label={t('modules.modelMonitoring.usage.detail.filters.endTime')}
+            label={t('modelMonitoring:usage.detail.filters.endTime')}
             fieldSize="compact"
             value={detail.filters.toDate}
             onChange={(nextValue) => detail.patchFilters({ toDate: nextValue, page: 1 })}
@@ -148,8 +148,8 @@ function UsageDetailDrawer({ state }: { state: UsagePageState }) {
           loading={detail.query.isLoading}
           emptyState={
             <EmptyState
-              title={t('modules.modelMonitoring.usage.detail.empty.title')}
-              description={t('modules.modelMonitoring.usage.detail.empty.description')}
+              title={t('modelMonitoring:usage.detail.empty.title')}
+              description={t('modelMonitoring:usage.detail.empty.description')}
             />
           }
         />
@@ -171,24 +171,24 @@ function UsageDetailDrawer({ state }: { state: UsagePageState }) {
 
 export function UsagePageView({ state }: { state: UsagePageState }) {
   useAdminLocale();
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'modelMonitoring']);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   const columns = useMemo<TableColumn<ModelUsageSummary>[]>(
     () => [
       {
         key: 'displayName',
-        header: t('modules.modelMonitoring.usage.table.headers.modelName'),
+        header: t('modelMonitoring:usage.table.headers.modelName'),
         render: (row) => (
           <button type="button" className="font-medium text-primary hover:underline" onClick={() => state.openDetail(row.modelKey)}>
             {row.displayName}
           </button>
         ),
       },
-      { key: 'requests', header: t('modules.modelMonitoring.usage.table.headers.requests'), render: (row) => formatCompact(row.totalRequests) },
-      { key: 'inputTokens', header: t('modules.modelMonitoring.usage.table.headers.inputTokens'), render: (row) => formatCompact(row.totalInputTokens) },
-      { key: 'outputTokens', header: t('modules.modelMonitoring.usage.table.headers.outputTokens'), render: (row) => formatCompact(row.totalOutputTokens) },
-      { key: 'latency', header: t('modules.modelMonitoring.usage.table.headers.averageLatency'), render: (row) => formatLatency(row.averageLatencyMs) },
+      { key: 'requests', header: t('modelMonitoring:usage.table.headers.requests'), render: (row) => formatCompact(row.totalRequests) },
+      { key: 'inputTokens', header: t('modelMonitoring:usage.table.headers.inputTokens'), render: (row) => formatCompact(row.totalInputTokens) },
+      { key: 'outputTokens', header: t('modelMonitoring:usage.table.headers.outputTokens'), render: (row) => formatCompact(row.totalOutputTokens) },
+      { key: 'latency', header: t('modelMonitoring:usage.table.headers.averageLatency'), render: (row) => formatLatency(row.averageLatencyMs) },
     ],
     [state.openDetail, t],
   );
@@ -210,15 +210,15 @@ export function UsagePageView({ state }: { state: UsagePageState }) {
       }
     >
       <SelectField
-        label={t('modules.modelMonitoring.usage.filters.model')}
+        label={t('modelMonitoring:usage.filters.model')}
         fieldSize="compact"
         value={state.filters.modelKey}
         onChange={(e) => state.patchFilters({ modelKey: e.target.value, page: 1 })}
       >
         <option value="">
           {state.modelOptionsQuery.isLoading
-            ? t('modules.modelMonitoring.usage.filters.loading')
-            : t('modules.modelMonitoring.usage.filters.allModels')}
+            ? t('modelMonitoring:usage.filters.loading')
+            : t('modelMonitoring:usage.filters.allModels')}
         </option>
         {(state.modelOptionsQuery.data ?? []).map((item) => (
           <option key={item.modelKey} value={item.modelKey}>
@@ -227,13 +227,13 @@ export function UsagePageView({ state }: { state: UsagePageState }) {
         ))}
       </SelectField>
       <DateField
-        label={t('modules.modelMonitoring.usage.filters.startTime')}
+        label={t('modelMonitoring:usage.filters.startTime')}
         fieldSize="compact"
         value={state.filters.fromDate}
         onChange={(nextValue) => state.patchFilters({ fromDate: nextValue, page: 1 })}
       />
       <DateField
-        label={t('modules.modelMonitoring.usage.filters.endTime')}
+        label={t('modelMonitoring:usage.filters.endTime')}
         fieldSize="compact"
         value={state.filters.toDate}
         onChange={(nextValue) => state.patchFilters({ toDate: nextValue, page: 1 })}
@@ -248,10 +248,10 @@ export function UsagePageView({ state }: { state: UsagePageState }) {
       <div className="pb-4">
         <MetricStrip
           items={[
-            { label: t('modules.modelMonitoring.usage.metrics.totalRequests'), value: formatCompact(state.overview.totalRequests), accent: 'blue' },
-            { label: t('modules.modelMonitoring.usage.metrics.totalTokens'), value: formatCompact(state.overview.totalTokens), accent: 'violet' },
-            { label: t('modules.modelMonitoring.usage.metrics.averageLatency'), value: formatLatency(state.overview.averageLatencyMs), accent: 'teal' },
-            { label: t('modules.modelMonitoring.usage.metrics.totalErrors'), value: formatCompact(state.overview.totalErrors), accent: 'amber' },
+            { label: t('modelMonitoring:usage.metrics.totalRequests'), value: formatCompact(state.overview.totalRequests), accent: 'blue' },
+            { label: t('modelMonitoring:usage.metrics.totalTokens'), value: formatCompact(state.overview.totalTokens), accent: 'violet' },
+            { label: t('modelMonitoring:usage.metrics.averageLatency'), value: formatLatency(state.overview.averageLatencyMs), accent: 'teal' },
+            { label: t('modelMonitoring:usage.metrics.totalErrors'), value: formatCompact(state.overview.totalErrors), accent: 'amber' },
           ]}
         />
       </div>
@@ -263,7 +263,7 @@ export function UsagePageView({ state }: { state: UsagePageState }) {
           error={
             state.overviewQuery.isError ? (
               <InlineMessage tone="error">
-                {state.overviewQuery.error?.message ?? t('modules.modelMonitoring.usage.error')}
+                {state.overviewQuery.error?.message ?? t('modelMonitoring:usage.error')}
               </InlineMessage>
             ) : undefined
           }
@@ -286,8 +286,8 @@ export function UsagePageView({ state }: { state: UsagePageState }) {
               loading={false}
               emptyState={
                 <EmptyState
-                  title={t('modules.modelMonitoring.usage.empty.title')}
-                  description={t('modules.modelMonitoring.usage.empty.description')}
+                  title={t('modelMonitoring:usage.empty.title')}
+                  description={t('modelMonitoring:usage.empty.description')}
                 />
               }
             />

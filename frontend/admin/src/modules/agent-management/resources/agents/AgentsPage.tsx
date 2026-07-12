@@ -29,7 +29,7 @@ const statusTone: Record<string, 'success' | 'warning' | 'neutral'> = {
 };
 
 export function AgentsPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'agentManagement']);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [filters, setFilters] = useState(defaultAgentFilters);
@@ -44,7 +44,7 @@ export function AgentsPage() {
   const isEditOpen = editingAgentKey !== null;
   const { locale } = useAdminLocale();
 
-  const am = 'modules.agentManagement';
+  const am = 'agentManagement';
 
   const statusOptions = useMemo(() => [
     { value: '', label: t(`${am}.status.allStatuses`) },

@@ -32,7 +32,7 @@ export function FeaturesPage() {
   const [editingItem, setEditingItem] = useState<LlmFeatureView | null>(null);
   const [deletingItem, setDeletingItem] = useState<LlmFeatureView | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const { toast } = useToast();
   const enabledFilterOptions = getEnabledFilterOptions(t);
   const filterableFilterOptions = getFilterableFilterOptions(t);
@@ -47,7 +47,7 @@ export function FeaturesPage() {
     () => [
       {
         key: 'featureKey',
-        header: t('modules.modelManagement.featureDefinitions.page.columns.featureKey'),
+        header: t('modelManagement:featureDefinitions.page.columns.featureKey'),
         render: (row) => (
           <div>
             <div className="font-medium text-text">{row.displayName}</div>
@@ -57,31 +57,31 @@ export function FeaturesPage() {
       },
       {
         key: 'valueType',
-        header: t('modules.modelManagement.featureDefinitions.page.columns.valueType'),
+        header: t('modelManagement:featureDefinitions.page.columns.valueType'),
         render: (row) => <Badge tone="neutral">{getValueTypeLabel(row.valueType)}</Badge>,
       },
       {
         key: 'flags',
-        header: t('modules.modelManagement.featureDefinitions.page.columns.flags'),
+        header: t('modelManagement:featureDefinitions.page.columns.flags'),
         render: (row) => (
           <div className="flex flex-wrap gap-1">
-            {row.isFilterable ? <Badge tone="success">{t('modules.modelManagement.featureDefinitions.page.flags.filterable')}</Badge> : null}
-            {row.isRoutable ? <Badge tone="warning">{t('modules.modelManagement.featureDefinitions.page.flags.routable')}</Badge> : null}
+            {row.isFilterable ? <Badge tone="success">{t('modelManagement:featureDefinitions.page.flags.filterable')}</Badge> : null}
+            {row.isRoutable ? <Badge tone="warning">{t('modelManagement:featureDefinitions.page.flags.routable')}</Badge> : null}
           </div>
         ),
       },
       {
         key: 'status',
-        header: t('modules.modelManagement.featureDefinitions.page.columns.status'),
-        render: (row) => <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modules.modelManagement.featureDefinitions.page.status.enabled') : t('modules.modelManagement.featureDefinitions.page.status.disabled')}</Badge>,
+        header: t('modelManagement:featureDefinitions.page.columns.status'),
+        render: (row) => <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modelManagement:featureDefinitions.page.status.enabled') : t('modelManagement:featureDefinitions.page.status.disabled')}</Badge>,
       },
       {
         key: 'actions',
-        header: t('modules.modelManagement.featureDefinitions.page.columns.actions'),
+        header: t('modelManagement:featureDefinitions.page.columns.actions'),
         render: (row) => (
           <RowActions actions={[
-            { label: t('modules.modelManagement.featureDefinitions.page.rowActions.edit'), onClick: () => setEditingItem(row) },
-            { label: t('modules.modelManagement.featureDefinitions.page.rowActions.delete'), onClick: () => setDeletingItem(row), variant: 'danger' },
+            { label: t('modelManagement:featureDefinitions.page.rowActions.edit'), onClick: () => setEditingItem(row) },
+            { label: t('modelManagement:featureDefinitions.page.rowActions.delete'), onClick: () => setDeletingItem(row), variant: 'danger' },
           ]} />
         ),
       },
@@ -107,18 +107,18 @@ export function FeaturesPage() {
                   onClick={() => setCreateOpen(true)}
                 >
                   <Plus size={14} />
-                  {t('modules.modelManagement.featureDefinitions.page.newFeature')}
+                  {t('modelManagement:featureDefinitions.page.newFeature')}
                 </ToolbarButton>
               </FilterToolbarActions>
             }
           >
             <SelectField
-              label={t('modules.modelManagement.featureDefinitions.page.filters.valueType')}
+              label={t('modelManagement:featureDefinitions.page.filters.valueType')}
               fieldSize="compact"
               value={filters.valueType}
               onChange={(event) => setFilters((current) => ({ ...current, valueType: event.target.value as typeof current.valueType, page: 1 }))}
             >
-              <option value="">{t('modules.modelManagement.featureDefinitions.page.filters.allTypes')}</option>
+              <option value="">{t('modelManagement:featureDefinitions.page.filters.allTypes')}</option>
               {valueTypeOptions.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
@@ -127,7 +127,7 @@ export function FeaturesPage() {
             </SelectField>
             <div className="filter-narrow">
               <SelectField
-                label={t('modules.modelManagement.featureDefinitions.page.filters.enableStatus')}
+                label={t('modelManagement:featureDefinitions.page.filters.enableStatus')}
                 fieldSize="compact"
                 value={filters.isEnabled}
                 onChange={(event) => setFilters((current) => ({ ...current, isEnabled: event.target.value as typeof current.isEnabled, page: 1 }))}
@@ -141,7 +141,7 @@ export function FeaturesPage() {
             </div>
             <div className="filter-narrow">
               <SelectField
-                label={t('modules.modelManagement.featureDefinitions.page.filters.filterable')}
+                label={t('modelManagement:featureDefinitions.page.filters.filterable')}
                 fieldSize="compact"
                 value={filters.isFilterable}
                 onChange={(event) => setFilters((current) => ({ ...current, isFilterable: event.target.value as typeof current.isFilterable, page: 1 }))}
@@ -155,7 +155,7 @@ export function FeaturesPage() {
             </div>
             <div className="filter-narrow">
               <SelectField
-                label={t('modules.modelManagement.featureDefinitions.page.filters.routable')}
+                label={t('modelManagement:featureDefinitions.page.filters.routable')}
                 fieldSize="compact"
                 value={filters.isRoutable}
                 onChange={(event) => setFilters((current) => ({ ...current, isRoutable: event.target.value as typeof current.isRoutable, page: 1 }))}
@@ -186,8 +186,8 @@ export function FeaturesPage() {
           loading={listQuery.isLoading}
           emptyState={
             <EmptyState
-              title={t('modules.modelManagement.featureDefinitions.page.emptyTitle')}
-              action={<Button onClick={() => setCreateOpen(true)}>{t('modules.modelManagement.featureDefinitions.page.createNow')}</Button>}
+              title={t('modelManagement:featureDefinitions.page.emptyTitle')}
+              action={<Button onClick={() => setCreateOpen(true)}>{t('modelManagement:featureDefinitions.page.createNow')}</Button>}
             />
           }
         />
@@ -226,9 +226,9 @@ export function FeaturesPage() {
 
       <ConfirmDialog
         open={deletingItem !== null}
-        title={t('modules.modelManagement.featureDefinitions.page.deleteTitle')}
-        description={t('modules.modelManagement.featureDefinitions.page.deleteDescription', { name: deletingItem?.displayName ?? '' })}
-        confirmLabel={t('modules.modelManagement.featureDefinitions.page.confirmDelete')}
+        title={t('modelManagement:featureDefinitions.page.deleteTitle')}
+        description={t('modelManagement:featureDefinitions.page.deleteDescription', { name: deletingItem?.displayName ?? '' })}
+        confirmLabel={t('modelManagement:featureDefinitions.page.confirmDelete')}
         loading={mutations.remove.isPending}
         onClose={() => {
           setDeletingItem(null);

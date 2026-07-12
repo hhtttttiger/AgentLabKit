@@ -45,25 +45,25 @@ export function CategoryFormDrawer({
   onClose: () => void;
   onSubmit: (payload: GlossaryCategoryCreateRequest | GlossaryCategoryUpdateRequest) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'glossary']);
   const [draft, setDraft] = useState<CategoryDraft>(emptyDraft);
 
   useEffect(() => {
     setDraft(toDraft(initialValue));
   }, [initialValue, open]);
 
-  const nameError = draft.name.trim() ? null : t('modules.glossary.categoryForm.validation.nameRequired');
+  const nameError = draft.name.trim() ? null : t('glossary:categoryForm.validation.nameRequired');
 
   return (
     <FormModal
       open={open}
-      title={mode === 'create' ? t('modules.glossary.categoryForm.titleCreate') : t('modules.glossary.categoryForm.titleEdit')}
-      description={t('modules.glossary.categoryForm.description')}
+      title={mode === 'create' ? t('glossary:categoryForm.titleCreate') : t('glossary:categoryForm.titleEdit')}
+      description={t('glossary:categoryForm.description')}
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            {t('modules.glossary.categoryForm.actions.cancel')}
+            {t('glossary:categoryForm.actions.cancel')}
           </Button>
           <Button
             onClick={() =>
@@ -75,10 +75,10 @@ export function CategoryFormDrawer({
             disabled={loading || Boolean(nameError)}
           >
             {loading
-              ? t('modules.glossary.categoryForm.actions.submitting')
+              ? t('glossary:categoryForm.actions.submitting')
               : mode === 'create'
-                ? t('modules.glossary.categoryForm.actions.create')
-                : t('modules.glossary.categoryForm.actions.save')}
+                ? t('glossary:categoryForm.actions.create')
+                : t('glossary:categoryForm.actions.save')}
           </Button>
         </div>
       }
@@ -86,15 +86,15 @@ export function CategoryFormDrawer({
       <div className="space-y-5">
         {error ? <InlineMessage tone="error">{getErrorMessage(error)}</InlineMessage> : null}
         <TextField
-          label={t('modules.glossary.categoryForm.fields.name')}
-          placeholder={t('modules.glossary.categoryForm.fields.namePlaceholder')}
+          label={t('glossary:categoryForm.fields.name')}
+          placeholder={t('glossary:categoryForm.fields.namePlaceholder')}
           value={draft.name}
           error={nameError}
           onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
         />
         <TextAreaField
-          label={t('modules.glossary.categoryForm.fields.description')}
-          placeholder={t('modules.glossary.categoryForm.fields.descriptionPlaceholder')}
+          label={t('glossary:categoryForm.fields.description')}
+          placeholder={t('glossary:categoryForm.fields.descriptionPlaceholder')}
           value={draft.description}
           onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
         />

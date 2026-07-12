@@ -21,7 +21,7 @@ export function useFeatureList(query: LlmFeatureListQuery) {
 
 export function useFeatureMutations() {
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   const invalidate = () =>
     queryClient.invalidateQueries({

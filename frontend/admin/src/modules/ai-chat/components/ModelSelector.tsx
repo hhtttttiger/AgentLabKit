@@ -22,7 +22,7 @@ export function ModelSelector({
   onSelect,
   variant = 'default',
 }: ModelSelectorProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
   const hasAgentOptions = agentOptions.length > 0;
   const hasCardOptions = modelOptions.length > 0;
   const [mode, setMode] = useState<ModelType>(
@@ -76,14 +76,14 @@ export function ModelSelector({
             onClick={() => handleModeChange('model')}
             compact={isCompact}
           >
-            {t('modules.aiChat.selector.model')}
+            {t('aiChat:selector.model')}
           </ModeButton>
           <ModeButton
             active={mode === 'agent'}
             onClick={() => handleModeChange('agent')}
             compact={isCompact}
           >
-            {t('modules.aiChat.selector.agent')}
+            {t('aiChat:selector.agent')}
           </ModeButton>
         </div>
       ) : null}
@@ -105,8 +105,8 @@ export function ModelSelector({
           {currentOptions.length === 0 ? (
             <option value="">
               {mode === 'agent'
-                ? t('modules.aiChat.selector.noAvailableAgent')
-                : t('modules.aiChat.selector.noAvailableModel')}
+                ? t('aiChat:selector.noAvailableAgent')
+                : t('aiChat:selector.noAvailableModel')}
             </option>
           ) : (
             currentOptions.map((option) => (

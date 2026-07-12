@@ -9,32 +9,32 @@ import { useModelDetail } from '../resources/model-cards/hooks';
 import { ModelTestDialog } from '../resources/model-cards/ModelTestDialog';
 
 export function ModelDetailLayout() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'modelManagement']);
   const { modelKey } = useParams<{ modelKey: string }>();
   const navigate = useNavigate();
   const detailQuery = useModelDetail(modelKey);
   const [testOpen, setTestOpen] = useState(false);
 
   const model = detailQuery.data ?? null;
-  const cardName = model?.displayName ?? t('modules.modelManagement.detail.fallbackTitle');
+  const cardName = model?.displayName ?? t('modelManagement:detail.fallbackTitle');
 
   const sections = [
-    { key: 'overview', label: t('modules.modelManagement.detail.sections.overview'), path: `/model-management/models/${modelKey}`, end: true },
-    { key: 'instances', label: t('modules.modelManagement.detail.sections.instances'), path: `/model-management/models/${modelKey}/instances` },
-    { key: 'bindings', label: t('modules.modelManagement.detail.sections.bindings'), path: `/model-management/models/${modelKey}/bindings` },
+    { key: 'overview', label: t('modelManagement:detail.sections.overview'), path: `/model-management/models/${modelKey}`, end: true },
+    { key: 'instances', label: t('modelManagement:detail.sections.instances'), path: `/model-management/models/${modelKey}/instances` },
+    { key: 'bindings', label: t('modelManagement:detail.sections.bindings'), path: `/model-management/models/${modelKey}/bindings` },
   ];
 
   return (
     <>
       <ModuleLayoutShell
-        eyebrow={t('modules.modelManagement.eyebrow')}
+        eyebrow={t('modelManagement:eyebrow')}
         title={cardName}
         sections={sections}
         leading={
           <button
             onClick={() => navigate('/model-management/models')}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition hover:bg-state-hover hover:text-text"
-            title={t('modules.modelManagement.detail.backToList')}
+            title={t('modelManagement:detail.backToList')}
           >
             <ArrowLeft size={18} />
           </button>
@@ -44,7 +44,7 @@ export function ModelDetailLayout() {
             {isTextModel(model?.type) && (
               <Button variant="secondary" onClick={() => setTestOpen(true)}>
                 <Play size={16} />
-                {t('modules.modelManagement.models.page.rowActions.test')}
+                {t('modelManagement:models.page.rowActions.test')}
               </Button>
             )}
             <Button onClick={() => navigate(`/model-management/models/${modelKey}/instances?action=create`)}>

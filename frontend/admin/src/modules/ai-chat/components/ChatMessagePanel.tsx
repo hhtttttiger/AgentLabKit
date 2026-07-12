@@ -91,7 +91,7 @@ function SkeletonMessages() {
 // ──────────────────────────────────────────────────────────────────────
 
 function EmptyChatState() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'aiChat']);
 
   return (
     <div className="flex min-h-full flex-1 items-center justify-center">
@@ -100,10 +100,10 @@ function EmptyChatState() {
           AI
         </div>
         <p className="text-lg font-semibold text-text">
-          {t('modules.aiChat.message.newConversation')}
+          {t('aiChat:message.newConversation')}
         </p>
         <p className="mt-2 text-sm text-text-secondary">
-          {t('modules.aiChat.message.startTyping')}
+          {t('aiChat:message.startTyping')}
         </p>
       </div>
     </div>

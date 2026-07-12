@@ -75,7 +75,7 @@ function FeatureEditModal({
   onUpdateDraft: (updater: (current: FeatureEditorDraft) => FeatureEditorDraft) => void;
   onSave: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const allowedValues = parseAllowedValues(feature.allowedValuesJson);
   const valueError = draft.isSupported
     ? validateFeatureValueInput(
@@ -94,7 +94,7 @@ function FeatureEditModal({
         <div className="mb-4 flex items-center gap-3">
           <Settings2 size={20} className="text-primary" />
           <div>
-            <h3 className="text-lg font-semibold">{t('modules.modelManagement.models.featureSection.dnd.editModal.title')}</h3>
+            <h3 className="text-lg font-semibold">{t('modelManagement:models.featureSection.dnd.editModal.title')}</h3>
             <p className="text-sm text-text-muted">
               {feature.displayName} ({feature.featureKey})
             </p>
@@ -103,7 +103,7 @@ function FeatureEditModal({
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">{t('modules.modelManagement.models.featureSection.dnd.editModal.enableLabel')}</label>
+            <label className="text-sm font-medium">{t('modelManagement:models.featureSection.dnd.editModal.enableLabel')}</label>
             <button
               type="button"
               onClick={() => onUpdateDraft((current) => ({ ...current, isSupported: !current.isSupported }))}
@@ -133,12 +133,12 @@ function FeatureEditModal({
                   )}
                   >
                    {draft.valueInput === 'true'
-                     ? t('modules.modelManagement.models.featureSection.dnd.editModal.booleanTrue')
-                     : t('modules.modelManagement.models.featureSection.dnd.editModal.booleanFalse')}
+                     ? t('modelManagement:models.featureSection.dnd.editModal.booleanTrue')
+                     : t('modelManagement:models.featureSection.dnd.editModal.booleanFalse')}
                  </button>
                ) : feature.valueType === 'enum' && allowedValues.length > 0 ? (
                  <SelectField
-                   label={t('modules.modelManagement.models.featureSection.dnd.editModal.featureValue')}
+                   label={t('modelManagement:models.featureSection.dnd.editModal.featureValue')}
                   value={draft.valueInput}
                   error={valueError}
                   onChange={(event) => onUpdateDraft((current) => ({ ...current, valueInput: event.target.value }))}
@@ -151,7 +151,7 @@ function FeatureEditModal({
                 </SelectField>
               ) : feature.valueType === 'int' || feature.valueType === 'number' ? (
                 <NumberField
-                   label={t('modules.modelManagement.models.featureSection.dnd.editModal.featureValue')}
+                   label={t('modelManagement:models.featureSection.dnd.editModal.featureValue')}
                   value={draft.valueInput}
                   error={valueError}
                   step={feature.valueType === 'int' ? 1 : 'any'}
@@ -159,7 +159,7 @@ function FeatureEditModal({
                 />
               ) : (
                 <TextField
-                   label={t('modules.modelManagement.models.featureSection.dnd.editModal.featureValue')}
+                   label={t('modelManagement:models.featureSection.dnd.editModal.featureValue')}
                   value={draft.valueInput}
                   error={valueError}
                   onChange={(event) => onUpdateDraft((current) => ({ ...current, valueInput: event.target.value }))}
@@ -170,13 +170,13 @@ function FeatureEditModal({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <TextField
-              label={t('modules.modelManagement.models.featureSection.dnd.editModal.source')}
+              label={t('modelManagement:models.featureSection.dnd.editModal.source')}
               value={draft.source}
               fieldSize="compact"
               onChange={(event) => onUpdateDraft((current) => ({ ...current, source: event.target.value }))}
             />
             <TextField
-              label={t('modules.modelManagement.models.featureSection.dnd.editModal.remark')}
+              label={t('modelManagement:models.featureSection.dnd.editModal.remark')}
               value={draft.remark}
               fieldSize="compact"
               onChange={(event) => onUpdateDraft((current) => ({ ...current, remark: event.target.value }))}
@@ -186,12 +186,12 @@ function FeatureEditModal({
 
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            {t('modules.modelManagement.models.featureSection.dnd.editModal.cancel')}
+            {t('modelManagement:models.featureSection.dnd.editModal.cancel')}
           </Button>
           <Button onClick={onSave} disabled={isSaving || Boolean(valueError)}>
             {isSaving
-              ? t('modules.modelManagement.models.featureSection.dnd.editModal.saving')
-              : t('modules.modelManagement.models.featureSection.dnd.editModal.save')}
+              ? t('modelManagement:models.featureSection.dnd.editModal.saving')
+              : t('modelManagement:models.featureSection.dnd.editModal.save')}
           </Button>
         </div>
       </div>
@@ -218,7 +218,7 @@ function DraggableFeatureItem({
   onAdd: () => void;
   onRemove: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: feature.featureKey,
     disabled: busy,
@@ -240,7 +240,7 @@ function DraggableFeatureItem({
     >
       <button
         type="button"
-        aria-label={t('modules.modelManagement.models.featureSection.dnd.dragAriaLabel', { name: feature.displayName })}
+        aria-label={t('modelManagement:models.featureSection.dnd.dragAriaLabel', { name: feature.displayName })}
         className="touch-none cursor-grab text-text-muted hover:text-text active:cursor-grabbing"
         {...attributes}
         {...listeners}
@@ -254,9 +254,9 @@ function DraggableFeatureItem({
         </div>
         {draft.hasExisting ? (
           <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
-            <span>{t('modules.modelManagement.models.featureSection.dnd.valuePrefix')}{draft.valueInput || t('modules.modelManagement.models.featureSection.dnd.valueNotSet')}</span>
+            <span>{t('modelManagement:models.featureSection.dnd.valuePrefix')}{draft.valueInput || t('modelManagement:models.featureSection.dnd.valueNotSet')}</span>
             <button type="button" onClick={onEdit} className="text-primary hover:underline">
-              {t('modules.modelManagement.models.featureSection.dnd.edit')}
+              {t('modelManagement:models.featureSection.dnd.edit')}
             </button>
           </div>
         ) : null}
@@ -266,19 +266,19 @@ function DraggableFeatureItem({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            aria-label={t('modules.modelManagement.models.featureSection.dnd.removeAriaLabel', { name: feature.displayName })}
+            aria-label={t('modelManagement:models.featureSection.dnd.removeAriaLabel', { name: feature.displayName })}
             onClick={onRemove}
             className="rounded-md px-2 py-1 text-xs font-medium text-danger transition hover:bg-danger/10"
             disabled={busy}
           >
             <span className="inline-flex items-center gap-1">
               <Trash2 size={14} />
-               {t('modules.modelManagement.models.featureSection.dnd.remove')}
+               {t('modelManagement:models.featureSection.dnd.remove')}
              </span>
            </button>
           <button
             type="button"
-            aria-label={t('modules.modelManagement.models.featureSection.dnd.toggleAriaLabel', { name: feature.displayName })}
+            aria-label={t('modelManagement:models.featureSection.dnd.toggleAriaLabel', { name: feature.displayName })}
             onClick={onToggleSupport}
             className={cn(
               'relative h-5 w-9 shrink-0 rounded-full transition',
@@ -297,14 +297,14 @@ function DraggableFeatureItem({
       ) : (
         <button
           type="button"
-           aria-label={t('modules.modelManagement.models.featureSection.dnd.addAriaLabel', { name: feature.displayName })}
+           aria-label={t('modelManagement:models.featureSection.dnd.addAriaLabel', { name: feature.displayName })}
           onClick={onAdd}
           className="rounded-md px-2 py-1 text-xs font-medium text-primary transition hover:bg-primary/10"
           disabled={busy}
         >
           <span className="inline-flex items-center gap-1">
             <Plus size={14} />
-             {t('modules.modelManagement.models.featureSection.dnd.add')}
+             {t('modelManagement:models.featureSection.dnd.add')}
            </span>
          </button>
       )}
@@ -319,7 +319,7 @@ export function ModelFeatureSectionDnd({
   modelKey: string;
   features: LlmModelFeatureView[];
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const {
     featureDefinitionsQuery,
     featureMutations,
@@ -477,17 +477,17 @@ export function ModelFeatureSectionDnd({
 
   return (
     <Card
-      title={t('modules.modelManagement.models.featureSection.cardTitle')}
-      description={t('modules.modelManagement.models.featureSection.configuredCount', {
+      title={t('modelManagement:models.featureSection.cardTitle')}
+      description={t('modelManagement:models.featureSection.configuredCount', {
         configured: configuredKeys.length,
         total: editableFeatures.length,
       })}
     >
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div className="grid gap-6 md:grid-cols-2">
-          <DroppableContainer id="unconfigured" title={t('modules.modelManagement.models.featureSection.dnd.unconfiguredTitle')} count={unconfiguredKeys.length}>
+          <DroppableContainer id="unconfigured" title={t('modelManagement:models.featureSection.dnd.unconfiguredTitle')} count={unconfiguredKeys.length}>
             {unconfiguredKeys.length === 0 ? (
-              <div className="flex h-20 items-center justify-center text-sm text-text-muted">{t('modules.modelManagement.models.featureSection.dnd.unconfiguredEmpty')}</div>
+              <div className="flex h-20 items-center justify-center text-sm text-text-muted">{t('modelManagement:models.featureSection.dnd.unconfiguredEmpty')}</div>
             ) : (
               unconfiguredKeys.map((featureKey) => {
                 const feature = getFeature(featureKey);
@@ -513,9 +513,9 @@ export function ModelFeatureSectionDnd({
             )}
           </DroppableContainer>
 
-          <DroppableContainer id="configured" title={t('modules.modelManagement.models.featureSection.dnd.configuredTitle')} count={configuredKeys.length}>
+          <DroppableContainer id="configured" title={t('modelManagement:models.featureSection.dnd.configuredTitle')} count={configuredKeys.length}>
             {configuredKeys.length === 0 ? (
-              <div className="flex h-20 items-center justify-center text-sm text-text-muted">{t('modules.modelManagement.models.featureSection.dnd.configuredEmpty')}</div>
+              <div className="flex h-20 items-center justify-center text-sm text-text-muted">{t('modelManagement:models.featureSection.dnd.configuredEmpty')}</div>
             ) : (
               configuredKeys.map((featureKey) => {
                 const feature = getFeature(featureKey);
@@ -562,15 +562,15 @@ export function ModelFeatureSectionDnd({
         ) : null}
 
         {featureDefinitionsQuery.isLoading ? (
-          <div className="mt-4 text-sm text-text-secondary">{t('modules.modelManagement.models.featureSection.loading')}</div>
+          <div className="mt-4 text-sm text-text-secondary">{t('modelManagement:models.featureSection.loading')}</div>
         ) : null}
 
         {!featureDefinitionsQuery.isLoading && editableFeatures.length === 0 ? (
-          <div className="mt-4 text-center text-sm text-text-muted">{t('modules.modelManagement.models.featureSection.empty')}</div>
+          <div className="mt-4 text-center text-sm text-text-muted">{t('modelManagement:models.featureSection.empty')}</div>
         ) : null}
 
         <div className="mt-4 rounded-lg bg-background-subtle p-3 text-xs text-text-muted">
-          {t('modules.modelManagement.models.featureSection.dnd.hint')}
+          {t('modelManagement:models.featureSection.dnd.hint')}
         </div>
       </DndContext>
     </Card>

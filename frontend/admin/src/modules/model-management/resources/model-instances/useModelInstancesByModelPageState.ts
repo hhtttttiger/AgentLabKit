@@ -44,7 +44,7 @@ export type ModelInstancesByModelPageState = {
 };
 
 export function useModelInstancesByModelPageState(): ModelInstancesByModelPageState {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const [selectedModelKey, setSelectedModelKey] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<LlmModelInstanceView | null>(null);
   const [deletingItem, setDeletingItem] = useState<LlmModelInstanceView | null>(null);
@@ -123,7 +123,7 @@ export function useModelInstancesByModelPageState(): ModelInstancesByModelPageSt
       open: deletingItem !== null,
       loading: mutations.remove.isPending,
       description: deletingItem
-        ? t('modules.modelManagement.modelInstances.page.deleteDescription', { name: deletingItem.instanceKey })
+        ? t('modelManagement:modelInstances.page.deleteDescription', { name: deletingItem.instanceKey })
         : '',
       onClose: closeDeleteDialog,
       onConfirm: async () => {

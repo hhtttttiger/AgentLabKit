@@ -6,7 +6,7 @@ import { SvgChart } from '@/shared/ui/charts';
 import { useTranslation } from 'react-i18next';
 
 export function RunDetailPage() {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'evaluation']);
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
   const { data: detail, isLoading } = useRunDetail(runId ?? '');

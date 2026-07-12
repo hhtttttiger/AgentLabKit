@@ -16,7 +16,7 @@ export function useConnectionProfileList(query: LlmConnectionProfileListQuery) {
 
 export function useConnectionProfileMutations() {
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   const invalidate = () =>
     queryClient.invalidateQueries({

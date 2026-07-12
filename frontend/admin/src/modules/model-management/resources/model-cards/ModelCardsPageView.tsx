@@ -30,10 +30,10 @@ type ViewMode = 'table' | 'grid';
 /* ── View Mode Toggle ── */
 
 function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const options: { value: ViewMode; icon: typeof List; label: string }[] = [
-    { value: 'table', icon: List, label: t('modules.modelManagement.models.page.viewModeTable') },
-    { value: 'grid', icon: LayoutGrid, label: t('modules.modelManagement.models.page.viewModeGrid') },
+    { value: 'table', icon: List, label: t('modelManagement:models.page.viewModeTable') },
+    { value: 'grid', icon: LayoutGrid, label: t('modelManagement:models.page.viewModeGrid') },
   ];
 
   return (
@@ -62,48 +62,48 @@ function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: View
 
 function ModelTableView({ state }: { state: ModelsPageState }) {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const columns = useMemo<TableColumn<LlmModelView>[]>(
     () => [
       {
         key: 'displayName',
-        header: t('modules.modelManagement.models.page.columns.displayName'),
+        header: t('modelManagement:models.page.columns.displayName'),
         render: (row) => <span className="font-medium text-[var(--color-ink)]">{row.displayName}</span>,
       },
       {
         key: 'instances',
-        header: t('modules.modelManagement.models.page.columns.instances'),
-        render: (row) => <Badge>{t('modules.modelManagement.models.page.statsInstanceCount', { count: row.instanceCount ?? 0 })}</Badge>,
+        header: t('modelManagement:models.page.columns.instances'),
+        render: (row) => <Badge>{t('modelManagement:models.page.statsInstanceCount', { count: row.instanceCount ?? 0 })}</Badge>,
       },
       {
         key: 'bindings',
-        header: t('modules.modelManagement.models.page.columns.bindings'),
-        render: (row) => <Badge>{t('modules.modelManagement.models.page.statsBindingCount', { count: (row.bindings ?? []).length })}</Badge>,
+        header: t('modelManagement:models.page.columns.bindings'),
+        render: (row) => <Badge>{t('modelManagement:models.page.statsBindingCount', { count: (row.bindings ?? []).length })}</Badge>,
       },
       {
         key: 'features',
-        header: t('modules.modelManagement.models.page.columns.features'),
+        header: t('modelManagement:models.page.columns.features'),
         render: (row) => <CardFeatureBadges features={row.features ?? []} />,
       },
       {
         key: 'status',
-        header: t('modules.modelManagement.models.page.columns.status'),
-        render: (row) => <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modules.modelManagement.models.page.status.enabled') : t('modules.modelManagement.models.page.status.disabled')}</Badge>,
+        header: t('modelManagement:models.page.columns.status'),
+        render: (row) => <Badge tone={row.isEnabled ? 'success' : 'warning'}>{row.isEnabled ? t('modelManagement:models.page.status.enabled') : t('modelManagement:models.page.status.disabled')}</Badge>,
       },
       {
         key: 'actions',
-        header: t('modules.modelManagement.models.page.columns.actions'),
+        header: t('modelManagement:models.page.columns.actions'),
         render: (row) => (
           <RowActions actions={[
-            { label: t('modules.modelManagement.models.page.rowActions.edit'), onClick: () => state.openEdit(row) },
+            { label: t('modelManagement:models.page.rowActions.edit'), onClick: () => state.openEdit(row) },
             ...(isTextModel(row.type)
-              ? [{ label: t('modules.modelManagement.models.page.rowActions.test'), onClick: () => state.openTest(row) }]
+              ? [{ label: t('modelManagement:models.page.rowActions.test'), onClick: () => state.openTest(row) }]
               : []),
             ...(isEmbeddingModel(row.type)
-              ? [{ label: t('modules.modelManagement.models.page.rowActions.testEmbedding'), onClick: () => state.openEmbeddingTest(row) }]
+              ? [{ label: t('modelManagement:models.page.rowActions.testEmbedding'), onClick: () => state.openEmbeddingTest(row) }]
               : []),
-            { label: t('modules.modelManagement.models.page.rowActions.detail'), onClick: () => navigate(`/model-management/models/${row.modelKey}`) },
-            { label: t('modules.modelManagement.models.page.rowActions.delete'), onClick: () => state.requestDelete(row), variant: 'danger' },
+            { label: t('modelManagement:models.page.rowActions.detail'), onClick: () => navigate(`/model-management/models/${row.modelKey}`) },
+            { label: t('modelManagement:models.page.rowActions.delete'), onClick: () => state.requestDelete(row), variant: 'danger' },
           ]} />
         ),
       },
@@ -119,8 +119,8 @@ function ModelTableView({ state }: { state: ModelsPageState }) {
       loading={state.listQuery.isLoading}
       emptyState={
         <EmptyState
-          title={t('modules.modelManagement.models.page.emptyTitle')}
-          action={<Button onClick={state.openCreate}>{t('modules.modelManagement.models.page.createModel')}</Button>}
+          title={t('modelManagement:models.page.emptyTitle')}
+          action={<Button onClick={state.openCreate}>{t('modelManagement:models.page.createModel')}</Button>}
         />
       }
     />
@@ -131,7 +131,7 @@ function ModelTableView({ state }: { state: ModelsPageState }) {
 
 function ModelGridView({ state }: { state: ModelsPageState }) {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
 
   if (state.listQuery.isLoading) {
     return <SkeletonCards />;
@@ -140,8 +140,8 @@ function ModelGridView({ state }: { state: ModelsPageState }) {
   if (!state.rows.length) {
     return (
       <EmptyState
-        title={t('modules.modelManagement.models.page.emptyTitle')}
-        action={<Button onClick={state.openCreate}>{t('modules.modelManagement.models.page.createModel')}</Button>}
+        title={t('modelManagement:models.page.emptyTitle')}
+        action={<Button onClick={state.openCreate}>{t('modelManagement:models.page.createModel')}</Button>}
       />
     );
   }
@@ -171,7 +171,7 @@ function ModelGridView({ state }: { state: ModelsPageState }) {
                 </Link>
                 <div className="mt-1 text-xs text-text-muted">{model.modelName}</div>
               </div>
-              <Badge tone={model.isEnabled ? 'success' : 'warning'}>{model.isEnabled ? t('modules.modelManagement.models.page.status.enabled') : t('modules.modelManagement.models.page.status.disabled')}</Badge>
+              <Badge tone={model.isEnabled ? 'success' : 'warning'}>{model.isEnabled ? t('modelManagement:models.page.status.enabled') : t('modelManagement:models.page.status.disabled')}</Badge>
             </div>
 
             {/* Description */}
@@ -181,8 +181,8 @@ function ModelGridView({ state }: { state: ModelsPageState }) {
 
             {/* Stats */}
             <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
-              <span>{instanceCount > 0 ? t('modules.modelManagement.models.page.statsInstanceCountWithHealth', { count: instanceCount, healthy: healthyCount }) : t('modules.modelManagement.models.page.statsInstanceCount', { count: instanceCount })}</span>
-              <span>{t('modules.modelManagement.models.page.statsBindingCount', { count: bindings.length })}</span>
+              <span>{instanceCount > 0 ? t('modelManagement:models.page.statsInstanceCountWithHealth', { count: instanceCount, healthy: healthyCount }) : t('modelManagement:models.page.statsInstanceCount', { count: instanceCount })}</span>
+              <span>{t('modelManagement:models.page.statsBindingCount', { count: bindings.length })}</span>
             </div>
 
             {/* Features */}
@@ -197,7 +197,7 @@ function ModelGridView({ state }: { state: ModelsPageState }) {
                 {isTextModel(model.type) && (
                   <button
                     type="button"
-                    title={t('modules.modelManagement.models.page.rowActions.test')}
+                    title={t('modelManagement:models.page.rowActions.test')}
                     onClick={() => state.openTest(model)}
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition hover:bg-primary/10 hover:text-primary"
                   >
@@ -207,7 +207,7 @@ function ModelGridView({ state }: { state: ModelsPageState }) {
                 {isEmbeddingModel(model.type) && (
                   <button
                     type="button"
-                    title={t('modules.modelManagement.models.page.rowActions.testEmbedding')}
+                    title={t('modelManagement:models.page.rowActions.testEmbedding')}
                     onClick={() => state.openEmbeddingTest(model)}
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition hover:bg-primary/10 hover:text-primary"
                   >
@@ -216,7 +216,7 @@ function ModelGridView({ state }: { state: ModelsPageState }) {
                 )}
                 <button
                   type="button"
-                  title={t('modules.modelManagement.models.page.rowActions.edit')}
+                  title={t('modelManagement:models.page.rowActions.edit')}
                   onClick={() => state.openEdit(model)}
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition hover:bg-primary/10 hover:text-primary"
                 >
@@ -224,7 +224,7 @@ function ModelGridView({ state }: { state: ModelsPageState }) {
                 </button>
                 <button
                   type="button"
-                  title={t('modules.modelManagement.models.page.rowActions.delete')}
+                  title={t('modelManagement:models.page.rowActions.delete')}
                   onClick={() => state.requestDelete(model)}
                   className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition hover:bg-error/10 hover:text-error"
                 >
@@ -243,7 +243,7 @@ function ModelGridView({ state }: { state: ModelsPageState }) {
 
 export function ModelsPageView({ state }: { state: ModelsPageState }) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const { t } = useTranslation();
+  const { t } = useTranslation(['common', 'modelManagement']);
   const enabledFilterOptions = getEnabledFilterOptions(t);
 
   return (
@@ -263,19 +263,19 @@ export function ModelsPageView({ state }: { state: ModelsPageState }) {
                 >
                   <ToolbarButton variant="primary" onClick={state.openCreate}>
                     <Plus size={14} />
-                    {t('modules.modelManagement.models.page.newModel')}
+                    {t('modelManagement:models.page.newModel')}
                   </ToolbarButton>
                 </FilterToolbarActions>
               </div>
             }
           >
             <SelectField
-              label={t('modules.modelManagement.models.page.filterFeature')}
+              label={t('modelManagement:models.page.filterFeature')}
               fieldSize="compact"
               value={state.filters.featureKey}
               onChange={(event) => state.patchFilters({ featureKey: event.target.value, page: 1 })}
             >
-              <option value="">{state.featureOptionsQuery.isLoading ? t('modules.modelManagement.models.drawer.features.loading') : t('modules.modelManagement.models.page.filterFeatureAll')}</option>
+              <option value="">{state.featureOptionsQuery.isLoading ? t('modelManagement:models.drawer.features.loading') : t('modelManagement:models.page.filterFeatureAll')}</option>
               {(state.featureOptionsQuery.data ?? []).map((item) => (
                 <option key={item.featureKey} value={item.featureKey}>
                   {item.displayName}
@@ -284,7 +284,7 @@ export function ModelsPageView({ state }: { state: ModelsPageState }) {
             </SelectField>
             <div className="filter-narrow">
               <SelectField
-                label={t('modules.modelManagement.models.page.filterEnableStatus')}
+                label={t('modelManagement:models.page.filterEnableStatus')}
                 fieldSize="compact"
                 value={state.filters.isEnabled}
                 onChange={(event) => state.patchFilters({ isEnabled: event.target.value as typeof defaultModelFilters.isEnabled, page: 1 })}
@@ -323,9 +323,9 @@ export function ModelsPageView({ state }: { state: ModelsPageState }) {
 
       <ConfirmDialog
         open={state.deleteDialog.open}
-        title={t('modules.modelManagement.models.deleteDialog.title')}
+        title={t('modelManagement:models.deleteDialog.title')}
         description={state.deleteDialog.description}
-        confirmLabel={t('modules.modelManagement.models.deleteDialog.confirmLabel')}
+        confirmLabel={t('modelManagement:models.deleteDialog.confirmLabel')}
         loading={state.deleteDialog.loading}
         onClose={state.deleteDialog.onClose}
         onConfirm={state.deleteDialog.onConfirm}
