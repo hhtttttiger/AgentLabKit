@@ -94,7 +94,7 @@ export function MemoryListPage() {
       {/* 统计 */}
       {metrics.length > 0 && (
         <div className="shrink-0">
-          <MetricStrip items={metrics} columns={metrics.length} />
+          <MetricStrip items={metrics} columns={4} />
         </div>
       )}
 

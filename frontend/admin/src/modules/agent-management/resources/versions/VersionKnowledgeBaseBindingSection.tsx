@@ -10,7 +10,7 @@ import { InlineMessage } from '@/shared/ui/InlineMessage';
 import type { KnowledgeBaseBindingWriteModel } from '../../lib/contracts';
 import type { KnowledgeBaseBindingCandidate } from '../knowledge-base-bindings/types';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 type Row = KnowledgeBaseBindingWriteModel & {
   knowledgeBaseName: string;
@@ -58,7 +58,7 @@ export function VersionKnowledgeBaseBindingSection({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-text">{t(`${am}.versions.kbBindings.sectionTitle`)}</h4>
+        <h4 className="text-sm font-semibold text-text">{t(`${am}versions.kbBindings.sectionTitle`)}</h4>
         {!readOnly && (
           <Button
             variant="secondary"
@@ -66,27 +66,27 @@ export function VersionKnowledgeBaseBindingSection({
             onClick={() => setCreateOpen(true)}
           >
             <Plus size={14} />
-            {t(`${am}.versions.kbBindings.addButton`)}
+            {t(`${am}versions.kbBindings.addButton`)}
           </Button>
         )}
       </div>
 
       {readOnly && (
         <InlineMessage tone="info">
-          {t(`${am}.versions.kbBindings.readonlyInfo`)}
+          {t(`${am}versions.kbBindings.readonlyInfo`)}
         </InlineMessage>
       )}
 
       {!readOnly && rows.length > 0 && !hasUsableKnowledgeSearch && (
         <InlineMessage tone="info">
-          {t(`${am}.versions.kbBindings.missingToolWarning`)}
+          {t(`${am}versions.kbBindings.missingToolWarning`)}
         </InlineMessage>
       )}
 
       {rows.length === 0 ? (
         <EmptyState
-          title={t(`${am}.versions.kbBindings.emptyTitle`)}
-          description={t(`${am}.versions.kbBindings.emptyDescription`)}
+          title={t(`${am}versions.kbBindings.emptyTitle`)}
+          description={t(`${am}versions.kbBindings.emptyDescription`)}
         />
       ) : (
         <div className="space-y-3">
@@ -112,14 +112,14 @@ export function VersionKnowledgeBaseBindingSection({
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <TextField
-                  label={t(`${am}.versions.kbBindings.sortLabel`)}
+                  label={t(`${am}versions.kbBindings.sortLabel`)}
                   type="number"
                   value={String(row.sortOrder)}
                   disabled={readOnly}
                   onChange={(event) => onUpdate(index, { ...row, sortOrder: Number(event.target.value) })}
                 />
                 <ToggleField
-                  label={t(`${am}.versions.kbBindings.enabledLabel`)}
+                  label={t(`${am}versions.kbBindings.enabledLabel`)}
                   checked={row.isEnabled}
                   disabled={readOnly}
                   onChange={(checked) => onUpdate(index, { ...row, isEnabled: checked })}
@@ -132,13 +132,13 @@ export function VersionKnowledgeBaseBindingSection({
 
       <FormModal
         open={createOpen}
-        title={t(`${am}.versions.kbBindings.drawerTitle`)}
-        description={t(`${am}.versions.kbBindings.drawerDescription`)}
+        title={t(`${am}versions.kbBindings.drawerTitle`)}
+        description={t(`${am}versions.kbBindings.drawerDescription`)}
         onClose={() => setCreateOpen(false)}
         footer={(
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={() => setCreateOpen(false)}>
-              {t(`${am}.common.cancel`)}
+              {t(`${am}common.cancel`)}
             </Button>
             <Button
               disabled={!draft.knowledgeBaseId}
@@ -154,19 +154,19 @@ export function VersionKnowledgeBaseBindingSection({
                 });
               }}
             >
-              {t(`${am}.versions.kbBindings.saveButton`)}
+              {t(`${am}versions.kbBindings.saveButton`)}
             </Button>
           </div>
         )}
       >
         <div className="space-y-4">
           <SelectField
-            label={t(`${am}.versions.kbBindings.selectLabel`)}
+            label={t(`${am}versions.kbBindings.selectLabel`)}
             error={validationErrors.kb_create_knowledgeBaseId}
             value={draft.knowledgeBaseId}
             onChange={(event) => setDraft((current) => ({ ...current, knowledgeBaseId: event.target.value }))}
           >
-            <option value="">{t(`${am}.versions.kbBindings.selectPlaceholder`)}</option>
+            <option value="">{t(`${am}versions.kbBindings.selectPlaceholder`)}</option>
             {candidates.map((candidate) => (
               <option key={candidate.value} value={candidate.value}>
                 {candidate.label}
@@ -174,13 +174,13 @@ export function VersionKnowledgeBaseBindingSection({
             ))}
           </SelectField>
           <TextField
-            label={t(`${am}.versions.kbBindings.sortLabel`)}
+            label={t(`${am}versions.kbBindings.sortLabel`)}
             type="number"
             value={String(draft.sortOrder)}
             onChange={(event) => setDraft((current) => ({ ...current, sortOrder: Number(event.target.value) }))}
           />
           <ToggleField
-            label={t(`${am}.versions.kbBindings.enabledLabel`)}
+            label={t(`${am}versions.kbBindings.enabledLabel`)}
             checked={draft.isEnabled}
             onChange={(checked) => setDraft((current) => ({ ...current, isEnabled: checked }))}
           />

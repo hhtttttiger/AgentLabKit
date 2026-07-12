@@ -30,7 +30,7 @@ import {
 import { useSkillList, useSkillMutations } from './hooks';
 import { SkillDrawer } from './SkillDrawer';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 export function SkillsPage() {
   const { t } = useTranslation(['common', 'agentManagement']);
@@ -52,15 +52,15 @@ export function SkillsPage() {
   );
 
   const statusOptions = useMemo(() => [
-    { value: '', label: t(`${am}.skills.allStatuses`) },
-    { value: 'draft', label: t(`${am}.skills.statusDraft`) },
-    { value: 'published', label: t(`${am}.skills.statusPublished`) },
+    { value: '', label: t(`${am}skills.allStatuses`) },
+    { value: 'draft', label: t(`${am}skills.statusDraft`) },
+    { value: 'published', label: t(`${am}skills.statusPublished`) },
   ], [t]);
 
   const columns = useMemo<TableColumn<SkillSummaryView>[]>(() => [
     {
       key: 'skillKey',
-      header: t(`${am}.skills.columns.skillKey`),
+      header: t(`${am}skills.columns.skillKey`),
       render: (row) => (
         <div>
           <div className="font-medium text-text">{row.displayName}</div>
@@ -70,21 +70,21 @@ export function SkillsPage() {
     },
     {
       key: 'status',
-      header: t(`${am}.skills.columns.status`),
+      header: t(`${am}skills.columns.status`),
       render: (row) => (
         <Badge tone={row.status === 'published' ? 'success' : 'warning'}>
-          {row.status === 'published' ? t(`${am}.skills.statusPublished`) : t(`${am}.skills.statusDraft`)}
+          {row.status === 'published' ? t(`${am}skills.statusPublished`) : t(`${am}skills.statusDraft`)}
         </Badge>
       ),
     },
     {
       key: 'version',
-      header: t(`${am}.skills.columns.version`),
+      header: t(`${am}skills.columns.version`),
       render: (row) => row.version,
     },
     {
       key: 'tags',
-      header: t(`${am}.skills.columns.tags`),
+      header: t(`${am}skills.columns.tags`),
       render: (row) => (
         <div className="flex flex-wrap gap-1">
           {row.tags.length === 0 && <span className="text-text-muted">-</span>}
@@ -98,18 +98,18 @@ export function SkillsPage() {
     },
     {
       key: 'updatedAtUtc',
-      header: t(`${am}.skills.columns.updatedAt`),
+      header: t(`${am}skills.columns.updatedAt`),
       render: (row) => formatAdminDateTime(row.updatedAtUtc ?? row.createdAtUtc, undefined, locale),
     },
     {
       key: 'actions',
-      header: t(`${am}.skills.columns.actions`),
+      header: t(`${am}skills.columns.actions`),
       render: (row) => (
         <RowActions actions={[
-          { label: t(`${am}.skills.actions.edit`), onClick: () => setEditingItem(row) },
-          { label: t(`${am}.skills.actions.workbench`), onClick: () => navigate(`/agent-management/skills/${row.skillKey}/workbench`) },
-          ...(row.status === 'draft' ? [{ label: t(`${am}.skills.actions.publish`), onClick: () => mutations.publish.mutate(row.skillKey), disabled: mutations.publish.isPending }] : []),
-          { label: t(`${am}.skills.actions.delete`), onClick: () => setDeletingItem(row), variant: 'danger' as const, disabled: mutations.remove.isPending },
+          { label: t(`${am}skills.actions.edit`), onClick: () => setEditingItem(row) },
+          { label: t(`${am}skills.actions.workbench`), onClick: () => navigate(`/agent-management/skills/${row.skillKey}/workbench`) },
+          ...(row.status === 'draft' ? [{ label: t(`${am}skills.actions.publish`), onClick: () => mutations.publish.mutate(row.skillKey), disabled: mutations.publish.isPending }] : []),
+          { label: t(`${am}skills.actions.delete`), onClick: () => setDeletingItem(row), variant: 'danger' as const, disabled: mutations.remove.isPending },
         ]} />
       ),
     },
@@ -139,13 +139,13 @@ export function SkillsPage() {
                   onClick={() => setCreateOpen(true)}
                 >
                   <Plus size={14} />
-                  {t(`${am}.skills.newSkill`)}
+                  {t(`${am}skills.newSkill`)}
                 </ToolbarButton>
               </FilterToolbarActions>
             )}
           >
             <SelectField
-              label={t(`${am}.skills.filterStatus`)}
+              label={t(`${am}skills.filterStatus`)}
               fieldSize="compact"
               value={filters.status}
               onChange={(e) => setFilters((current) => ({ ...current, status: e.target.value as typeof current.status, page: 1 }))}
@@ -158,19 +158,19 @@ export function SkillsPage() {
             </SelectField>
             <div className="filter-narrow">
               <TextField
-                label={t(`${am}.skills.filterTag`)}
+                label={t(`${am}skills.filterTag`)}
                 fieldSize="compact"
                 value={filters.tag}
-                placeholder={t(`${am}.skills.filterTagPlaceholder`)}
+                placeholder={t(`${am}skills.filterTagPlaceholder`)}
                 onChange={(e) => setFilters((current) => ({ ...current, tag: e.target.value, page: 1 }))}
               />
             </div>
             <div className="filter-narrow">
               <TextField
-                label={t(`${am}.skills.filterSearch`)}
+                label={t(`${am}skills.filterSearch`)}
                 fieldSize="compact"
                 value={filters.search}
-                placeholder={t(`${am}.skills.filterSearchPlaceholder`)}
+                placeholder={t(`${am}skills.filterSearchPlaceholder`)}
                 onChange={(e) => setFilters((current) => ({ ...current, search: e.target.value, page: 1 }))}
               />
             </div>
@@ -199,9 +199,9 @@ export function SkillsPage() {
             loading={listQuery.isLoading}
             emptyState={
               <EmptyState
-                title={t(`${am}.skills.emptyTitle`)}
-                description={t(`${am}.skills.emptyDescription`)}
-                action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}.common.createNow`)}</Button>}
+                title={t(`${am}skills.emptyTitle`)}
+                description={t(`${am}skills.emptyDescription`)}
+                action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}common.createNow`)}</Button>}
               />
             }
           />
@@ -243,9 +243,9 @@ export function SkillsPage() {
 
       <ConfirmDialog
         open={deletingItem !== null}
-        title={t(`${am}.skills.confirmDelete.title`)}
-        description={t(`${am}.skills.confirmDelete.description`, { name: deletingItem?.displayName ?? '' })}
-        confirmLabel={t(`${am}.skills.confirmDelete.label`)}
+        title={t(`${am}skills.confirmDelete.title`)}
+        description={t(`${am}skills.confirmDelete.description`, { name: deletingItem?.displayName ?? '' })}
+        confirmLabel={t(`${am}skills.confirmDelete.label`)}
         loading={mutations.remove.isPending}
         error={mutations.remove.error ? mutations.getMutationMessage(mutations.remove.error) : null}
         onClose={() => {

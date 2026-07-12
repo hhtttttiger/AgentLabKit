@@ -11,7 +11,7 @@ import type { CreateSkillRequest, PromptSection, SkillDetailView, SkillSummaryVi
 import { emptySkillDraft } from './types';
 import { useSkill } from './hooks';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 const SKILL_KEY_PATTERN = /^[a-z][a-z0-9_.-]*$/;
 
@@ -30,19 +30,19 @@ function validateDraft(draft: CreateSkillRequest, mode: 'create' | 'edit', t: (k
   const errors: Record<string, string> = {};
   if (mode === 'create') {
     if (!(draft.skillKey ?? '').trim()) {
-      errors.skillKey = t(`${am}.skills.drawer.skillKeyRequired`);
+      errors.skillKey = t(`${am}skills.drawer.skillKeyRequired`);
     } else if (!SKILL_KEY_PATTERN.test(draft.skillKey)) {
-      errors.skillKey = t(`${am}.skills.drawer.skillKeyPattern`);
+      errors.skillKey = t(`${am}skills.drawer.skillKeyPattern`);
     }
   }
-  if (!(draft.displayName ?? '').trim()) errors.displayName = t(`${am}.skills.drawer.displayNameRequired`);
-  if (!(draft.version ?? '').trim()) errors.version = t(`${am}.skills.drawer.versionRequired`);
+  if (!(draft.displayName ?? '').trim()) errors.displayName = t(`${am}skills.drawer.displayNameRequired`);
+  if (!(draft.version ?? '').trim()) errors.version = t(`${am}skills.drawer.versionRequired`);
   (draft.promptSections ?? []).forEach((section, index) => {
-    if (!(section.key ?? '').trim()) errors[`section_${index}_key`] = t(`${am}.skills.drawer.promptSectionKeyRequired`, { number: index + 1 });
-    if (!(section.content ?? '').trim()) errors[`section_${index}_content`] = t(`${am}.skills.drawer.promptSectionContentRequired`, { number: index + 1 });
+    if (!(section.key ?? '').trim()) errors[`section_${index}_key`] = t(`${am}skills.drawer.promptSectionKeyRequired`, { number: index + 1 });
+    if (!(section.content ?? '').trim()) errors[`section_${index}_content`] = t(`${am}skills.drawer.promptSectionContentRequired`, { number: index + 1 });
   });
   (draft.toolBindings ?? []).forEach((binding, index) => {
-    if (!(binding.toolName ?? '').trim()) errors[`tool_${index}_toolName`] = t(`${am}.skills.drawer.toolNameRequired`, { number: index + 1 });
+    if (!(binding.toolName ?? '').trim()) errors[`tool_${index}_toolName`] = t(`${am}skills.drawer.toolNameRequired`, { number: index + 1 });
   });
   return errors;
 }
@@ -80,7 +80,7 @@ function PromptSectionRow({
     <div className="rounded-[2px] border border-border bg-background-subtle p-4">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-medium text-text">
-          {t(`${am}.skills.drawer.promptSectionTitle`, { number: index + 1 })}
+          {t(`${am}skills.drawer.promptSectionTitle`, { number: index + 1 })}
         </span>
         <Button variant="ghost" onClick={onRemove}>
           <Trash2 size={14} />
@@ -91,11 +91,11 @@ function PromptSectionRow({
           label="Key"
           value={section.key}
           error={errors[`section_${index}_key`]}
-          placeholder={t(`${am}.skills.drawer.sectionKeyPlaceholder`)}
+          placeholder={t(`${am}skills.drawer.sectionKeyPlaceholder`)}
           onChange={(e) => onChange({ ...section, key: e.target.value })}
         />
         <TextField
-          label={t(`${am}.skills.drawer.sectionSortOrder`)}
+          label={t(`${am}skills.drawer.sectionSortOrder`)}
           type="number"
           value={String(section.sortOrder)}
           onChange={(e) => onChange({ ...section, sortOrder: Number(e.target.value) })}
@@ -103,7 +103,7 @@ function PromptSectionRow({
       </div>
       <div className="mt-3">
         <TextAreaField
-          label={t(`${am}.skills.drawer.sectionContent`)}
+          label={t(`${am}skills.drawer.sectionContent`)}
           value={section.content}
           error={errors[`section_${index}_content`]}
           rows={4}
@@ -130,16 +130,16 @@ function ToolBindingRow({
   const { t } = useTranslation(['common', 'agentManagement']);
 
   const invocationModeOptions: { value: InvocationMode; label: string }[] = [
-    { value: 'auto', label: t(`${am}.skills.drawer.invocationModeAuto`) },
-    { value: 'manual_only', label: t(`${am}.skills.drawer.invocationModeManual`) },
-    { value: 'disabled', label: t(`${am}.skills.drawer.invocationModeDisabled`) },
+    { value: 'auto', label: t(`${am}skills.drawer.invocationModeAuto`) },
+    { value: 'manual_only', label: t(`${am}skills.drawer.invocationModeManual`) },
+    { value: 'disabled', label: t(`${am}skills.drawer.invocationModeDisabled`) },
   ];
 
   return (
     <div className="rounded-[2px] border border-border bg-background-subtle p-4">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-medium text-text">
-          {t(`${am}.skills.drawer.toolTitle`, { number: index + 1 })}
+          {t(`${am}skills.drawer.toolTitle`, { number: index + 1 })}
         </span>
         <Button variant="ghost" onClick={onRemove}>
           <Trash2 size={14} />
@@ -147,23 +147,23 @@ function ToolBindingRow({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <TextField
-          label={t(`${am}.skills.drawer.toolNameLabel`)}
+          label={t(`${am}skills.drawer.toolNameLabel`)}
           value={binding.toolName}
           error={errors[`tool_${index}_toolName`]}
           onChange={(e) => onChange({ ...binding, toolName: e.target.value })}
         />
         <TextField
-          label={t(`${am}.skills.drawer.displayNameLabel`)}
+          label={t(`${am}skills.drawer.displayNameLabel`)}
           value={binding.displayName ?? ''}
           onChange={(e) => onChange({ ...binding, displayName: e.target.value || null })}
         />
         <TextField
-          label={t(`${am}.skills.drawer.descriptionLabel`)}
+          label={t(`${am}skills.drawer.descriptionLabel`)}
           value={binding.description ?? ''}
           onChange={(e) => onChange({ ...binding, description: e.target.value || null })}
         />
         <SelectField
-          label={t(`${am}.skills.drawer.invocationModeLabel`)}
+          label={t(`${am}skills.drawer.invocationModeLabel`)}
           value={binding.invocationMode}
           onChange={(e) => onChange({ ...binding, invocationMode: e.target.value as InvocationMode })}
         >
@@ -175,8 +175,8 @@ function ToolBindingRow({
         </SelectField>
       </div>
       <div className="mt-3 flex gap-4">
-        <ToggleField label={t(`${am}.skills.drawer.requiredLabel`)} checked={binding.isRequired} onChange={(checked) => onChange({ ...binding, isRequired: checked })} />
-        <ToggleField label={t(`${am}.skills.drawer.enabledLabel`)} checked={binding.isEnabled} onChange={(checked) => onChange({ ...binding, isEnabled: checked })} />
+        <ToggleField label={t(`${am}skills.drawer.requiredLabel`)} checked={binding.isRequired} onChange={(checked) => onChange({ ...binding, isRequired: checked })} />
+        <ToggleField label={t(`${am}skills.drawer.enabledLabel`)} checked={binding.isEnabled} onChange={(checked) => onChange({ ...binding, isEnabled: checked })} />
       </div>
     </div>
   );
@@ -231,19 +231,19 @@ export function SkillDrawer({
   return (
     <FormModal
       open={open}
-      title={mode === 'create' ? t(`${am}.skills.drawer.titleCreate`) : t(`${am}.skills.drawer.titleEdit`)}
-      description={t(`${am}.skills.drawer.description`)}
+      title={mode === 'create' ? t(`${am}skills.drawer.titleCreate`) : t(`${am}skills.drawer.titleEdit`)}
+      description={t(`${am}skills.drawer.description`)}
       onClose={onClose}
       widthClassName="max-w-3xl"
       footer={
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>{t(`${am}.common.cancel`)}</Button>
+          <Button variant="secondary" onClick={onClose}>{t(`${am}common.cancel`)}</Button>
           <Button onClick={() => onSubmit(draft)} disabled={loading || Object.keys(validationErrors).length > 0}>
             {loading
-              ? t(`${am}.common.submitting`)
+              ? t(`${am}common.submitting`)
               : mode === 'create'
-                ? t(`${am}.skills.drawer.buttonCreate`)
-                : t(`${am}.skills.drawer.buttonEdit`)}
+                ? t(`${am}skills.drawer.buttonCreate`)
+                : t(`${am}skills.drawer.buttonEdit`)}
           </Button>
         </div>
       }
@@ -251,34 +251,34 @@ export function SkillDrawer({
       <div className="space-y-5">
         {error && <InlineMessage tone="error">{error}</InlineMessage>}
         {mode === 'edit' && detailQuery.isLoading && (
-          <InlineMessage tone="info">{t(`${am}.skills.drawer.loadingDetail`)}</InlineMessage>
+          <InlineMessage tone="info">{t(`${am}skills.drawer.loadingDetail`)}</InlineMessage>
         )}
 
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            label={t(`${am}.skills.drawer.skillKeyLabel`)}
+            label={t(`${am}skills.drawer.skillKeyLabel`)}
             value={draft.skillKey}
             error={validationErrors.skillKey}
-            placeholder={t(`${am}.skills.drawer.skillKeyPlaceholder`)}
+            placeholder={t(`${am}skills.drawer.skillKeyPlaceholder`)}
             disabled={mode === 'edit'}
             onChange={(e) => setDraft((current) => ({ ...current, skillKey: e.target.value }))}
           />
           <TextField
-            label={t(`${am}.skills.drawer.displayNameLabel`)}
+            label={t(`${am}skills.drawer.displayNameLabel`)}
             value={draft.displayName}
             error={validationErrors.displayName}
             onChange={(e) => setDraft((current) => ({ ...current, displayName: e.target.value }))}
           />
           <TextField
-            label={t(`${am}.skills.drawer.versionLabel`)}
+            label={t(`${am}skills.drawer.versionLabel`)}
             value={draft.version}
             error={validationErrors.version}
-            placeholder={t(`${am}.skills.drawer.versionPlaceholder`)}
+            placeholder={t(`${am}skills.drawer.versionPlaceholder`)}
             onChange={(e) => setDraft((current) => ({ ...current, version: e.target.value }))}
           />
           <div className="md:col-span-2">
             <TextAreaField
-              label={t(`${am}.skills.drawer.descriptionLabel`)}
+              label={t(`${am}skills.drawer.descriptionLabel`)}
               value={draft.description}
               rows={3}
               onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))}
@@ -286,9 +286,9 @@ export function SkillDrawer({
           </div>
           <div className="md:col-span-2">
             <TextField
-              label={t(`${am}.skills.drawer.tagsLabel`)}
+              label={t(`${am}skills.drawer.tagsLabel`)}
               value={draft.tags.join(', ')}
-              placeholder={t(`${am}.skills.drawer.tagsPlaceholder`)}
+              placeholder={t(`${am}skills.drawer.tagsPlaceholder`)}
               onChange={(e) =>
                 setDraft((current) => ({
                   ...current,
@@ -301,7 +301,7 @@ export function SkillDrawer({
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-text">{t(`${am}.skills.drawer.promptSectionsTitle`)}</h4>
+            <h4 className="text-sm font-semibold text-text">{t(`${am}skills.drawer.promptSectionsTitle`)}</h4>
             <Button
               variant="secondary"
               onClick={() => setDraft((current) => ({
@@ -310,11 +310,11 @@ export function SkillDrawer({
               }))}
             >
               <Plus size={14} />
-              {t(`${am}.skills.drawer.addPromptSection`)}
+              {t(`${am}skills.drawer.addPromptSection`)}
             </Button>
           </div>
           {draft.promptSections.length === 0 && (
-            <p className="text-sm text-text-muted">{t(`${am}.skills.drawer.emptyPromptSections`)}</p>
+            <p className="text-sm text-text-muted">{t(`${am}skills.drawer.emptyPromptSections`)}</p>
           )}
           {draft.promptSections.map((section, index) => (
             <PromptSectionRow
@@ -330,7 +330,7 @@ export function SkillDrawer({
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-text">{t(`${am}.skills.drawer.toolBindingsTitle`)}</h4>
+            <h4 className="text-sm font-semibold text-text">{t(`${am}skills.drawer.toolBindingsTitle`)}</h4>
             <Button
               variant="secondary"
               onClick={() => setDraft((current) => ({
@@ -339,11 +339,11 @@ export function SkillDrawer({
               }))}
             >
               <Plus size={14} />
-              {t(`${am}.skills.drawer.addTool`)}
+              {t(`${am}skills.drawer.addTool`)}
             </Button>
           </div>
           {draft.toolBindings.length === 0 && (
-            <p className="text-sm text-text-muted">{t(`${am}.skills.drawer.emptyToolBindings`)}</p>
+            <p className="text-sm text-text-muted">{t(`${am}skills.drawer.emptyToolBindings`)}</p>
           )}
           {draft.toolBindings.map((binding, index) => (
             <ToolBindingRow
@@ -363,15 +363,15 @@ export function SkillDrawer({
             className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-text"
             onClick={() => setConfigOpen((current) => !current)}
           >
-            <span>{t(`${am}.skills.drawer.advancedConfig`)}</span>
+            <span>{t(`${am}skills.drawer.advancedConfig`)}</span>
             <span className="text-text-muted">
-              {configOpen ? t(`${am}.common.collapse`) : t(`${am}.common.expand`)}
+              {configOpen ? t(`${am}common.collapse`) : t(`${am}common.expand`)}
             </span>
           </button>
           {configOpen && (
             <div className="border-t border-border p-4">
               <JsonEditor
-                label={t(`${am}.skills.drawer.configSchemaLabel`)}
+                label={t(`${am}skills.drawer.configSchemaLabel`)}
                 kind="object"
                 placeholder='{ "type": "object" }'
                 value={Object.keys(draft.configSchema).length === 0 ? '' : JSON.stringify(draft.configSchema)}

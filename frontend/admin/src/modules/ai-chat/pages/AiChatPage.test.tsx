@@ -30,6 +30,8 @@ describe('AiChatPage', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', storage);
     storage.clear();
+    // jsdom doesn't implement scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   afterEach(() => {

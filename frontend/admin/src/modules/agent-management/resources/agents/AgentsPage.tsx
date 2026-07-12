@@ -44,13 +44,13 @@ export function AgentsPage() {
   const isEditOpen = editingAgentKey !== null;
   const { locale } = useAdminLocale();
 
-  const am = 'agentManagement';
+  const am = 'agentManagement:';
 
   const statusOptions = useMemo(() => [
-    { value: '', label: t(`${am}.status.allStatuses`) },
-    { value: 'draft', label: t(`${am}.status.draft`) },
-    { value: 'published', label: t(`${am}.status.published`) },
-    { value: 'disabled', label: t(`${am}.status.disabled`) },
+    { value: '', label: t(`${am}status.allStatuses`) },
+    { value: 'draft', label: t(`${am}status.draft`) },
+    { value: 'published', label: t(`${am}status.published`) },
+    { value: 'disabled', label: t(`${am}status.disabled`) },
   ], [t, am]);
 
   const columns = useMemo<TableColumn<AgentSummaryView>[]>(
@@ -67,16 +67,16 @@ export function AgentsPage() {
       },
       {
         key: 'status',
-        header: t(`${am}.agents.columns.status`),
+        header: t(`${am}agents.columns.status`),
         render: (row) => (
           <Badge tone={statusTone[row.status] ?? 'neutral'}>
-            {t(`${am}.status.${row.status}`, { defaultValue: row.status })}
+            {t(`${am}status.${row.status}`, { defaultValue: row.status })}
           </Badge>
         ),
       },
       {
         key: 'publishedVersion',
-        header: t(`${am}.agents.columns.publishedVersion`),
+        header: t(`${am}agents.columns.publishedVersion`),
         render: (row) =>
           row.publishedVersionNumber !== null ? (
             <span className="font-mono text-sm">v{row.publishedVersionNumber}</span>
@@ -86,21 +86,21 @@ export function AgentsPage() {
       },
       {
         key: 'createdAtUtc',
-        header: t(`${am}.agents.columns.createdAt`),
+        header: t(`${am}agents.columns.createdAt`),
         render: (row) => formatAdminDateTime(row.createdAtUtc, undefined, locale),
       },
       {
         key: 'actions',
-        header: t(`${am}.agents.columns.actions`),
+        header: t(`${am}agents.columns.actions`),
         render: (row) => (
           <RowActions
             actions={[
               {
-                label: t(`${am}.agents.actions.manageVersions`),
+                label: t(`${am}agents.actions.manageVersions`),
                 onClick: () => navigate(`${row.agentKey}?tab=versions`),
               },
               {
-                label: t(`${am}.agents.actions.editDefinition`),
+                label: t(`${am}agents.actions.editDefinition`),
                 onClick: () => setEditingAgentKey(row.agentKey),
               },
             ]}
@@ -129,13 +129,13 @@ export function AgentsPage() {
                   onClick={() => setCreateOpen(true)}
                 >
                   <Plus size={14} />
-                  {t(`${am}.agents.page.newAgent`)}
+                  {t(`${am}agents.page.newAgent`)}
                 </ToolbarButton>
               </FilterToolbarActions>
             }
           >
             <SelectField
-              label={t(`${am}.agents.columns.status`)}
+              label={t(`${am}agents.columns.status`)}
               fieldSize="compact"
               value={filters.status}
               onChange={(e) =>
@@ -173,8 +173,8 @@ export function AgentsPage() {
           loading={listQuery.isLoading}
           emptyState={
             <EmptyState
-              title={t(`${am}.agents.page.emptyTitle`)}
-              action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}.common.createNow`)}</Button>}
+              title={t(`${am}agents.page.emptyTitle`)}
+              action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}common.createNow`)}</Button>}
             />
           }
         />

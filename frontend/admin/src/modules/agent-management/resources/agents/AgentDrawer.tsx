@@ -8,12 +8,12 @@ import { JsonEditor } from '@/shared/ui/JsonEditor';
 import type { AgentDetailView, CreateAgentRequest } from '../../lib/contracts';
 import { emptyAgentDraft } from './types';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 function validateDraft(draft: CreateAgentRequest, t: (key: string) => string) {
   const errors: Partial<Record<keyof CreateAgentRequest, string>> = {};
-  if (!(draft.agentKey ?? '').trim()) errors.agentKey = t(`${am}.agents.drawer.agentKeyRequired`);
-  if (!(draft.displayName ?? '').trim()) errors.displayName = t(`${am}.agents.drawer.displayNameRequired`);
+  if (!(draft.agentKey ?? '').trim()) errors.agentKey = t(`${am}agents.drawer.agentKeyRequired`);
+  if (!(draft.displayName ?? '').trim()) errors.displayName = t(`${am}agents.drawer.displayNameRequired`);
   return errors;
 }
 
@@ -59,27 +59,27 @@ export function AgentDrawer({
   return (
     <FormModal
       open={open}
-      title={isEdit ? t(`${am}.agents.drawer.titleEdit`) : t(`${am}.agents.drawer.titleCreate`)}
+      title={isEdit ? t(`${am}agents.drawer.titleEdit`) : t(`${am}agents.drawer.titleCreate`)}
       description={
         isEdit
-          ? t(`${am}.agents.drawer.descEdit`)
-          : t(`${am}.agents.drawer.descCreate`)
+          ? t(`${am}agents.drawer.descEdit`)
+          : t(`${am}agents.drawer.descCreate`)
       }
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            {t(`${am}.common.cancel`)}
+            {t(`${am}common.cancel`)}
           </Button>
           <Button
             onClick={() => onSubmit(draft)}
             disabled={loading || Object.keys(validationErrors).length > 0}
           >
             {loading
-              ? t(`${am}.common.submitting`)
+              ? t(`${am}common.submitting`)
               : isEdit
-                ? t(`${am}.agents.drawer.buttonEdit`)
-                : t(`${am}.agents.drawer.buttonCreate`)}
+                ? t(`${am}agents.drawer.buttonEdit`)
+                : t(`${am}agents.drawer.buttonCreate`)}
           </Button>
         </div>
       }
@@ -89,15 +89,15 @@ export function AgentDrawer({
 
         <div className="grid gap-4 md:grid-cols-2">
           <TextField
-            label={t(`${am}.agents.drawer.agentKey`)}
+            label={t(`${am}agents.drawer.agentKey`)}
             value={draft.agentKey}
             error={validationErrors.agentKey}
-            placeholder={t(`${am}.agents.drawer.agentKeyPlaceholder`)}
+            placeholder={t(`${am}agents.drawer.agentKeyPlaceholder`)}
             disabled={isEdit}
             onChange={(e) => setDraft((c) => ({ ...c, agentKey: e.target.value }))}
           />
           <TextField
-            label={t(`${am}.agents.drawer.displayName`)}
+            label={t(`${am}agents.drawer.displayName`)}
             value={draft.displayName}
             error={validationErrors.displayName}
             onChange={(e) => setDraft((c) => ({ ...c, displayName: e.target.value }))}
@@ -105,9 +105,9 @@ export function AgentDrawer({
         </div>
 
         <TextAreaField
-          label={t(`${am}.agents.drawer.description`)}
+          label={t(`${am}agents.drawer.description`)}
           value={draft.description ?? ''}
-          placeholder={t(`${am}.agents.drawer.descriptionPlaceholder`)}
+          placeholder={t(`${am}agents.drawer.descriptionPlaceholder`)}
           rows={3}
           onChange={(e) => setDraft((c) => ({ ...c, description: e.target.value || null }))}
         />
@@ -118,26 +118,26 @@ export function AgentDrawer({
             className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-text"
             onClick={() => setAdvancedOpen((c) => !c)}
           >
-            <span>{t(`${am}.agents.drawer.advanced`)}</span>
+            <span>{t(`${am}agents.drawer.advanced`)}</span>
             <span className="text-text-muted">
-              {advancedOpen ? t(`${am}.common.collapse`) : t(`${am}.common.expand`)}
+              {advancedOpen ? t(`${am}common.collapse`) : t(`${am}common.expand`)}
             </span>
           </button>
           {advancedOpen && (
             <div className="space-y-4 border-t border-border p-4">
               <JsonEditor
-                label={t(`${am}.agents.drawer.tags`)}
+                label={t(`${am}agents.drawer.tags`)}
                 kind="array"
                 value={JSON.stringify(draft.tags)}
                 onChange={(v) => setDraft((c) => ({ ...c, tags: JSON.parse(v) }))}
-                hint={t(`${am}.agents.drawer.tagsHint`)}
+                hint={t(`${am}agents.drawer.tagsHint`)}
               />
               <JsonEditor
-                label={t(`${am}.agents.drawer.metadata`)}
+                label={t(`${am}agents.drawer.metadata`)}
                 kind="object"
                 value={JSON.stringify(draft.metadata)}
                 onChange={(v) => setDraft((c) => ({ ...c, metadata: JSON.parse(v) }))}
-                hint={t(`${am}.agents.drawer.metadataHint`)}
+                hint={t(`${am}agents.drawer.metadataHint`)}
               />
             </div>
           )}

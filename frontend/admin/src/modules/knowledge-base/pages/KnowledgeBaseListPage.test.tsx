@@ -29,7 +29,7 @@ describe('KnowledgeBaseListPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Knowledge base' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create knowledge base' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Create knowledge base' }).length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Search')).toBeInTheDocument();
     expect(screen.getByLabelText('Status')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument();

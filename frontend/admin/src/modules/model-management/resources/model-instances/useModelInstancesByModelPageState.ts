@@ -95,7 +95,7 @@ export function useModelInstancesByModelPageState(): ModelInstancesByModelPageSt
     instances: {
       items: instances,
       isLoading: instancesQuery.isLoading,
-      totalCount: instancesQuery.data?.total ?? instances.length,
+      totalCount: instancesQuery.data?.totalCount ?? instances.length,
     },
     drawer: {
       open: createOpen || editingItem !== null,

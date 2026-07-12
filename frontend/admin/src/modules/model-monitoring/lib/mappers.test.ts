@@ -22,6 +22,8 @@ describe('model monitoring mappers', () => {
         totalOutputTokens: 500,
         totalEstimatedCost: 0.12,
         avgDurationMs: 250,
+        totalCacheWriteTokens: 0,
+        totalCacheReadTokens: 0,
       },
       cardNames,
     );

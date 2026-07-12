@@ -38,8 +38,11 @@ describe('PageFrame', () => {
       </PageFrame>,
     );
 
-    expect(screen.getByText('模型管理').closest('.mm-grid-pattern')).toHaveClass('py-4');
-    expect(screen.getByText('模型管理').parentElement).toHaveClass('min-w-0', 'flex-1', 'max-w-none');
+    // headerClassName is applied to the header wrapper div (parent of the flex layout)
+    const title = screen.getByText('模型管理');
+    const headerWrapper = title.closest('.border-b');
+    expect(headerWrapper).toHaveClass('py-4');
+    expect(title.parentElement).toHaveClass('min-w-0', 'flex-1', 'max-w-none');
     expect(screen.getByText('summary').parentElement).toHaveClass('mt-3');
   });
 });

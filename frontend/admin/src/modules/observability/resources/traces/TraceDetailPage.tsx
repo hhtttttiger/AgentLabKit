@@ -6,7 +6,7 @@ import { MetricStrip } from '@/shared/ui/MetricStrip';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 import { formatDuration, formatSpanKind, getSpanKindColor } from '../../lib/formatters';
 import { useTranslation } from 'react-i18next';
-import type { SpanData } from '../../lib/contracts';
+
 
 export function TraceDetailPage() {
   const { t } = useTranslation(['common', 'observability']);

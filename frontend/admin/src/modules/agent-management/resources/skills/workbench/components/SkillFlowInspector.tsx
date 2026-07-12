@@ -113,7 +113,7 @@ function getTaskBranchTone(kind: SkillFlowTransition['kind']) {
 
 export function SkillFlowInspector(props: InspectorProps) {
   const { t } = useTranslation(['common', 'agentManagement']);
-  const wb = 'agentManagement.skills.workbench';
+  const wb = 'agentManagement:skills.workbench';
   const wbi = `${wb}.inspector`;
   const selectedState = getSelectedState(props.document, props.selection);
   const selectedTransition = getSelectedTransition(props.document, props.selection);
@@ -346,7 +346,7 @@ function TransitionInspector(props: {
   ) => void;
 }) {
   const { t } = useTranslation(['common', 'agentManagement']);
-  const wb = 'agentManagement.skills.workbench';
+  const wb = 'agentManagement:skills.workbench';
   const wbi = `${wb}.inspector`;
   const transitionKindOptions = [
     { value: 'default', label: t(`${wb}.edgeTypes.default`) },
@@ -504,7 +504,7 @@ function TaskStateInspector(props: {
   onUpdateToolPlanReason?: (stateId: string, toolId: string, reason: string) => void;
 }) {
   const { t } = useTranslation(['common', 'agentManagement']);
-  const wb = 'agentManagement.skills.workbench';
+  const wb = 'agentManagement:skills.workbench';
   const wbi = `${wb}.inspector`;
   const [toolPickerOpen, setToolPickerOpen] = useState(false);
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null);

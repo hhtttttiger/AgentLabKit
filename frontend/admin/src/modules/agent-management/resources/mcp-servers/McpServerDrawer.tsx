@@ -8,7 +8,7 @@ import { JsonEditor } from '@/shared/ui/JsonEditor';
 import type { CreateMcpServerRequest, McpServerDetailView, McpTransport } from './types';
 import { emptyMcpServerDraft } from './types';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 const transportOptions: { value: McpTransport; label: string }[] = [
   { value: 'stdio', label: 'stdio' },
@@ -18,9 +18,9 @@ const transportOptions: { value: McpTransport; label: string }[] = [
 
 function validateDraft(draft: CreateMcpServerRequest, t: (key: string) => string) {
   const errors: Partial<Record<'name' | 'endpoint' | 'command', string>> = {};
-  if (!(draft.name ?? '').trim()) errors.name = t(`${am}.mcpServers.drawer.nameRequired`);
-  if (draft.transport === 'stdio' && !(draft.command ?? '').trim()) errors.command = t(`${am}.mcpServers.drawer.stdioCommandRequired`);
-  if (draft.transport !== 'stdio' && !(draft.endpoint ?? '').trim()) errors.endpoint = t(`${am}.mcpServers.drawer.httpUrlRequired`);
+  if (!(draft.name ?? '').trim()) errors.name = t(`${am}mcpServers.drawer.nameRequired`);
+  if (draft.transport === 'stdio' && !(draft.command ?? '').trim()) errors.command = t(`${am}mcpServers.drawer.stdioCommandRequired`);
+  if (draft.transport !== 'stdio' && !(draft.endpoint ?? '').trim()) errors.endpoint = t(`${am}mcpServers.drawer.httpUrlRequired`);
   return errors;
 }
 
@@ -83,23 +83,23 @@ export function McpServerDrawer({
   return (
     <FormModal
       open={open}
-      title={mode === 'create' ? t(`${am}.mcpServers.drawer.titleCreate`) : t(`${am}.mcpServers.drawer.titleEdit`)}
-      description={t(`${am}.mcpServers.drawer.description`)}
+      title={mode === 'create' ? t(`${am}mcpServers.drawer.titleCreate`) : t(`${am}mcpServers.drawer.titleEdit`)}
+      description={t(`${am}mcpServers.drawer.description`)}
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            {t(`${am}.common.cancel`)}
+            {t(`${am}common.cancel`)}
           </Button>
           <Button
             onClick={() => onSubmit(draft)}
             disabled={loading || waitingForEditDetail || Object.keys(validationErrors).length > 0}
           >
             {loading
-              ? t(`${am}.common.submitting`)
+              ? t(`${am}common.submitting`)
               : mode === 'create'
-                ? t(`${am}.mcpServers.drawer.buttonCreate`)
-                : t(`${am}.mcpServers.drawer.buttonEdit`)}
+                ? t(`${am}mcpServers.drawer.buttonCreate`)
+                : t(`${am}mcpServers.drawer.buttonEdit`)}
           </Button>
         </div>
       }
@@ -107,20 +107,20 @@ export function McpServerDrawer({
       <div className="space-y-5">
         {error && <InlineMessage tone="error">{error}</InlineMessage>}
         {waitingForEditDetail && (
-          <InlineMessage tone="info">{t(`${am}.mcpServers.drawer.loadingDetail`)}</InlineMessage>
+          <InlineMessage tone="info">{t(`${am}mcpServers.drawer.loadingDetail`)}</InlineMessage>
         )}
 
         <TextField
-          label={t(`${am}.mcpServers.drawer.nameLabel`)}
+          label={t(`${am}mcpServers.drawer.nameLabel`)}
           value={draft.name}
           error={validationErrors.name}
-          placeholder={t(`${am}.mcpServers.drawer.namePlaceholder`)}
+          placeholder={t(`${am}mcpServers.drawer.namePlaceholder`)}
           disabled={mode === 'edit'}
           onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))}
         />
 
         <SelectField
-          label={t(`${am}.mcpServers.drawer.transportLabel`)}
+          label={t(`${am}mcpServers.drawer.transportLabel`)}
           value={draft.transport}
           onChange={(e) =>
             setDraft((current) => ({
@@ -143,7 +143,7 @@ export function McpServerDrawer({
             label="Command"
             value={draft.command ?? ''}
             error={validationErrors.command}
-            placeholder={t(`${am}.mcpServers.drawer.commandPlaceholder`)}
+            placeholder={t(`${am}mcpServers.drawer.commandPlaceholder`)}
             onChange={(e) => setDraft((current) => ({ ...current, command: e.target.value || null }))}
           />
         ) : (
@@ -151,23 +151,23 @@ export function McpServerDrawer({
             label="URL"
             value={draft.endpoint ?? ''}
             error={validationErrors.endpoint}
-            placeholder={t(`${am}.mcpServers.drawer.urlPlaceholder`)}
+            placeholder={t(`${am}mcpServers.drawer.urlPlaceholder`)}
             onChange={(e) => setDraft((current) => ({ ...current, endpoint: e.target.value || null }))}
           />
         )}
 
         <TextField
-          label={t(`${am}.mcpServers.drawer.toolNamePrefix`)}
+          label={t(`${am}mcpServers.drawer.toolNamePrefix`)}
           value={draft.toolNamePrefix ?? ''}
-          placeholder={t(`${am}.mcpServers.drawer.toolNamePrefixPlaceholder`)}
+          placeholder={t(`${am}mcpServers.drawer.toolNamePrefixPlaceholder`)}
           onChange={(e) => setDraft((current) => ({ ...current, toolNamePrefix: e.target.value || null }))}
         />
 
         <TextField
-          label={t(`${am}.mcpServers.drawer.tagsLabel`)}
+          label={t(`${am}mcpServers.drawer.tagsLabel`)}
           value={tagsInput}
-          placeholder={t(`${am}.mcpServers.drawer.tagsPlaceholder`)}
-          hint={t(`${am}.mcpServers.drawer.tagsHint`)}
+          placeholder={t(`${am}mcpServers.drawer.tagsPlaceholder`)}
+          hint={t(`${am}mcpServers.drawer.tagsHint`)}
           onChange={(e) => {
             setTagsInput(e.target.value);
             setDraft((current) => ({ ...current, tags: stringToTags(e.target.value) }));
@@ -175,7 +175,7 @@ export function McpServerDrawer({
         />
 
         <JsonEditor
-          label={t(`${am}.mcpServers.drawer.fullConfig`)}
+          label={t(`${am}mcpServers.drawer.fullConfig`)}
           kind="object"
           placeholder='{ "args": ["-y", "@modelcontextprotocol/server-filesystem"] }'
           value={Object.keys(draft.config).length === 0 ? '' : JSON.stringify(draft.config)}
@@ -186,11 +186,11 @@ export function McpServerDrawer({
               // ignore parse errors mid-typing
             }
           }}
-          hint={t(`${am}.mcpServers.drawer.configHint`)}
+          hint={t(`${am}mcpServers.drawer.configHint`)}
         />
 
         <ToggleField
-          label={t(`${am}.mcpServers.drawer.enabledLabel`)}
+          label={t(`${am}mcpServers.drawer.enabledLabel`)}
           checked={draft.isEnabled}
           onChange={(checked) => setDraft((current) => ({ ...current, isEnabled: checked }))}
         />

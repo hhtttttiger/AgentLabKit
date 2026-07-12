@@ -141,7 +141,9 @@ describe('GlossaryListPage', () => {
 
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: 'New category' }));
+    // There are two "New category" buttons (header + empty state); click the first one
+    const buttons = screen.getAllByRole('button', { name: 'New category' });
+    await user.click(buttons[0]);
 
     expect(screen.getByRole('heading', { name: 'New category' })).toBeInTheDocument();
   });

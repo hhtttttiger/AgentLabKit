@@ -4,7 +4,7 @@ import type { SkillFlowValidationResult } from '../lib/types';
 
 export function SkillFlowValidationPanel({ validation }: { validation: SkillFlowValidationResult }) {
   const { t } = useTranslation(['common', 'agentManagement']);
-  const wb = 'agentManagement.skills.workbench';
+  const wb = 'agentManagement:skills.workbench';
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">

@@ -29,7 +29,7 @@ import {
   type TaskBranchDraft,
 } from './workbench/state/useSkillFlowBuilderStore';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 function serializeRemoteSkill({
   skillKey,
@@ -99,7 +99,7 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
   const [loadedSkill, setLoadedSkill] = useState<SkillDetailView | null>(null);
   const [pendingRemoteUpdate, setPendingRemoteUpdate] = useState<PendingRemoteUpdate | null>(null);
 
-  const wb = `${am}.skills.workbench`;
+  const wb = `${am}skills.workbench`;
   const defaults = `${wb}.defaults`;
 
   const handleAddTaskStateAfterState = useCallback((stateId: string) => {
@@ -223,9 +223,9 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
 
   if (skillQuery.isLoading) {
     return (
-      <PageFrame title={t(`${am}.skills.workbench.title`)}>
+      <PageFrame title={t(`${am}skills.workbench.title`)}>
         <div className="space-y-4">
-          <InlineMessage tone="info">{t(`${am}.skills.workbench.loadingMessage`)}</InlineMessage>
+          <InlineMessage tone="info">{t(`${am}skills.workbench.loadingMessage`)}</InlineMessage>
           <Skeleton className="h-64" />
         </div>
       </PageFrame>
@@ -234,9 +234,9 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
 
   if (skillQuery.isError || !skillQuery.data) {
     return (
-      <PageFrame title={t(`${am}.skills.workbench.title`)}>
+      <PageFrame title={t(`${am}skills.workbench.title`)}>
         <InlineMessage tone="error">
-          {mutations.getMutationMessage(skillQuery.error ?? new Error(t(`${am}.skills.workbench.skillNotFound`)))}
+          {mutations.getMutationMessage(skillQuery.error ?? new Error(t(`${am}skills.workbench.skillNotFound`)))}
         </InlineMessage>
       </PageFrame>
     );
@@ -291,8 +291,8 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
 
   return (
     <PageFrame
-      eyebrow={t(`${am}.skills.workbench.eyebrow`)}
-      title={t(`${am}.skills.workbench.pageTitle`, { name: skill.displayName })}
+      eyebrow={t(`${am}skills.workbench.eyebrow`)}
+      title={t(`${am}skills.workbench.pageTitle`, { name: skill.displayName })}
       contentClassName="min-h-0 flex flex-col"
       scroll={false}
       actions={(
@@ -303,7 +303,7 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
             data-testid="skill-workbench-back"
           >
             <ArrowLeft size={16} />
-            {t(`${am}.skills.workbench.backToList`)}
+            {t(`${am}skills.workbench.backToList`)}
           </Button>
           <Button
             variant="secondary"
@@ -312,7 +312,7 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
             data-testid="skill-workbench-auto-layout"
           >
             <Shuffle size={16} />
-            {t(`${am}.skills.workbench.autoLayout`)}
+            {t(`${am}skills.workbench.autoLayout`)}
           </Button>
           <Button
             variant="secondary"
@@ -334,26 +334,26 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
             data-testid="skill-workbench-save"
           >
             <Save size={16} />
-            {t(`${am}.skills.workbench.saveOrchestration`)}
+            {t(`${am}skills.workbench.saveOrchestration`)}
           </Button>
         </div>
       )}
       supporting={(
         <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
           <div>
-            <span className="text-text-muted">{t(`${am}.skills.workbench.skillKeyLabel`)}</span>
+            <span className="text-text-muted">{t(`${am}skills.workbench.skillKeyLabel`)}</span>
             <span className="font-mono">{skill.skillKey}</span>
           </div>
           <Badge tone={compiled?.validation.isValid ? 'success' : 'danger'}>
             {compiled?.validation.isValid
-              ? t(`${am}.skills.workbench.validationValid`)
-              : t(`${am}.skills.workbench.validationInvalid`)}
+              ? t(`${am}skills.workbench.validationValid`)
+              : t(`${am}skills.workbench.validationInvalid`)}
           </Badge>
           <Badge tone={dirty ? 'warning' : 'neutral'}>
-            {dirty ? t(`${am}.skills.workbench.unsavedChanges`) : t(`${am}.skills.workbench.synced`)}
+            {dirty ? t(`${am}skills.workbench.unsavedChanges`) : t(`${am}skills.workbench.synced`)}
           </Badge>
           <div>
-            <span className="text-text-muted">{t(`${am}.skills.workbench.versionLabel`)}</span>
+            <span className="text-text-muted">{t(`${am}skills.workbench.versionLabel`)}</span>
             <span className="font-mono">{skill.version}</span>
           </div>
         </div>
@@ -364,14 +364,14 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
           <div data-testid="skill-workbench-remote-update">
             <Card className="border-primary/20 bg-primary/5" bodyClassName="p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <InlineMessage tone="info">{t(`${am}.skills.workbench.remoteUpdateMessage`)}</InlineMessage>
+                <InlineMessage tone="info">{t(`${am}skills.workbench.remoteUpdateMessage`)}</InlineMessage>
                 <div className="flex justify-end">
                   <Button
                     variant="secondary"
                     onClick={handleApplyRemoteVersion}
                     data-testid="skill-workbench-apply-remote"
                   >
-                    {t(`${am}.skills.workbench.applyRemoteVersion`)}
+                    {t(`${am}skills.workbench.applyRemoteVersion`)}
                   </Button>
                 </div>
               </div>
@@ -394,7 +394,7 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
           >
             <div data-testid="skill-workbench-outline-panel">
               <Card
-                title={t(`${am}.skills.workbench.outlinePanel`)}
+                title={t(`${am}skills.workbench.outlinePanel`)}
                 className="flex h-full min-h-0 flex-col"
                 bodyClassName="min-h-0 flex-1 overflow-hidden"
               >
@@ -413,7 +413,7 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
 
             <div data-testid="skill-workbench-inspector-panel">
               <Card
-                title={t(`${am}.skills.workbench.inspectorPanel`)}
+                title={t(`${am}skills.workbench.inspectorPanel`)}
                 className="flex h-full min-h-0 flex-col"
                 bodyClassName="min-h-0 flex-1 overflow-hidden"
               >
@@ -449,7 +449,7 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
                 {showFlowCanvas ? (
                   <div data-testid="skill-workbench-canvas-panel">
                     <Card
-                      title={t(`${am}.skills.workbench.canvasPanel`)}
+                      title={t(`${am}skills.workbench.canvasPanel`)}
                       className="flex h-full min-h-0 flex-col"
                       bodyClassName="min-h-0 flex-1 overflow-hidden"
                     >
@@ -468,7 +468,7 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
                 {showValidation ? (
                   <div data-testid="skill-workbench-validation-panel">
                     <Card
-                      title={t(`${am}.skills.workbench.validationPanel`)}
+                      title={t(`${am}skills.workbench.validationPanel`)}
                       className="flex h-full min-h-0 flex-col"
                       bodyClassName="min-h-0 flex-1 overflow-hidden"
                     >

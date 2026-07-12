@@ -71,7 +71,7 @@ export function ModelEmbeddingTestDialog({
   const modelName = model?.displayName || model?.modelKey || '';
 
   return (
-    <Modal open={open} onClose={handleClose} title={t(`${NS}.title`, { model: modelName })} width="max-w-xl">
+    <Modal open={open} onClose={handleClose} title={t(`${NS}.title`, { model: modelName })} widthClassName="max-w-xl">
       <div className="flex flex-col gap-4">
         {/* Text Input */}
         <div>

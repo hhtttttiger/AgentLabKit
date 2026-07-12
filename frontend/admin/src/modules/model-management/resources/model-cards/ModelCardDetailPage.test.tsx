@@ -39,13 +39,14 @@ function mockCardFetch(overrides: { instances?: object[]; bindings?: object[]; f
     }
 
     if (url.includes('/api/llm-catalog/models/') && url.endsWith('/instances')) {
+      const items = overrides.instances ?? [{
+        modelKey: 'voice.agent', instanceKey: 'voice-main',
+        type: 'Text', modelName: 'gpt-4.1-mini', providerDeploymentName: null, region: null,
+        priority: 1, weight: 100, defaultTimeoutMs: 30000, extraJson: '{}', isEnabled: true, isHealthy: true,
+      }];
       return Promise.resolve(new Response(JSON.stringify({
         success: true, msg: 'ok',
-        data: overrides.instances ?? [{
-          modelKey: 'voice.agent', instanceKey: 'voice-main',
-          type: 'Text', modelName: 'gpt-4.1-mini', providerDeploymentName: null, region: null,
-          priority: 1, weight: 100, defaultTimeoutMs: 30000, extraJson: '{}', isEnabled: true, isHealthy: true,
-        }],
+        data: { items, page: 1, pageSize: 20, totalCount: (items as object[]).length },
       }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     }
 

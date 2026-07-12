@@ -16,7 +16,7 @@ import { AuditList } from '../audits/AuditList';
 
 type Tab = 'versions' | 'audits';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 const statusTone: Record<string, 'success' | 'warning' | 'neutral'> = {
   draft: 'warning',
@@ -113,11 +113,11 @@ export function AgentDetailPage() {
     return (
       <div className="flex h-full flex-col">
         <header className="mm-grid-pattern border-b border-border bg-surface/70 px-8 py-3">
-          <span className="text-base font-semibold text-text">{t(`${am}.agents.detail.eyebrow`)}</span>
+          <span className="text-base font-semibold text-text">{t(`${am}agents.detail.eyebrow`)}</span>
         </header>
         <div className="flex min-h-0 flex-1 flex-col px-8 pt-5 pb-3">
           <InlineMessage tone="error">
-            {mutations.getMutationMessage(agentQuery.error ?? new Error(t(`${am}.agents.detail.agentNotFound`)))}
+            {mutations.getMutationMessage(agentQuery.error ?? new Error(t(`${am}agents.detail.agentNotFound`)))}
           </InlineMessage>
         </div>
       </div>
@@ -155,8 +155,8 @@ export function AgentDetailPage() {
   };
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'versions', label: t(`${am}.agents.detail.tabVersions`) },
-    { key: 'audits', label: t(`${am}.agents.detail.tabAudits`) },
+    { key: 'versions', label: t(`${am}agents.detail.tabVersions`) },
+    { key: 'audits', label: t(`${am}agents.detail.tabAudits`) },
   ];
 
   return (
@@ -168,12 +168,12 @@ export function AgentDetailPage() {
             <button
               onClick={() => navigate('/agent-management/agents')}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition hover:bg-state-hover hover:text-text"
-              title={t(`${am}.agents.detail.backTitle`)}
+              title={t(`${am}agents.detail.backTitle`)}
             >
               <ArrowLeft size={18} />
             </button>
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xs font-medium text-text-muted">{t(`${am}.agents.detail.breadcrumb`)}</span>
+              <span className="text-xs font-medium text-text-muted">{t(`${am}agents.detail.breadcrumb`)}</span>
               <span className="text-xs text-border">/</span>
               <h1 className="text-base font-semibold text-text">{agent.displayName}</h1>
             </div>
@@ -182,7 +182,7 @@ export function AgentDetailPage() {
             {activeTab === 'versions' && (
               <Button onClick={() => setCreateVersionTrigger((n) => n + 1)}>
                 <Plus size={16} />
-                {t(`${am}.agents.detail.createVersion`)}
+                {t(`${am}agents.detail.createVersion`)}
               </Button>
             )}
             {agent.status !== 'disabled' && (
@@ -192,7 +192,7 @@ export function AgentDetailPage() {
                 onClick={() => setDisableOpen(true)}
               >
                 <Ban size={16} />
-                {t(`${am}.agents.detail.disable`)}
+                {t(`${am}agents.detail.disable`)}
               </Button>
             )}
           </div>
@@ -211,14 +211,14 @@ export function AgentDetailPage() {
             <div data-testid="agent-detail-title-row" className="flex flex-wrap items-start gap-3">
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-                  {t(`${am}.agents.detail.eyebrow`)}
+                  {t(`${am}agents.detail.eyebrow`)}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <h2 className="text-[1.75rem] font-semibold leading-tight tracking-[-0.03em] text-text">
                     {agent.displayName}
                   </h2>
                   <Badge tone={statusTone[agent.status] ?? 'neutral'}>
-                    {t(`${am}.status.${agent.status}`, { defaultValue: agent.status })}
+                    {t(`${am}status.${agent.status}`, { defaultValue: agent.status })}
                   </Badge>
                 </div>
                 {agent.description ? (
@@ -238,17 +238,17 @@ export function AgentDetailPage() {
                 </div>
                 <div className="px-5 py-3.5">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">
-                    {t(`${am}.agents.detail.publishedVersion`)}
+                    {t(`${am}agents.detail.publishedVersion`)}
                   </div>
                   <div className="mt-1.5 font-semibold text-[13px] text-text">
                     {agent.publishedVersionNumber !== null
                       ? `v${agent.publishedVersionNumber}`
-                      : t(`${am}.agents.detail.notPublished`)}
+                      : t(`${am}agents.detail.notPublished`)}
                   </div>
                 </div>
                 <div className="px-5 py-3.5">
                   <div className="text-[11px] uppercase tracking-[0.16em] text-text-muted">
-                    {t(`${am}.agents.detail.createdAt`)}
+                    {t(`${am}agents.detail.createdAt`)}
                   </div>
                   <div className="mt-1.5 font-semibold text-[13px] text-text">
                     {formatAdminDateTime(agent.createdAtUtc)}
@@ -272,7 +272,7 @@ export function AgentDetailPage() {
             data-testid="agent-detail-workspace"
             className="shrink-0 border-b border-border px-2"
           >
-            <div role="tablist" aria-label={t(`${am}.agents.detail.ariaLabel`)} className="flex">
+            <div role="tablist" aria-label={t(`${am}agents.detail.ariaLabel`)} className="flex">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
@@ -312,13 +312,13 @@ export function AgentDetailPage() {
 
       <ConfirmDialog
         open={publishVersion !== null}
-        title={t(`${am}.agents.detail.confirmPublish.title`)}
-        description={t(`${am}.agents.detail.confirmPublish.description`, {
+        title={t(`${am}agents.detail.confirmPublish.title`)}
+        description={t(`${am}agents.detail.confirmPublish.description`, {
           versionNumber: publishVersion?.versionNumber ?? '',
         })}
-        confirmLabel={t(`${am}.agents.detail.confirmPublish.label`)}
+        confirmLabel={t(`${am}agents.detail.confirmPublish.label`)}
         tone="primary"
-        body={t(`${am}.agents.detail.confirmPublish.body`)}
+        body={t(`${am}agents.detail.confirmPublish.body`)}
         error={mutations.publish.error ? mutations.getMutationMessage(mutations.publish.error) : null}
         loading={mutations.publish.isPending}
         onClose={() => {
@@ -330,10 +330,10 @@ export function AgentDetailPage() {
 
       <ConfirmDialog
         open={disableOpen}
-        title={t(`${am}.agents.detail.confirmDisable.title`)}
-        description={t(`${am}.agents.detail.confirmDisable.description`, { name: agent.displayName })}
-        confirmLabel={t(`${am}.agents.detail.confirmDisable.label`)}
-        body={t(`${am}.agents.detail.confirmDisable.body`)}
+        title={t(`${am}agents.detail.confirmDisable.title`)}
+        description={t(`${am}agents.detail.confirmDisable.description`, { name: agent.displayName })}
+        confirmLabel={t(`${am}agents.detail.confirmDisable.label`)}
+        body={t(`${am}agents.detail.confirmDisable.body`)}
         error={mutations.disable.error ? mutations.getMutationMessage(mutations.disable.error) : null}
         loading={mutations.disable.isPending}
         onClose={() => {

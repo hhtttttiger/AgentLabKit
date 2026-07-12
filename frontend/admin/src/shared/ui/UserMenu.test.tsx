@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '@/shared/i18n';
 import { DocumentLanguageSync } from '@/shared/i18n/DocumentLanguageSync';
 import { ThemeProvider } from '@/shared/theme';
@@ -17,15 +18,24 @@ function createDeferred<T>() {
   return { promise, resolve };
 }
 
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
 function renderUserMenu(extraContent?: ReactNode) {
   return render(
-    <>
+    <QueryClientProvider client={createQueryClient()}>
       <ThemeProvider>
         <DocumentLanguageSync />
         <UserMenu displayName="Admin User" onLogout={vi.fn()} />
       </ThemeProvider>
       {extraContent}
-    </>,
+    </QueryClientProvider>,
   );
 }
 
@@ -49,6 +59,12 @@ describe('UserMenu', () => {
     document.documentElement.removeAttribute('data-accent');
     document.documentElement.classList.remove('motion-enabled');
     await i18n.changeLanguage('zh-CN');
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      await i18n.changeLanguage('zh-CN');
+    });
   });
 
   it('opens a popover panel without menu semantics before drilling into subviews', async () => {
@@ -92,16 +108,22 @@ describe('UserMenu', () => {
     await user.keyboard('{Enter}');
 
     const languageItem = screen.getByRole('button', { name: /Language/i });
-    expect(languageItem).toHaveFocus();
+    await waitFor(() => {
+      expect(languageItem).toHaveFocus();
+    });
 
     await user.keyboard('{Enter}');
 
     const backButton = screen.getByRole('button', { name: '返回' });
-    expect(backButton).toHaveFocus();
+    await waitFor(() => {
+      expect(backButton).toHaveFocus();
+    });
 
     await user.tab();
     await user.tab();
-    expect(screen.getByRole('button', { name: 'English' })).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'English' })).toHaveFocus();
+    });
     await user.keyboard('{Enter}');
 
     await waitFor(() => {
@@ -123,17 +145,25 @@ describe('UserMenu', () => {
     trigger.focus();
 
     await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Language/i })).toBeInTheDocument();
+    });
     expect(screen.getByRole('button', { name: /Language/i })).toHaveFocus();
 
     await user.tab();
 
     const preferencesItem = screen.getByRole('button', { name: '界面偏好' });
+    await waitFor(() => {
+      expect(preferencesItem).toBeInTheDocument();
+    });
     expect(preferencesItem).toHaveFocus();
 
     await user.keyboard('{Enter}');
 
     const backButton = screen.getByRole('button', { name: '返回' });
-    expect(backButton).toHaveFocus();
+    await waitFor(() => {
+      expect(backButton).toHaveFocus();
+    });
     expect(screen.getByRole('button', { name: '深色模式' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '关闭动画' })).toBeInTheDocument();
     expect(screen.getByLabelText('蓝色（默认）')).toBeInTheDocument();
@@ -142,7 +172,9 @@ describe('UserMenu', () => {
 
     await user.keyboard('{Enter}');
 
-    expect(screen.getByRole('button', { name: '界面偏好' })).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '界面偏好' })).toHaveFocus();
+    });
   });
 
   it('animates forward into the language submenu and backward to root when motion is enabled', async () => {
@@ -237,6 +269,8 @@ describe('UserMenu', () => {
     await user.tab();
     await user.tab();
     await user.tab();
+    await user.tab();
+    await user.tab();
 
     const outsideButton = screen.getByRole('button', { name: 'Outside action' });
     expect(outsideButton).toHaveFocus();
@@ -248,13 +282,13 @@ describe('UserMenu', () => {
     const user = userEvent.setup();
 
     render(
-      <>
+      <QueryClientProvider client={createQueryClient()}>
         <button type="button">Before action</button>
         <ThemeProvider>
           <DocumentLanguageSync />
           <UserMenu displayName="Admin User" onLogout={vi.fn()} />
         </ThemeProvider>
-      </>,
+      </QueryClientProvider>,
     );
 
     const trigger = screen.getByRole('button', { name: '用户菜单' });

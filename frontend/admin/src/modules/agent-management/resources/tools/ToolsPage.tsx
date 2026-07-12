@@ -25,7 +25,7 @@ import {
 import { useToolDefinitionList, useToolDefinitionMutations } from './hooks';
 import { ToolDrawer } from './ToolDrawer';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 function SourceTypeBadge({ type }: { type: string }) {
   return (
@@ -40,7 +40,7 @@ function StatusBadge({ status }: { status: string }) {
   const tone = status === 'active' ? 'success' : status === 'deprecated' ? 'warning' : 'danger';
   return (
     <Badge tone={tone}>
-      {t(`${am}.tools.status${status.charAt(0).toUpperCase() + status.slice(1)}`, { defaultValue: status })}
+      {t(`${am}tools.status${status.charAt(0).toUpperCase() + status.slice(1)}`, { defaultValue: status })}
     </Badge>
   );
 }
@@ -67,23 +67,23 @@ export function ToolsPage() {
   );
 
   const sourceTypeOptions = useMemo(() => [
-    { value: '', label: t(`${am}.tools.allTypes`) },
+    { value: '', label: t(`${am}tools.allTypes`) },
     { value: 'builtin', label: 'Builtin' },
     { value: 'http_external', label: 'HTTP External' },
   ], [t]);
 
   const statusOptions = useMemo(() => [
-    { value: '', label: t(`${am}.tools.allStatuses`) },
-    { value: 'active', label: t(`${am}.tools.statusActive`) },
-    { value: 'deprecated', label: t(`${am}.tools.statusDeprecated`) },
-    { value: 'disabled', label: t(`${am}.tools.statusDisabled`) },
+    { value: '', label: t(`${am}tools.allStatuses`) },
+    { value: 'active', label: t(`${am}tools.statusActive`) },
+    { value: 'deprecated', label: t(`${am}tools.statusDeprecated`) },
+    { value: 'disabled', label: t(`${am}tools.statusDisabled`) },
   ], [t]);
 
   const columns = useMemo<TableColumn<ToolSummaryView>[]>(
     () => [
       {
         key: 'toolName',
-        header: t(`${am}.tools.columns.toolName`),
+        header: t(`${am}tools.columns.toolName`),
         render: (row) => (
           <div>
             <div className="font-medium text-text">{row.displayName}</div>
@@ -93,17 +93,17 @@ export function ToolsPage() {
       },
       {
         key: 'sourceType',
-        header: t(`${am}.tools.columns.type`),
+        header: t(`${am}tools.columns.type`),
         render: (row) => <SourceTypeBadge type={row.sourceType} />,
       },
       {
         key: 'status',
-        header: t(`${am}.tools.columns.status`),
+        header: t(`${am}tools.columns.status`),
         render: (row) => <StatusBadge status={row.status} />,
       },
       {
         key: 'tags',
-        header: t(`${am}.tools.columns.tags`),
+        header: t(`${am}tools.columns.tags`),
         render: (row) => (
           <div className="flex flex-wrap gap-1">
             {row.tags.map((tag) => (
@@ -114,12 +114,12 @@ export function ToolsPage() {
       },
       {
         key: 'timeoutSeconds',
-        header: t(`${am}.tools.columns.timeout`),
+        header: t(`${am}tools.columns.timeout`),
         render: (row) => <span className="text-sm text-text-secondary">{row.timeoutSeconds}s</span>,
       },
       {
         key: 'updatedAtUtc',
-        header: t(`${am}.tools.columns.updatedAt`),
+        header: t(`${am}tools.columns.updatedAt`),
         render: (row) => (
           <span className="text-sm text-text-muted">{formatAdminDateTime(row.updatedAtUtc ?? row.createdAtUtc, undefined, locale)}</span>
         ),
@@ -130,13 +130,13 @@ export function ToolsPage() {
         render: (row) => (
           <RowActions actions={[
             {
-              label: row.sourceType === 'builtin' ? t(`${am}.tools.actions.view`) : t(`${am}.tools.actions.edit`),
+              label: row.sourceType === 'builtin' ? t(`${am}tools.actions.view`) : t(`${am}tools.actions.edit`),
               onClick: () => { setEditingTool(row); setDrawerOpen(true); setMutationError(null); },
             },
             ...(row.sourceType === 'http_external' && row.status === 'active' ? [{
-              label: t(`${am}.tools.actions.disable`),
+              label: t(`${am}tools.actions.disable`),
               onClick: async () => {
-                if (!confirm(t(`${am}.tools.confirmDisable`, { name: row.displayName }))) return;
+                if (!confirm(t(`${am}tools.confirmDisable`, { name: row.displayName }))) return;
                 try {
                   await mutations.disable.mutateAsync(row.toolName);
                   toast(t('toast.updated'));
@@ -182,7 +182,7 @@ export function ToolsPage() {
     setMutationError(null);
     try {
       const result = await mutations.sync.mutateAsync();
-      toast(t(`${am}.tools.syncResult`, { count: result.synced }));
+      toast(t(`${am}tools.syncResult`, { count: result.synced }));
     } catch (e) {
       setMutationError(mutations.getMutationMessage(e));
     }
@@ -208,7 +208,7 @@ export function ToolsPage() {
                   disabled={listQuery.isFetching}
                 >
                   <RefreshCw size={14} className="mr-1" />
-                  {t(`${am}.tools.refreshButton`)}
+                  {t(`${am}tools.refreshButton`)}
                 </Button>
                 <ToolbarButton
                   variant="secondary"
@@ -216,7 +216,7 @@ export function ToolsPage() {
                   disabled={mutations.sync.isPending}
                 >
                   <RefreshCw size={14} />
-                  {t(`${am}.tools.syncButton`)}
+                  {t(`${am}tools.syncButton`)}
                 </ToolbarButton>
                 <ToolbarButton
                   variant="primary"
@@ -227,13 +227,13 @@ export function ToolsPage() {
                   }}
                 >
                   <Plus size={14} />
-                  {t(`${am}.tools.newToolButton`)}
+                  {t(`${am}tools.newToolButton`)}
                 </ToolbarButton>
               </div>
             }
           >
             <SelectField
-              label={t(`${am}.tools.filterType`)}
+              label={t(`${am}tools.filterType`)}
               fieldSize="compact"
               value={filters.sourceType}
               onChange={(e) =>
@@ -252,7 +252,7 @@ export function ToolsPage() {
             </SelectField>
 
             <SelectField
-              label={t(`${am}.tools.filterStatus`)}
+              label={t(`${am}tools.filterStatus`)}
               fieldSize="compact"
               value={filters.status}
               onChange={(e) =>
@@ -272,9 +272,9 @@ export function ToolsPage() {
 
             <div className="filter-narrow">
               <TextField
-                label={t(`${am}.tools.filterSearch`)}
+                label={t(`${am}tools.filterSearch`)}
                 fieldSize="compact"
-                placeholder={t(`${am}.tools.filterSearchPlaceholder`)}
+                placeholder={t(`${am}tools.filterSearchPlaceholder`)}
                 value={filters.search}
                 onChange={(e) =>
                   setFilters((f) => ({ ...f, search: e.target.value, page: 1 }))
@@ -285,7 +285,7 @@ export function ToolsPage() {
         }
         error={
           listQuery.isError ? (
-            <InlineMessage tone="error">{t(`${am}.tools.loadError`)}</InlineMessage>
+            <InlineMessage tone="error">{t(`${am}tools.loadError`)}</InlineMessage>
           ) : undefined
         }
         pagination={
@@ -300,15 +300,15 @@ export function ToolsPage() {
         }
       >
         {listQuery.isLoading ? (
-          <p className="text-sm text-text-muted">{t(`${am}.tools.loadingText`)}</p>
+          <p className="text-sm text-text-muted">{t(`${am}tools.loadingText`)}</p>
         ) : filteredRows.length === 0 ? (
-          <EmptyState title={t(`${am}.tools.emptyTitle`)} description={t(`${am}.tools.emptyDescription`)} />
+          <EmptyState title={t(`${am}tools.emptyTitle`)} description={t(`${am}tools.emptyDescription`)} />
         ) : (
           <DataTable
             columns={columns}
             rows={pagedRows}
             getRowKey={(row) => row.id}
-            emptyState={<EmptyState title={t(`${am}.tools.emptyTitle`)} description={t(`${am}.tools.emptyDescription`)} />}
+            emptyState={<EmptyState title={t(`${am}tools.emptyTitle`)} description={t(`${am}tools.emptyDescription`)} />}
           />
         )}
       </ManagementListFrame>

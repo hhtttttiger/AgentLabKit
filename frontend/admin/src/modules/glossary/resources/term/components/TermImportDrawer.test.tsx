@@ -236,6 +236,6 @@ describe('glossary data layer', () => {
       wrapper: ({ children }) => <QueryWrapper client={client}>{children}</QueryWrapper>,
     });
 
-    expect(document.getElementById('glossary-term-import-file')).toHaveAttribute('accept', '.csv,.xlsx');
+    expect(document.getElementById('glossary-term-import-file')).toHaveAttribute('accept', '.csv');
   });
 });

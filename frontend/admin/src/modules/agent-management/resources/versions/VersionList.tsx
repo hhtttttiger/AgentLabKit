@@ -14,7 +14,7 @@ import type { AgentVersionSummaryView, VersionDetailView, VersionStatus } from '
 import { useVersionList, useVersionDetail } from './hooks';
 import { VersionDrawer } from './VersionDrawer';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 export type VersionLaunchAction =
   | { kind: 'create'; key: string }
@@ -111,28 +111,28 @@ export function VersionList({
     () => [
       {
         key: 'versionNumber',
-        header: t(`${am}.versions.columns.versionNumber`),
+        header: t(`${am}versions.columns.versionNumber`),
         render: (row) => (
           <span className="font-mono font-medium text-text">v{row.versionNumber}</span>
         ),
       },
       {
         key: 'versionStatus',
-        header: t(`${am}.versions.columns.status`),
+        header: t(`${am}versions.columns.status`),
         render: (row) => (
           <Badge tone={versionStatusTone[row.versionStatus] ?? 'neutral'}>
-            {t(`${am}.versions.status${row.versionStatus.charAt(0).toUpperCase() + row.versionStatus.slice(1)}`, { defaultValue: row.versionStatus })}
+            {t(`${am}versions.status${row.versionStatus.charAt(0).toUpperCase() + row.versionStatus.slice(1)}`, { defaultValue: row.versionStatus })}
           </Badge>
         ),
       },
       {
         key: 'versionLabel',
-        header: t(`${am}.versions.columns.label`),
+        header: t(`${am}versions.columns.label`),
         render: (row) => row.versionLabel ?? '-',
       },
       {
         key: 'changeSummary',
-        header: t(`${am}.versions.columns.changelog`),
+        header: t(`${am}versions.columns.changelog`),
         className: 'max-w-[18rem]',
         render: (row) => {
           const text = row.changeSummary;
@@ -147,36 +147,36 @@ export function VersionList({
       },
       {
         key: 'modelKey',
-        header: t(`${am}.versions.columns.model`),
+        header: t(`${am}versions.columns.model`),
         render: (row) => <span className="font-mono text-xs">{row.modelKey}</span>,
       },
       {
         key: 'publishedAtUtc',
-        header: t(`${am}.versions.columns.publishedAt`),
+        header: t(`${am}versions.columns.publishedAt`),
         render: (row) => formatAdminDateTime(row.publishedAtUtc, undefined, locale),
       },
       {
         key: 'createdAtUtc',
-        header: t(`${am}.versions.columns.createdAt`),
+        header: t(`${am}versions.columns.createdAt`),
         render: (row) => formatAdminDateTime(row.createdAtUtc, undefined, locale),
       },
       {
         key: 'actions',
-        header: t(`${am}.versions.columns.actions`),
+        header: t(`${am}versions.columns.actions`),
         render: (row) => {
           if (row.versionStatus === 'published') {
             return (
               <RowActions actions={[
-                { label: t(`${am}.versions.actions.view`), onClick: () => setViewVersionNumber(row.versionNumber) },
-                { label: t(`${am}.versions.actions.createDraft`), onClick: () => { setCloneSourceVersionNumber(row.versionNumber); setCreateOpen(true); } },
+                { label: t(`${am}versions.actions.view`), onClick: () => setViewVersionNumber(row.versionNumber) },
+                { label: t(`${am}versions.actions.createDraft`), onClick: () => { setCloneSourceVersionNumber(row.versionNumber); setCreateOpen(true); } },
               ]} />
             );
           }
           if (row.versionStatus === 'draft') {
             return (
               <RowActions actions={[
-                { label: t(`${am}.versions.actions.editDraft`), onClick: () => setEditVersionNumber(row.versionNumber) },
-                { label: t(`${am}.versions.actions.publish`), onClick: () => onPublish(row.versionNumber, row.rowVersion) },
+                { label: t(`${am}versions.actions.editDraft`), onClick: () => setEditVersionNumber(row.versionNumber) },
+                { label: t(`${am}versions.actions.publish`), onClick: () => onPublish(row.versionNumber, row.rowVersion) },
               ]} />
             );
           }
@@ -196,7 +196,7 @@ export function VersionList({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t(`${am}.versions.searchPlaceholder`)}
+            placeholder={t(`${am}versions.searchPlaceholder`)}
             className="w-full rounded-[2px] border border-border bg-surface py-1.5 pl-7 pr-3 text-xs text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
@@ -205,20 +205,20 @@ export function VersionList({
           onChange={(e) => setStatusFilter(e.target.value as 'all' | VersionStatus)}
           className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-xs text-text focus:outline-none focus:ring-2 focus:ring-primary/30"
         >
-          <option value="all">{t(`${am}.versions.allStatuses`)}</option>
-          <option value="draft">{t(`${am}.versions.statusDraft`)}</option>
-          <option value="published">{t(`${am}.versions.statusPublished`)}</option>
-          <option value="archived">{t(`${am}.versions.statusArchived`)}</option>
+          <option value="all">{t(`${am}versions.allStatuses`)}</option>
+          <option value="draft">{t(`${am}versions.statusDraft`)}</option>
+          <option value="published">{t(`${am}versions.statusPublished`)}</option>
+          <option value="archived">{t(`${am}versions.statusArchived`)}</option>
         </select>
       </div>
 
       <div className="space-y-4 px-6 py-5">
         <InlineMessage tone="info">
-          {t(`${am}.versions.publishedReadonlyInfo`)}
+          {t(`${am}versions.publishedReadonlyInfo`)}
         </InlineMessage>
 
         {listQuery.isError && (
-          <InlineMessage tone="error">{t(`${am}.versions.loadError`)}</InlineMessage>
+          <InlineMessage tone="error">{t(`${am}versions.loadError`)}</InlineMessage>
         )}
 
         <DataTable
@@ -229,15 +229,15 @@ export function VersionList({
           emptyState={
             search || statusFilter !== 'all' ? (
               <EmptyState
-                title={t(`${am}.versions.emptyFiltered.title`)}
-                description={t(`${am}.versions.emptyFiltered.description`)}
-                action={<Button variant="secondary" onClick={() => { setSearch(''); setStatusFilter('all'); }}>{t(`${am}.versions.emptyFiltered.clearFilters`)}</Button>}
+                title={t(`${am}versions.emptyFiltered.title`)}
+                description={t(`${am}versions.emptyFiltered.description`)}
+                action={<Button variant="secondary" onClick={() => { setSearch(''); setStatusFilter('all'); }}>{t(`${am}versions.emptyFiltered.clearFilters`)}</Button>}
               />
             ) : (
               <EmptyState
-                title={t(`${am}.versions.emptyAll.title`)}
-                description={t(`${am}.versions.emptyAll.description`)}
-                action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}.versions.emptyAll.createFirst`)}</Button>}
+                title={t(`${am}versions.emptyAll.title`)}
+                description={t(`${am}versions.emptyAll.description`)}
+                action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}versions.emptyAll.createFirst`)}</Button>}
               />
             )
           }

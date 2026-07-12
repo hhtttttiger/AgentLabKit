@@ -43,7 +43,7 @@ import {
   mergeKnowledgeBaseBindingRows,
 } from '../knowledge-base-bindings/types';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 function ToolBindingRow({
   index,
@@ -68,15 +68,15 @@ function ToolBindingRow({
   const hasOptions = availableTools && availableTools.length > 0;
 
   const invocationModeOptions: { value: InvocationMode; label: string }[] = [
-    { value: 'auto', label: t(`${am}.versions.drawer.invocationModeAuto`) },
-    { value: 'manual_only', label: t(`${am}.versions.drawer.invocationModeManual`) },
-    { value: 'disabled', label: t(`${am}.versions.drawer.invocationModeDisabled`) },
+    { value: 'auto', label: t(`${am}versions.drawer.invocationModeAuto`) },
+    { value: 'manual_only', label: t(`${am}versions.drawer.invocationModeManual`) },
+    { value: 'disabled', label: t(`${am}versions.drawer.invocationModeDisabled`) },
   ];
 
   return (
     <div className="rounded-[2px] border border-border bg-background-subtle p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-text">{title ?? t(`${am}.versions.drawer.toolLabel`, { number: index + 1 })}</span>
+        <span className="text-sm font-medium text-text">{title ?? t(`${am}versions.drawer.toolLabel`, { number: index + 1 })}</span>
         <Button variant="ghost" disabled={disabled} onClick={onRemove}>
           <Trash2 size={14} />
         </Button>
@@ -84,12 +84,12 @@ function ToolBindingRow({
       <div className="grid gap-3 md:grid-cols-2">
         {hasOptions ? (
           <SelectField
-            label={t(`${am}.versions.drawer.toolNameLabel`)}
+            label={t(`${am}versions.drawer.toolNameLabel`)}
             value={binding.toolName}
             disabled={disabled}
             onChange={(e) => onChange({ ...binding, toolName: e.target.value })}
           >
-            <option value="">{t(`${am}.versions.drawer.selectTool`)}</option>
+            <option value="">{t(`${am}versions.drawer.selectTool`)}</option>
             {availableTools.map((tool) => (
               <option key={tool.toolName} value={tool.toolName}>
                 {tool.displayName} ({tool.toolName})
@@ -98,7 +98,7 @@ function ToolBindingRow({
           </SelectField>
         ) : (
           <TextField
-            label={t(`${am}.versions.drawer.toolNameLabel`)}
+            label={t(`${am}versions.drawer.toolNameLabel`)}
             value={binding.toolName}
             error={toolNameError}
             disabled={disabled}
@@ -106,19 +106,19 @@ function ToolBindingRow({
           />
         )}
         <TextField
-          label={t(`${am}.versions.drawer.toolDisplayNameLabel`)}
+          label={t(`${am}versions.drawer.toolDisplayNameLabel`)}
           value={binding.displayName ?? ''}
           disabled={disabled}
           onChange={(e) => onChange({ ...binding, displayName: e.target.value || null })}
         />
         <TextField
-          label={t(`${am}.versions.drawer.toolDescriptionLabel`)}
+          label={t(`${am}versions.drawer.toolDescriptionLabel`)}
           value={binding.description ?? ''}
           disabled={disabled}
           onChange={(e) => onChange({ ...binding, description: e.target.value || null })}
         />
         <SelectField
-          label={t(`${am}.versions.drawer.toolInvocationModeLabel`)}
+          label={t(`${am}versions.drawer.toolInvocationModeLabel`)}
           value={binding.invocationMode}
           disabled={disabled}
           onChange={(e) => onChange({ ...binding, invocationMode: e.target.value as InvocationMode })}
@@ -132,13 +132,13 @@ function ToolBindingRow({
       </div>
       <div className="mt-3 flex gap-4">
         <ToggleField
-          label={t(`${am}.versions.drawer.toolRequiredLabel`)}
+          label={t(`${am}versions.drawer.toolRequiredLabel`)}
           checked={binding.isRequired}
           disabled={disabled}
           onChange={(checked) => onChange({ ...binding, isRequired: checked })}
         />
         <ToggleField
-          label={t(`${am}.versions.drawer.toolEnabledLabel`)}
+          label={t(`${am}versions.drawer.toolEnabledLabel`)}
           checked={binding.isEnabled}
           disabled={disabled}
           onChange={(checked) => onChange({ ...binding, isEnabled: checked })}
@@ -169,7 +169,7 @@ function McpBindingRow({
   return (
     <div className="rounded-[2px] border border-border bg-background-subtle p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-text">{t(`${am}.versions.drawer.mcpLabel`, { number: index + 1 })}</span>
+        <span className="text-sm font-medium text-text">{t(`${am}versions.drawer.mcpLabel`, { number: index + 1 })}</span>
         <Button variant="ghost" disabled={disabled} onClick={onRemove}>
           <Trash2 size={14} />
         </Button>
@@ -182,7 +182,7 @@ function McpBindingRow({
           disabled={disabled}
           onChange={(e) => onChange({ ...binding, serverName: e.target.value })}
         >
-          <option value="">{t(`${am}.versions.drawer.selectMcpServer`)}</option>
+          <option value="">{t(`${am}versions.drawer.selectMcpServer`)}</option>
           {serverOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
@@ -190,9 +190,9 @@ function McpBindingRow({
           ))}
         </SelectField>
         <TextField
-          label={t(`${am}.versions.drawer.toolWhitelist`)}
+          label={t(`${am}versions.drawer.toolWhitelist`)}
           value={binding.toolWhitelist?.join(', ') ?? ''}
-          placeholder={t(`${am}.versions.drawer.toolWhitelistPlaceholder`)}
+          placeholder={t(`${am}versions.drawer.toolWhitelistPlaceholder`)}
           disabled={disabled}
           onChange={(e) => {
             const raw = e.target.value.trim();
@@ -205,7 +205,7 @@ function McpBindingRow({
       </div>
       <div className="mt-3">
         <ToggleField
-          label={t(`${am}.versions.drawer.mcpEnabledLabel`)}
+          label={t(`${am}versions.drawer.mcpEnabledLabel`)}
           checked={binding.isEnabled}
           disabled={disabled}
           onChange={(checked) => onChange({ ...binding, isEnabled: checked })}
@@ -246,20 +246,20 @@ function SkillBindingRow({
   return (
     <div className="rounded-[2px] border border-border bg-background-subtle p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-text">{t(`${am}.versions.drawer.skillLabel`, { number: index + 1 })}</span>
+        <span className="text-sm font-medium text-text">{t(`${am}versions.drawer.skillLabel`, { number: index + 1 })}</span>
         <Button variant="ghost" disabled={disabled} onClick={onRemove}>
           <Trash2 size={14} />
         </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <SelectField
-          label={t(`${am}.versions.drawer.skillKeyLabel`)}
+          label={t(`${am}versions.drawer.skillKeyLabel`)}
           value={binding.skillKey}
           error={errors[`skill_${index}_skillKey`]}
           disabled={disabled}
           onChange={(e) => onChange({ ...binding, skillKey: e.target.value })}
         >
-          <option value="">{t(`${am}.versions.drawer.selectSkill`)}</option>
+          <option value="">{t(`${am}versions.drawer.selectSkill`)}</option>
           {skillOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
@@ -267,7 +267,7 @@ function SkillBindingRow({
           ))}
         </SelectField>
         <TextField
-          label={t(`${am}.versions.drawer.skillSortLabel`)}
+          label={t(`${am}versions.drawer.skillSortLabel`)}
           type="number"
           value={String(binding.sortOrder)}
           disabled={disabled}
@@ -276,7 +276,7 @@ function SkillBindingRow({
       </div>
       <div className="mt-3">
         <JsonEditor
-          label={t(`${am}.versions.drawer.configOverrides`)}
+          label={t(`${am}versions.drawer.configOverrides`)}
           kind="object"
           placeholder="{}"
           value={Object.keys(binding.configOverrides).length === 0 ? '' : JSON.stringify(binding.configOverrides)}
@@ -292,7 +292,7 @@ function SkillBindingRow({
       </div>
       <div className="mt-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h5 className="text-sm font-semibold text-text">{t(`${am}.versions.drawer.toolOverrides`)}</h5>
+          <h5 className="text-sm font-semibold text-text">{t(`${am}versions.drawer.toolOverrides`)}</h5>
           <Button
             variant="secondary"
             disabled={disabled}
@@ -304,16 +304,16 @@ function SkillBindingRow({
             }
           >
             <Plus size={14} />
-            {t(`${am}.versions.drawer.addToolOverride`)}
+            {t(`${am}versions.drawer.addToolOverride`)}
           </Button>
         </div>
-        {binding.toolOverrides.length === 0 && <p className="text-sm text-text-muted">{t(`${am}.versions.drawer.emptyToolOverrides`)}</p>}
+        {binding.toolOverrides.length === 0 && <p className="text-sm text-text-muted">{t(`${am}versions.drawer.emptyToolOverrides`)}</p>}
         {binding.toolOverrides.map((toolOverride, toolIndex) => (
           <ToolBindingRow
             key={toolIndex}
             index={toolIndex}
             binding={toolOverride}
-            title={t(`${am}.versions.drawer.toolOverrideLabel`, { number: toolIndex + 1 })}
+            title={t(`${am}versions.drawer.toolOverrideLabel`, { number: toolIndex + 1 })}
             disabled={disabled}
             toolNameError={errors[`skill_${index}_tool_${toolIndex}_toolName`]}
             onChange={(updated) => updateToolOverride(toolIndex, updated)}
@@ -328,7 +328,7 @@ function SkillBindingRow({
       </div>
       <div className="mt-3">
         <ToggleField
-          label={t(`${am}.versions.drawer.skillEnabledLabel`)}
+          label={t(`${am}versions.drawer.skillEnabledLabel`)}
           checked={binding.isEnabled}
           disabled={disabled}
           onChange={(checked) => onChange({ ...binding, isEnabled: checked })}
@@ -499,16 +499,16 @@ export function VersionDrawer({
   };
 
   const title = readOnly && editVersion
-    ? t(`${am}.versions.drawer.titleView`, { versionNumber: editVersion.versionNumber })
+    ? t(`${am}versions.drawer.titleView`, { versionNumber: editVersion.versionNumber })
     : editVersion
-      ? t(`${am}.versions.drawer.titleEdit`, { versionNumber: editVersion.versionNumber })
+      ? t(`${am}versions.drawer.titleEdit`, { versionNumber: editVersion.versionNumber })
       : seedVersion
-        ? t(`${am}.versions.drawer.titleClone`, { versionNumber: seedVersion.versionNumber })
-        : t(`${am}.versions.drawer.titleCreate`);
+        ? t(`${am}versions.drawer.titleClone`, { versionNumber: seedVersion.versionNumber })
+        : t(`${am}versions.drawer.titleCreate`);
 
   const description = readOnly
-    ? t(`${am}.versions.drawer.descReadonly`)
-    : t(`${am}.versions.drawer.descEdit`);
+    ? t(`${am}versions.drawer.descReadonly`)
+    : t(`${am}versions.drawer.descEdit`);
 
   return (
     <FormModal
@@ -521,13 +521,13 @@ export function VersionDrawer({
         readOnly ? (
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={onClose}>
-              {t(`${am}.versions.drawer.buttonClose`)}
+              {t(`${am}versions.drawer.buttonClose`)}
             </Button>
           </div>
         ) : (
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={onClose}>
-              {t(`${am}.versions.drawer.buttonCancel`)}
+              {t(`${am}versions.drawer.buttonCancel`)}
             </Button>
             <Button
               onClick={handleSubmit}
@@ -537,12 +537,12 @@ export function VersionDrawer({
               }
             >
               {activeMutation.isPending
-                ? t(`${am}.versions.drawer.buttonSubmitting`)
+                ? t(`${am}versions.drawer.buttonSubmitting`)
                 : isEdit
-                  ? t(`${am}.versions.drawer.buttonSave`)
+                  ? t(`${am}versions.drawer.buttonSave`)
                   : seedVersion
-                    ? t(`${am}.versions.drawer.buttonCreateDraft`)
-                    : t(`${am}.versions.drawer.buttonCreate`)}
+                    ? t(`${am}versions.drawer.buttonCreateDraft`)
+                    : t(`${am}versions.drawer.buttonCreate`)}
             </Button>
           </div>
         )
@@ -556,12 +556,12 @@ export function VersionDrawer({
 
         <div className="grid gap-4 md:grid-cols-2">
           <SelectField
-            label={t(`${am}.versions.drawer.modelLabel`)}
+            label={t(`${am}versions.drawer.modelLabel`)}
             value={draft.modelKey}
             disabled={readOnly}
             onChange={(e) => updateDraft((current) => ({ ...current, modelKey: e.target.value }))}
           >
-            <option value="">{modelsQuery.isLoading ? t(`${am}.versions.drawer.modelLoading`) : t(`${am}.versions.drawer.modelPlaceholder`)}</option>
+            <option value="">{modelsQuery.isLoading ? t(`${am}versions.drawer.modelLoading`) : t(`${am}versions.drawer.modelPlaceholder`)}</option>
             {modelOptions.map((model) => (
               <option key={model.modelKey} value={model.modelKey}>
                 {model.displayName} ({model.modelKey}) - {model.type}
@@ -569,21 +569,21 @@ export function VersionDrawer({
             ))}
           </SelectField>
           <TextField
-            label={t(`${am}.versions.drawer.versionLabel`)}
+            label={t(`${am}versions.drawer.versionLabel`)}
             value={draft.versionLabel ?? ''}
-            placeholder={t(`${am}.versions.drawer.versionPlaceholder`)}
+            placeholder={t(`${am}versions.drawer.versionPlaceholder`)}
             disabled={readOnly}
             onChange={(e) => updateDraft((current) => ({ ...current, versionLabel: e.target.value || null }))}
           />
           <TextField
-            label={t(`${am}.versions.drawer.localeLabel`)}
+            label={t(`${am}versions.drawer.localeLabel`)}
             value={draft.defaultLocale ?? ''}
-            placeholder={t(`${am}.versions.drawer.localePlaceholder`)}
+            placeholder={t(`${am}versions.drawer.localePlaceholder`)}
             disabled={readOnly}
             onChange={(e) => updateDraft((current) => ({ ...current, defaultLocale: e.target.value || null }))}
           />
           <TextField
-            label={t(`${am}.versions.drawer.changelogLabel`)}
+            label={t(`${am}versions.drawer.changelogLabel`)}
             value={draft.changeSummary ?? ''}
             disabled={readOnly}
             onChange={(e) => updateDraft((current) => ({ ...current, changeSummary: e.target.value || null }))}
@@ -601,7 +601,7 @@ export function VersionDrawer({
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-text">{t(`${am}.versions.drawer.toolBindings`)}</h4>
+            <h4 className="text-sm font-semibold text-text">{t(`${am}versions.drawer.toolBindings`)}</h4>
             <Button
               variant="secondary"
               disabled={readOnly}
@@ -613,10 +613,10 @@ export function VersionDrawer({
               }
             >
               <Plus size={14} />
-              {t(`${am}.versions.drawer.addTool`)}
+              {t(`${am}versions.drawer.addTool`)}
             </Button>
           </div>
-          {draft.toolBindings.length === 0 && <p className="text-sm text-text-muted">{t(`${am}.versions.drawer.emptyToolBindings`)}</p>}
+          {draft.toolBindings.length === 0 && <p className="text-sm text-text-muted">{t(`${am}versions.drawer.emptyToolBindings`)}</p>}
           {draft.toolBindings.map((binding, index) => (
             <ToolBindingRow
               key={index}
@@ -670,7 +670,7 @@ export function VersionDrawer({
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-text">{t(`${am}.versions.drawer.mcpBindings`)}</h4>
+            <h4 className="text-sm font-semibold text-text">{t(`${am}versions.drawer.mcpBindings`)}</h4>
             <Button
               variant="secondary"
               disabled={readOnly}
@@ -682,10 +682,10 @@ export function VersionDrawer({
               }
             >
               <Plus size={14} />
-              {t(`${am}.versions.drawer.addMcpBinding`)}
+              {t(`${am}versions.drawer.addMcpBinding`)}
             </Button>
           </div>
-          {draft.mcpBindings.length === 0 && <p className="text-sm text-text-muted">{t(`${am}.versions.drawer.emptyMcpBindings`)}</p>}
+          {draft.mcpBindings.length === 0 && <p className="text-sm text-text-muted">{t(`${am}versions.drawer.emptyMcpBindings`)}</p>}
           {draft.mcpBindings.map((binding, index) => (
             <McpBindingRow
               key={index}
@@ -712,7 +712,7 @@ export function VersionDrawer({
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-text">{t(`${am}.versions.drawer.skillBindings`)}</h4>
+            <h4 className="text-sm font-semibold text-text">{t(`${am}versions.drawer.skillBindings`)}</h4>
             <Button
               variant="secondary"
               disabled={readOnly}
@@ -724,10 +724,10 @@ export function VersionDrawer({
               }
             >
               <Plus size={14} />
-              {t(`${am}.versions.drawer.addSkillBinding`)}
+              {t(`${am}versions.drawer.addSkillBinding`)}
             </Button>
           </div>
-          {draft.skillBindings.length === 0 && <p className="text-sm text-text-muted">{t(`${am}.versions.drawer.emptySkillBindings`)}</p>}
+          {draft.skillBindings.length === 0 && <p className="text-sm text-text-muted">{t(`${am}versions.drawer.emptySkillBindings`)}</p>}
           {draft.skillBindings.map((binding, index) => (
             <SkillBindingRow
               key={index}
@@ -758,12 +758,12 @@ export function VersionDrawer({
             className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-text"
             onClick={() => setAdvancedOpen((current) => !current)}
           >
-            <span>{t(`${am}.versions.drawer.advancedPolicy`)}</span>
-            <span className="text-text-muted">{advancedOpen ? t(`${am}.common.collapse`) : t(`${am}.common.expand`)}</span>
+            <span>{t(`${am}versions.drawer.advancedPolicy`)}</span>
+            <span className="text-text-muted">{advancedOpen ? t(`${am}common.collapse`) : t(`${am}common.expand`)}</span>
           </button>
           {advancedOpen && (
             <div className="space-y-4 border-t border-border p-4">
-              <p className="text-xs text-text-muted">{t(`${am}.versions.drawer.advancedPolicyHint`)}</p>
+              <p className="text-xs text-text-muted">{t(`${am}versions.drawer.advancedPolicyHint`)}</p>
               <JsonEditor
                 label="Runtime Options"
                 kind="object"
@@ -789,7 +789,7 @@ export function VersionDrawer({
                 onChange={(value) => updateDraft((current) => ({ ...current, responsePolicy: displayToPolicy(value) }))}
               />
               <JsonEditor
-                label={t(`${am}.versions.drawer.agentLocalGuardrailsPolicyLabel`)}
+                label={t(`${am}versions.drawer.agentLocalGuardrailsPolicyLabel`)}
                 kind="object"
                 placeholder="{}"
                 value={policyToDisplay(draft.guardrailsPolicy)}

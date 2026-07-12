@@ -21,10 +21,10 @@ describe('Pagination', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText((_, node) => node?.textContent === '共45条')).toBeInTheDocument();
+      expect(screen.getByText((_, node) => node?.textContent === '共 45 条')).toBeInTheDocument();
     });
-    expect(screen.getByRole('option', { name: '10条/页' })).toBeInTheDocument();
-    expect(screen.getByText('跳转至')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '10 条/页' })).toBeInTheDocument();
+    expect(screen.getByText('跳至')).toBeInTheDocument();
     expect(screen.getByText('页')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '上一页' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '下一页' })).toBeInTheDocument();

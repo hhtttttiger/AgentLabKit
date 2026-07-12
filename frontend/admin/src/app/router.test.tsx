@@ -3,14 +3,18 @@ import { Navigate } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { appRouteTree } from './router';
 
+// The route tree is nested: [ { element: AuthLayout, children: [ { path: '/login' }, { path: '/', children: [...] } ] } ]
+const authLayoutRoute = appRouteTree[0];
+const authChildren = authLayoutRoute?.children ?? [];
+
 describe('app route tree', () => {
   it('has a public login route', () => {
-    const loginRoute = appRouteTree.find((r) => r.path === '/login');
+    const loginRoute = authChildren.find((r) => r.path === '/login');
     expect(loginRoute).toBeDefined();
   });
 
   it('redirects root index route to model management', () => {
-    const rootRoute = appRouteTree.find((r) => r.path === '/');
+    const rootRoute = authChildren.find((r) => r.path === '/');
     const indexRoute = rootRoute?.children?.[0];
     const element = indexRoute?.element as ReactElement<{ to: string }>;
 
@@ -21,7 +25,7 @@ describe('app route tree', () => {
   });
 
   it('registers model monitoring routes under the protected shell', () => {
-    const rootRoute = appRouteTree.find((r) => r.path === '/');
+    const rootRoute = authChildren.find((r) => r.path === '/');
     const monitoringRoute = rootRoute?.children?.find((r) => r.path === 'model-monitoring');
 
     expect(monitoringRoute).toBeDefined();
@@ -30,14 +34,14 @@ describe('app route tree', () => {
   });
 
   it('registers ai chat route under the protected shell', () => {
-    const rootRoute = appRouteTree.find((r) => r.path === '/');
+    const rootRoute = authChildren.find((r) => r.path === '/');
     const aiChatRoute = rootRoute?.children?.find((r) => r.path === 'ai-chat');
 
     expect(aiChatRoute).toBeDefined();
   });
 
   it('redirects agent management index route to the agents list', () => {
-    const rootRoute = appRouteTree.find((r) => r.path === '/');
+    const rootRoute = authChildren.find((r) => r.path === '/');
     const moduleRoute = rootRoute?.children?.find((r) => r.path === 'agent-management');
     const indexRoute = moduleRoute?.children?.find((child) => child.index);
     const element = indexRoute?.element as ReactElement<{ to: string }>;
@@ -49,7 +53,7 @@ describe('app route tree', () => {
   });
 
   it('redirects model management index route to the models list', () => {
-    const rootRoute = appRouteTree.find((r) => r.path === '/');
+    const rootRoute = authChildren.find((r) => r.path === '/');
     const moduleRoute = rootRoute?.children?.find((r) => r.path === 'model-management');
     const indexRoute = moduleRoute?.children?.find((child) => child.index);
     const element = indexRoute?.element as ReactElement<{ to: string }>;

@@ -29,7 +29,7 @@ import {
 import type { McpServerSummaryView, McpTransport } from './types';
 import { useMcpServer, useMcpServerList, useMcpServerMutations } from './hooks';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 const transportTone: Record<McpTransport, 'neutral' | 'warning' | 'success'> = {
   stdio: 'neutral',
@@ -61,7 +61,7 @@ export function McpServersPage() {
   );
 
   const transportOptions = useMemo(() => [
-    { value: '', label: t(`${am}.mcpServers.allTransportTypes`) },
+    { value: '', label: t(`${am}mcpServers.allTransportTypes`) },
     { value: 'stdio', label: 'stdio' },
     { value: 'sse', label: 'sse' },
     { value: 'http', label: 'http' },
@@ -75,17 +75,17 @@ export function McpServersPage() {
     () => [
       {
         key: 'name',
-        header: t(`${am}.mcpServers.columns.name`),
+        header: t(`${am}mcpServers.columns.name`),
         render: (row) => <span className="font-medium text-text">{row.name}</span>,
       },
       {
         key: 'transport',
-        header: t(`${am}.mcpServers.columns.transport`),
+        header: t(`${am}mcpServers.columns.transport`),
         render: (row) => <Badge tone={transportTone[row.transport]}>{row.transport}</Badge>,
       },
       {
         key: 'endpoint',
-        header: t(`${am}.mcpServers.columns.endpoint`),
+        header: t(`${am}mcpServers.columns.endpoint`),
         render: (row) => (
           <span className="font-mono text-xs text-text-muted">
             {row.transport === 'stdio' ? row.command ?? '-' : row.endpoint ?? '-'}
@@ -94,7 +94,7 @@ export function McpServersPage() {
       },
       {
         key: 'tags',
-        header: t(`${am}.mcpServers.columns.tags`),
+        header: t(`${am}mcpServers.columns.tags`),
         render: (row) => (
           <div className="flex flex-wrap gap-1">
             {row.tags.length === 0 && <span className="text-text-muted">-</span>}
@@ -108,25 +108,25 @@ export function McpServersPage() {
       },
       {
         key: 'isEnabled',
-        header: t(`${am}.mcpServers.columns.status`),
+        header: t(`${am}mcpServers.columns.status`),
         render: (row) => (
           row.isEnabled
-            ? <Badge tone="success">{t(`${am}.mcpServers.statusEnabled`)}</Badge>
-            : <Badge tone="neutral">{t(`${am}.mcpServers.statusStopped`)}</Badge>
+            ? <Badge tone="success">{t(`${am}mcpServers.statusEnabled`)}</Badge>
+            : <Badge tone="neutral">{t(`${am}mcpServers.statusStopped`)}</Badge>
         ),
       },
       {
         key: 'createdAtUtc',
-        header: t(`${am}.mcpServers.columns.createdAt`),
+        header: t(`${am}mcpServers.columns.createdAt`),
         render: (row) => formatAdminDateTime(row.createdAtUtc, undefined, locale),
       },
       {
         key: 'actions',
-        header: t(`${am}.mcpServers.columns.actions`),
+        header: t(`${am}mcpServers.columns.actions`),
         render: (row) => (
           <RowActions actions={[
-            { label: t(`${am}.mcpServers.actions.edit`), onClick: () => setEditingName(row.name) },
-            { label: t(`${am}.mcpServers.actions.delete`), onClick: () => handleDelete(row), variant: 'danger', disabled: mutations.delete.isPending },
+            { label: t(`${am}mcpServers.actions.edit`), onClick: () => setEditingName(row.name) },
+            { label: t(`${am}mcpServers.actions.delete`), onClick: () => handleDelete(row), variant: 'danger', disabled: mutations.delete.isPending },
           ]} />
         ),
       },
@@ -152,13 +152,13 @@ export function McpServersPage() {
                 onClick={() => setCreateOpen(true)}
               >
                 <Plus size={14} />
-                {t(`${am}.mcpServers.newServer`)}
+                {t(`${am}mcpServers.newServer`)}
               </ToolbarButton>
             </FilterToolbarActions>
           }
         >
           <SelectField
-            label={t(`${am}.mcpServers.filterTransport`)}
+            label={t(`${am}mcpServers.filterTransport`)}
             fieldSize="compact"
             value={filters.transport}
             onChange={(e) => setFilters((current) => ({ ...current, transport: e.target.value as typeof current.transport, page: 1 }))}
@@ -171,10 +171,10 @@ export function McpServersPage() {
           </SelectField>
           <div className="filter-narrow">
             <TextField
-              label={t(`${am}.mcpServers.searchLabel`)}
+              label={t(`${am}mcpServers.searchLabel`)}
               fieldSize="compact"
               value={filters.search}
-              placeholder={t(`${am}.mcpServers.searchPlaceholder`)}
+              placeholder={t(`${am}mcpServers.searchPlaceholder`)}
               onChange={(e) => setFilters((current) => ({ ...current, search: e.target.value, page: 1 }))}
             />
           </div>
@@ -203,8 +203,8 @@ export function McpServersPage() {
         loading={listQuery.isLoading}
         emptyState={
           <EmptyState
-            title={t(`${am}.mcpServers.emptyTitle`)}
-            action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}.common.createNow`)}</Button>}
+            title={t(`${am}mcpServers.emptyTitle`)}
+            action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}common.createNow`)}</Button>}
           />
         }
       />
@@ -248,9 +248,9 @@ export function McpServersPage() {
 
     <ConfirmDialog
       open={deletingItem !== null}
-      title={t(`${am}.mcpServers.confirmDelete.title`)}
-      description={t(`${am}.mcpServers.confirmDelete.description`, { name: deletingItem?.name ?? '' })}
-      confirmLabel={t(`${am}.mcpServers.confirmDelete.label`)}
+      title={t(`${am}mcpServers.confirmDelete.title`)}
+      description={t(`${am}mcpServers.confirmDelete.description`, { name: deletingItem?.name ?? '' })}
+      confirmLabel={t(`${am}mcpServers.confirmDelete.label`)}
       loading={mutations.delete.isPending}
       error={mutations.delete.error ? mutations.getMutationMessage(mutations.delete.error) : null}
       onClose={() => {

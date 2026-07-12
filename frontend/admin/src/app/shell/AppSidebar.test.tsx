@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/styles/index.css';
@@ -6,19 +7,30 @@ import { ThemeProvider } from '@/shared/theme';
 import { AppSidebar } from './AppSidebar';
 import { switchTestLanguage } from '@/shared/test/setup';
 
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+}
+
 function renderSidebar(props: Partial<React.ComponentProps<typeof AppSidebar>> = {}) {
   return render(
-    <MemoryRouter>
-      <ThemeProvider>
-        <AppSidebar
-          collapsed={false}
-          onToggleCollapse={() => {}}
-          displayName="Test User"
-          onLogout={() => {}}
-          {...props}
-        />
-      </ThemeProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={createQueryClient()}>
+      <MemoryRouter>
+        <ThemeProvider>
+          <AppSidebar
+            collapsed={false}
+            onToggleCollapse={() => {}}
+            displayName="Test User"
+            onLogout={() => {}}
+            {...props}
+          />
+        </ThemeProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

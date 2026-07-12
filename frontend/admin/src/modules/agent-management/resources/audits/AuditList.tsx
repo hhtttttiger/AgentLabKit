@@ -14,7 +14,7 @@ import { AuditDetailDrawer } from './AuditDetailDrawer';
 import { defaultAuditFilters, toAuditListQuery } from './types';
 import { useAuditList } from './hooks';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 
 const statusTone: Record<string, 'success' | 'danger' | 'warning' | 'neutral'> = {
   success: 'success',
@@ -54,10 +54,10 @@ export function AuditList({ agentKey }: { agentKey: string }) {
   }, [listQuery.data, runIdSearch, statusFilter]);
 
   const filterStatusOptions = useMemo(() => [
-    { value: 'all', label: t(`${am}.audits.filterStatuses.all`) },
-    { value: 'success', label: t(`${am}.audits.filterStatuses.success`) },
-    { value: 'error', label: t(`${am}.audits.filterStatuses.error`) },
-    { value: 'timeout', label: t(`${am}.audits.filterStatuses.timeout`) },
+    { value: 'all', label: t(`${am}audits.filterStatuses.all`) },
+    { value: 'success', label: t(`${am}audits.filterStatuses.success`) },
+    { value: 'error', label: t(`${am}audits.filterStatuses.error`) },
+    { value: 'timeout', label: t(`${am}audits.filterStatuses.timeout`) },
   ], [t]);
 
   const columns = useMemo<TableColumn<ExecutionAuditView>[]>(
@@ -72,7 +72,7 @@ export function AuditList({ agentKey }: { agentKey: string }) {
             </span>
             <button
               type="button"
-              title={t(`${am}.audits.actions.copyRunId`)}
+              title={t(`${am}audits.actions.copyRunId`)}
               onClick={() => copyToClipboard(row.runId)}
               className="rounded p-0.5 text-text-muted transition hover:bg-state-hover hover:text-text"
             >
@@ -83,23 +83,23 @@ export function AuditList({ agentKey }: { agentKey: string }) {
       },
       {
         key: 'agentVersion',
-        header: t(`${am}.audits.columns.version`),
+        header: t(`${am}audits.columns.version`),
         render: (row) => (
           <span className="font-mono">{row.agentVersion != null ? `v${row.agentVersion}` : '-'}</span>
         ),
       },
       {
         key: 'status',
-        header: t(`${am}.audits.columns.status`),
+        header: t(`${am}audits.columns.status`),
         render: (row) => (
           <Badge tone={statusTone[row.status] ?? 'neutral'}>
-            {t(`${am}.audits.statusLabels.${row.status}`, { defaultValue: row.status })}
+            {t(`${am}audits.statusLabels.${row.status}`, { defaultValue: row.status })}
           </Badge>
         ),
       },
       {
         key: 'outputSummary',
-        header: t(`${am}.audits.columns.replyPreview`),
+        header: t(`${am}audits.columns.replyPreview`),
         className: 'max-w-[22rem]',
         headerClassName: 'w-[22rem]',
         render: (row) => (
@@ -113,21 +113,21 @@ export function AuditList({ agentKey }: { agentKey: string }) {
       },
       {
         key: 'durationMs',
-        header: t(`${am}.audits.columns.duration`),
+        header: t(`${am}audits.columns.duration`),
         render: (row) => (
           <span className="text-sm">{row.durationMs != null ? `${row.durationMs}ms` : '-'}</span>
         ),
       },
       {
         key: 'createdAtUtc',
-        header: t(`${am}.audits.columns.startedAt`),
+        header: t(`${am}audits.columns.startedAt`),
         render: (row) => formatAdminDateTime(row.createdAtUtc, undefined, locale),
       },
       {
         key: 'actions',
-        header: t(`${am}.audits.columns.details`),
+        header: t(`${am}audits.columns.details`),
         render: (row) => (
-          <RowActions actions={[{ label: t(`${am}.audits.actions.viewTrace`), onClick: () => setSelectedRunId(row.runId) }]} />
+          <RowActions actions={[{ label: t(`${am}audits.actions.viewTrace`), onClick: () => setSelectedRunId(row.runId) }]} />
         ),
       },
     ],
@@ -139,8 +139,8 @@ export function AuditList({ agentKey }: { agentKey: string }) {
       {/* Panel header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-4">
         <div>
-          <h3 className="text-base font-semibold text-text">{t(`${am}.audits.panel.title`)}</h3>
-          <p className="mt-0.5 text-xs text-text-secondary">{t(`${am}.audits.panel.description`)}</p>
+          <h3 className="text-base font-semibold text-text">{t(`${am}audits.panel.title`)}</h3>
+          <p className="mt-0.5 text-xs text-text-secondary">{t(`${am}audits.panel.description`)}</p>
         </div>
       </div>
 
@@ -152,7 +152,7 @@ export function AuditList({ agentKey }: { agentKey: string }) {
             type="text"
             value={runIdSearch}
             onChange={(e) => setRunIdSearch(e.target.value)}
-            placeholder={t(`${am}.audits.searchPlaceholder`)}
+            placeholder={t(`${am}audits.searchPlaceholder`)}
             className="w-full rounded-[2px] border border-border bg-surface py-1.5 pl-7 pr-3 text-xs text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
@@ -170,7 +170,7 @@ export function AuditList({ agentKey }: { agentKey: string }) {
       {/* Content */}
       <div className="space-y-4 px-6 py-5">
         {listQuery.isError && (
-          <InlineMessage tone="error">{t(`${am}.audits.loadError`)}</InlineMessage>
+          <InlineMessage tone="error">{t(`${am}audits.loadError`)}</InlineMessage>
         )}
 
         <DataTable
@@ -181,20 +181,20 @@ export function AuditList({ agentKey }: { agentKey: string }) {
           emptyState={
             runIdSearch || statusFilter !== 'all' ? (
               <EmptyState
-                title={t(`${am}.audits.emptyFiltered.title`)}
-                description={t(`${am}.audits.emptyFiltered.description`)}
+                title={t(`${am}audits.emptyFiltered.title`)}
+                description={t(`${am}audits.emptyFiltered.description`)}
                 action={
                   <button
                     type="button"
                     className="text-xs text-primary hover:underline"
                     onClick={() => { setRunIdSearch(''); setStatusFilter('all'); }}
                   >
-                    {t(`${am}.audits.emptyFiltered.clearFilters`)}
+                    {t(`${am}audits.emptyFiltered.clearFilters`)}
                   </button>
                 }
               />
             ) : (
-              <EmptyState title={t(`${am}.audits.emptyAll.title`)} />
+              <EmptyState title={t(`${am}audits.emptyAll.title`)} />
             )
           }
         />

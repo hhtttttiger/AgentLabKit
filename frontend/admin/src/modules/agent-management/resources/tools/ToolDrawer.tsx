@@ -9,7 +9,7 @@ import { JsonEditor } from '@/shared/ui/JsonEditor';
 import type { CreateToolDefinitionRequest, ToolSummaryView } from './types';
 import { emptyToolDraft } from './types';
 
-const am = 'agentManagement';
+const am = 'agentManagement:';
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
 const HTTP_METHODS = ['POST', 'GET', 'PUT', 'PATCH'];
 
@@ -18,32 +18,32 @@ function BuiltinReadOnlyView({ tool }: { tool: ToolSummaryView }) {
   return (
     <div className="space-y-6">
       <InlineMessage tone="info">
-        {t(`${am}.tools.drawer.builtinNotice`)}
+        {t(`${am}tools.drawer.builtinNotice`)}
       </InlineMessage>
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <p className="text-xs text-text-muted">{t(`${am}.tools.drawer.toolNameLabel`)}</p>
+          <p className="text-xs text-text-muted">{t(`${am}tools.drawer.toolNameLabel`)}</p>
           <p className="mt-1 font-mono text-sm text-text">{tool.toolName}</p>
         </div>
         <div>
-          <p className="text-xs text-text-muted">{t(`${am}.tools.drawer.displayNameLabel`)}</p>
+          <p className="text-xs text-text-muted">{t(`${am}tools.drawer.displayNameLabel`)}</p>
           <p className="mt-1 text-sm text-text">{tool.displayName}</p>
         </div>
         <div className="md:col-span-2">
-          <p className="text-xs text-text-muted">{t(`${am}.tools.drawer.descriptionLabel`)}</p>
+          <p className="text-xs text-text-muted">{t(`${am}tools.drawer.descriptionLabel`)}</p>
           <p className="mt-1 text-sm text-text">{tool.description}</p>
         </div>
         <div>
-          <p className="text-xs text-text-muted">{t(`${am}.tools.drawer.timeoutLabel`)}</p>
+          <p className="text-xs text-text-muted">{t(`${am}tools.drawer.timeoutLabel`)}</p>
           <p className="mt-1 text-sm text-text">{tool.timeoutSeconds}s</p>
         </div>
         <div>
-          <p className="text-xs text-text-muted">{t(`${am}.tools.drawer.maxRetriesLabel`)}</p>
+          <p className="text-xs text-text-muted">{t(`${am}tools.drawer.maxRetriesLabel`)}</p>
           <p className="mt-1 text-sm text-text">{tool.maxRetries}</p>
         </div>
         {tool.tags.length > 0 && (
           <div className="md:col-span-2">
-            <p className="mb-2 text-xs text-text-muted">{t(`${am}.tools.columns.tags`)}</p>
+            <p className="mb-2 text-xs text-text-muted">{t(`${am}tools.columns.tags`)}</p>
             <div className="flex flex-wrap gap-2">
               {tool.tags.map((tag) => (
                 <Badge key={tag} tone="neutral">{tag}</Badge>
@@ -53,7 +53,7 @@ function BuiltinReadOnlyView({ tool }: { tool: ToolSummaryView }) {
         )}
       </div>
       <div>
-        <p className="mb-2 text-xs text-text-muted">{t(`${am}.tools.drawer.parametersSchemaLabel`)}</p>
+        <p className="mb-2 text-xs text-text-muted">{t(`${am}tools.drawer.parametersSchemaLabel`)}</p>
         <JsonEditor
           label=""
           kind="object"
@@ -86,7 +86,7 @@ function HttpExternalForm({
     <div className="space-y-5">
       {mode === 'create' && (
         <TextField
-          label={t(`${am}.tools.drawer.toolNameSnakeCase`)}
+          label={t(`${am}tools.drawer.toolNameSnakeCase`)}
           value={draft.toolName}
           error={errors.toolName}
           placeholder="crm_lookup"
@@ -95,13 +95,13 @@ function HttpExternalForm({
       )}
       <div className="grid gap-4 md:grid-cols-2">
         <TextField
-          label={t(`${am}.tools.drawer.displayNameLabel`)}
+          label={t(`${am}tools.drawer.displayNameLabel`)}
           value={draft.displayName}
           error={errors.displayName}
           onChange={(e) => set('displayName', e.target.value)}
         />
         <div>
-          <p className="mb-1 text-xs text-text-muted">{t(`${am}.tools.drawer.timeoutLabel`)}</p>
+          <p className="mb-1 text-xs text-text-muted">{t(`${am}tools.drawer.timeoutLabel`)}</p>
           <input
             type="number"
             min={1}
@@ -113,7 +113,7 @@ function HttpExternalForm({
       </div>
 
       <TextAreaField
-        label={t(`${am}.tools.drawer.descriptionLlm`)}
+        label={t(`${am}tools.drawer.descriptionLlm`)}
         value={draft.description}
         error={errors.description}
         rows={3}
@@ -121,7 +121,7 @@ function HttpExternalForm({
       />
 
       <TextField
-        label={t(`${am}.tools.drawer.endpointLabel`)}
+        label={t(`${am}tools.drawer.endpointLabel`)}
         value={draft.endpointUrl}
         error={errors.endpointUrl}
         placeholder="https://my-service.internal/execute"
@@ -148,7 +148,7 @@ function HttpExternalForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <p className="mb-1 text-xs text-text-muted">{t(`${am}.tools.drawer.maxRetriesLabel`)}</p>
+          <p className="mb-1 text-xs text-text-muted">{t(`${am}tools.drawer.maxRetriesLabel`)}</p>
           <input
             type="number"
             min={0}
@@ -160,7 +160,7 @@ function HttpExternalForm({
       </div>
 
       <div>
-        <p className="mb-1 text-xs text-text-muted">{t(`${am}.tools.drawer.tagsLabel`)}</p>
+        <p className="mb-1 text-xs text-text-muted">{t(`${am}tools.drawer.tagsLabel`)}</p>
         <input
           type="text"
           value={draft.tags.join(', ')}
@@ -174,7 +174,7 @@ function HttpExternalForm({
 
       <div>
         <JsonEditor
-          label={t(`${am}.tools.drawer.parametersSchemaLabel`)}
+          label={t(`${am}tools.drawer.parametersSchemaLabel`)}
           kind="object"
           value={JSON.stringify(draft.parametersSchema, null, 2)}
           onChange={(value) => {
@@ -209,15 +209,15 @@ function validateDraft(
 
   if (mode === 'create') {
     if (!(draft.toolName ?? '').trim()) {
-      errors.toolName = t(`${am}.tools.drawer.toolNameRequired`);
+      errors.toolName = t(`${am}tools.drawer.toolNameRequired`);
     } else if (!TOOL_NAME_PATTERN.test(draft.toolName)) {
-      errors.toolName = t(`${am}.tools.drawer.toolNamePattern`);
+      errors.toolName = t(`${am}tools.drawer.toolNamePattern`);
     }
   }
 
-  if (!(draft.displayName ?? '').trim()) errors.displayName = t(`${am}.tools.drawer.displayNameRequired`);
-  if (!(draft.description ?? '').trim()) errors.description = t(`${am}.tools.drawer.descriptionRequired`);
-  if (!(draft.endpointUrl ?? '').trim()) errors.endpointUrl = t(`${am}.tools.drawer.endpointRequired`);
+  if (!(draft.displayName ?? '').trim()) errors.displayName = t(`${am}tools.drawer.displayNameRequired`);
+  if (!(draft.description ?? '').trim()) errors.description = t(`${am}tools.drawer.descriptionRequired`);
+  if (!(draft.endpointUrl ?? '').trim()) errors.endpointUrl = t(`${am}tools.drawer.endpointRequired`);
 
   return errors;
 }
@@ -279,9 +279,9 @@ export function ToolDrawer({
 
   const title = editingTool
     ? isBuiltin
-      ? t(`${am}.tools.drawer.titleBuiltin`, { name: editingTool.displayName })
-      : t(`${am}.tools.drawer.titleEdit`, { name: editingTool.displayName })
-    : t(`${am}.tools.drawer.titleCreate`);
+      ? t(`${am}tools.drawer.titleBuiltin`, { name: editingTool.displayName })
+      : t(`${am}tools.drawer.titleEdit`, { name: editingTool.displayName })
+    : t(`${am}tools.drawer.titleCreate`);
 
   return (
     <FormModal
@@ -292,10 +292,10 @@ export function ToolDrawer({
         !isBuiltin && (
           <div className="flex justify-end gap-3">
             <Button variant="secondary" onClick={onClose} disabled={loading}>
-              {t(`${am}.common.cancel`)}
+              {t(`${am}common.cancel`)}
             </Button>
             <Button onClick={handleSubmit} disabled={loading}>
-              {loading ? t(`${am}.tools.drawer.savingButton`) : t(`${am}.tools.drawer.saveButton`)}
+              {loading ? t(`${am}tools.drawer.savingButton`) : t(`${am}tools.drawer.saveButton`)}
             </Button>
           </div>
         )
