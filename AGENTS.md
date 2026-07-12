@@ -65,7 +65,7 @@ AI Agent 平台。Python + React 全栈。
 - **Backend**: Python 3.12, FastAPI, SQLAlchemy (async), asyncpg, PostgreSQL 16 + pgvector
 - **Cache/Queue**: Redis 7 (async, hiredis), Redis Streams — 文档索引 worker 独立消费(`backend/src/worker.py`)
 - **Frontend**: React 19, TypeScript, Vite, Zustand, React Query
-- **Auth**: JWT (HS256), bcrypt
+- **Auth**: JWT (HS256), bcrypt, RBAC (admin/member), 用户管理 CRUD
 
 ## 本地启动
 

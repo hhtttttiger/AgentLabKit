@@ -153,6 +153,12 @@ Agent 循环直接调用 LLM Gateway，不依赖 LangChain / pydantic-ai / CrewA
 ### 知识库 RAG
 - 混合检索：pg_trgm + 向量嵌入 + RRF 融合，keyword / semantic / hybrid 三种模式
 
+### 用户管理
+- JWT 认证 + bcrypt 密码加密
+- RBAC 角色控制（admin / member）
+- 用户 CRUD（创建、编辑、停用）
+- 个人资料编辑、密码修改
+
 ### 平台能力
 - 长期记忆 · LLM 网关 · 可观测性 · 评估框架 · 成本分析
 

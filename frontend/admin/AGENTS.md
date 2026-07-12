@@ -31,6 +31,7 @@ nginx (nginx.conf)  ──/admin/ (SPA fallback)──▶  浏览器
 | `src/modules/knowledge-base/*` | 知识库模块：知识库 CRUD、文档/QA 管理、检索测试、召回榜单与详情抽屉 |
 | `src/modules/ai-chat/*` | AI 对话模块：支持模型卡与 Agent 两种模式，含流式 SSE 解析、轨迹合并与历史管理 |
 | `src/modules/agent-management/*` | Agent 管理模块：定义/版本/工具/技能/MCP/审计，审计详情复用共享轨迹视图 |
+| `src/modules/user-management/*` | 用户管理模块：用户列表、创建/编辑/停用用户，admin 角色专属 |
 | `Dockerfile` | 多阶段构建：node:22-alpine 编译 + nginx:alpine 静态服务 |
 | `nginx.conf` | nginx 配置：`/admin/` SPA fallback、gzip、资产缓存、健康检查 |
 | `.dockerignore` | Docker 构建时排除 node_modules/dist 等 |
@@ -54,6 +55,7 @@ nginx (nginx.conf)  ──/admin/ (SPA fallback)──▶  浏览器
 ## 常见模式
 
 - 远程数据统一通过 `shared/api/client.ts` + TanStack Query 处理。
+- **认证与用户管理**：`shared/auth/` 提供 `AuthProvider`、`AuthGuard`、JWT 解析与持久化。用户管理 API（`api.ts`）包含登录、用户 CRUD、密码修改、个人资料更新。UserMenu 中的「个人资料」和「修改密码」入口使用 `ProfileDialog` 和 `ChangePasswordDialog`。
 - 表单优先结构化输入；复杂字段通过共享 `JsonEditor` 承载。
 - 模块扩展从 `src/app/modules.tsx` 注册入口接入，不要直接把新模块写死在多个壳层文件里。
 - **Agent 轨迹可视化**：`shared/agent-trace/` 提供 `AgentTraceView` 组件和 `AgentExecutionTrace` 契约，被 `ai-chat` 和 `agent-management` 两个模块复用。`ai-chat/lib/agent-trace-merge.ts` 封装了从 SSE event 到 `AgentExecutionTrace` 的纯函数合并逻辑（`mergeAgentTrace` / `buildStepFromEvent`），带完整单元测试。
@@ -65,7 +67,7 @@ nginx (nginx.conf)  ──/admin/ (SPA fallback)──▶  浏览器
 
 ## 视觉偏好系统
 
-admin 右上角 UserMenu 包含四类视觉偏好，统一以 `localStorage` 持久化、模块导入时同步应用（防 flash）：
+admin 右上角 UserMenu 包含视觉偏好设置、个人资料编辑和密码修改，统一以 `localStorage` 持久化、模块导入时同步应用（防 flash）：
 
 | 偏好 | Hook | localStorage key | 作用点 |
 |------|------|-----------------|--------|

@@ -1,4 +1,4 @@
-import { Activity, Blocks, BookOpen, Bot, Brain, Database, DollarSign, FlaskConical, MessageSquare, Search, type LucideIcon } from 'lucide-react';
+import { Activity, Blocks, BookOpen, Bot, Brain, Database, DollarSign, FlaskConical, MessageSquare, Search, Users, type LucideIcon } from 'lucide-react';
 import { agentManagementRoutes } from '@/modules/agent-management/routes';
 import { modelManagementRoutes } from '@/modules/model-management/routes';
 import { modelMonitoringRoutes } from '@/modules/model-monitoring/routes';
@@ -9,8 +9,9 @@ import { costAnalysisRoutes } from '@/modules/cost-analysis/routes';
 import { observabilityRoutes } from '@/modules/observability/routes';
 import { memoryRoutes } from '@/modules/memory/routes';
 import { evaluationRoutes } from '@/modules/evaluation/routes';
+import { userManagementRoutes } from '@/modules/user-management/routes';
 
-export type ModuleKey = 'ai-chat' | 'agent-management' | 'model-management' | 'glossary' | 'knowledge-base' | 'model-monitoring' | 'cost-analysis' | 'observability' | 'memory' | 'evaluation';
+export type ModuleKey = 'ai-chat' | 'agent-management' | 'model-management' | 'glossary' | 'knowledge-base' | 'model-monitoring' | 'cost-analysis' | 'observability' | 'memory' | 'evaluation' | 'user-management';
 
 export type ModuleDefinition = {
   key: ModuleKey;
@@ -29,11 +30,12 @@ export const appModules: ModuleDefinition[] = [
   { key: 'observability', icon: Search, basePath: '/observability' },
   { key: 'memory', icon: Brain, basePath: '/memory' },
   { key: 'evaluation', icon: FlaskConical, basePath: '/evaluation' },
+  { key: 'user-management', icon: Users, basePath: '/user-management' },
 ];
 
 export const moduleRoutes = [
   ...aiChatRoutes, ...agentManagementRoutes, ...modelManagementRoutes,
   ...glossaryRoutes, ...knowledgeBaseRoutes, ...modelMonitoringRoutes,
   ...costAnalysisRoutes, ...observabilityRoutes, ...memoryRoutes,
-  ...evaluationRoutes,
+  ...evaluationRoutes, ...userManagementRoutes,
 ];

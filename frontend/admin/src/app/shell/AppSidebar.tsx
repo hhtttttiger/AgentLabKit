@@ -25,6 +25,7 @@ const NAV_LABEL_KEYS: Record<ModuleKey, string> = {
   observability: 'nav.observability',
   memory: 'nav.memory',
   evaluation: 'nav.evaluation',
+  'user-management': 'nav.userManagement',
 } as const;
 
 export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, displayName, onLogout }: AppSidebarProps) {

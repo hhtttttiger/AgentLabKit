@@ -7,6 +7,8 @@ export const common = {
     languageTitle: 'Choose language',
     preferences: 'Preferences',
     preferencesTitle: 'Preferences',
+    profile: 'Profile',
+    changePassword: 'Change password',
     back: 'Back',
     localeShort: {
       'zh-CN': '中文',
@@ -109,6 +111,7 @@ export const common = {
     observability: 'Observability',
     memory: 'Memory',
     evaluation: 'Evaluation',
+    userManagement: 'User management',
     voiceLab: 'Voice latency debug',
     collapse: 'Collapse menu',
     expand: 'Expand menu',
@@ -152,6 +155,28 @@ export const common = {
   api: {
     requestFailed: 'Request failed.',
     sessionExpired: 'Session expired. Please log in again.'
+  },
+  shared: {
+    auth: {
+      profile: {
+        title: 'Profile',
+        username: 'Username',
+        displayName: 'Display name',
+        email: 'Email',
+        save: 'Save',
+        saving: 'Saving...'
+      },
+      changePassword: {
+        title: 'Change password',
+        currentPassword: 'Current password',
+        newPassword: 'New password',
+        confirmPassword: 'Confirm new password',
+        save: 'Change password',
+        saving: 'Changing...',
+        tooShort: 'Password must be at least 8 characters.',
+        mismatch: 'Passwords do not match.'
+      }
+    }
   },
   toast: {
     created: 'Created successfully',
@@ -2108,6 +2133,49 @@ export const common = {
           completed: 'Completed',
           failed: 'Failed'
         }
+      }
+    },
+    userManagement: {
+      title: 'User management',
+      description: 'Manage system users, roles and access permissions.',
+      newUser: 'New user',
+      createUserTitle: 'Create user',
+      editUserTitle: 'Edit user',
+      emptyTitle: 'No users',
+      emptyDescription: 'Create the first user to get started.',
+      deactivateTitle: 'Deactivate user',
+      deactivateDescription: 'Are you sure you want to deactivate user "{{name}}"? They will not be able to log in.',
+      columns: {
+        username: 'Username',
+        displayName: 'Display name',
+        email: 'Email',
+        role: 'Role',
+        status: 'Status',
+        lastLogin: 'Last login',
+        actions: 'Actions'
+      },
+      roles: {
+        admin: 'Admin',
+        member: 'Member'
+      },
+      status: {
+        active: 'Active',
+        inactive: 'Inactive'
+      },
+      actions: {
+        deactivate: 'Deactivate',
+        activate: 'Activate'
+      },
+      form: {
+        username: 'Username',
+        password: 'Password',
+        displayName: 'Display name',
+        email: 'Email',
+        role: 'Role',
+        create: 'Create',
+        creating: 'Creating...',
+        save: 'Save',
+        saving: 'Saving...'
       }
     }
   }

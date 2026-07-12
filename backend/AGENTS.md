@@ -22,7 +22,7 @@ backend/src/
 ├── bootstrap.py          # seed：admin 用户 + LLM 目录 + Agent 定义 + 示例
 ├── common/               # 跨模块共享（response / errors / crud / dependencies / auth）
 └── modules/              # 业务模块（各含 router + schemas + services）
-    ├── auth/             # JWT 登录认证
+    ├── auth/             # JWT 登录认证、用户管理 CRUD、RBAC 角色控制
     ├── llm_catalog/      # LLM 模型目录管理
     ├── agent/            # Agent 定义/版本/工具/技能/MCP 管理
     ├── knowledge_base/   # 知识库/文档/分段/搜索
@@ -43,7 +43,7 @@ backend/src/
 
 | 前缀 | 来源 |
 |------|------|
-| `/api/auth` | `modules.auth.router` |
+| `/api/auth` | `modules.auth.router` — 登录、用户管理、密码修改、个人资料 |
 | `/api/llm-catalog` | `modules.llm_catalog.router` |
 | `/api/agents` | `modules.agent.router` |
 | `/api/agent-tools` | `modules.agent.tools_router` |

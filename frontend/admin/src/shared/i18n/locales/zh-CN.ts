@@ -7,6 +7,8 @@ export const common = {
     languageTitle: '选择语言',
     preferences: '界面偏好',
     preferencesTitle: '界面偏好',
+    profile: '个人资料',
+    changePassword: '修改密码',
     back: '返回',
     localeShort: {
       'zh-CN': '中文',
@@ -109,6 +111,7 @@ export const common = {
     observability: '可观测性',
     memory: '记忆管理',
     evaluation: '评估管理',
+    userManagement: '用户管理',
     voiceLab: '语音延迟调试',
     collapse: '收起菜单',
     expand: '展开菜单',
@@ -152,6 +155,28 @@ export const common = {
   api: {
     requestFailed: '接口请求失败。',
     sessionExpired: '会话已过期，请重新登录。'
+  },
+  shared: {
+    auth: {
+      profile: {
+        title: '个人资料',
+        username: '用户名',
+        displayName: '显示名称',
+        email: '邮箱',
+        save: '保存',
+        saving: '保存中...'
+      },
+      changePassword: {
+        title: '修改密码',
+        currentPassword: '当前密码',
+        newPassword: '新密码',
+        confirmPassword: '确认新密码',
+        save: '修改密码',
+        saving: '修改中...',
+        tooShort: '密码长度至少 8 位。',
+        mismatch: '两次输入的密码不一致。'
+      }
+    }
   },
   toast: {
     created: '创建成功',
@@ -2108,6 +2133,49 @@ export const common = {
           completed: '已完成',
           failed: '失败'
         }
+      }
+    },
+    userManagement: {
+      title: '用户管理',
+      description: '管理系统用户、角色和访问权限。',
+      newUser: '新建用户',
+      createUserTitle: '创建用户',
+      editUserTitle: '编辑用户',
+      emptyTitle: '暂无用户',
+      emptyDescription: '创建第一个用户开始使用。',
+      deactivateTitle: '停用用户',
+      deactivateDescription: '确认停用用户「{{name}}」吗？停用后该用户将无法登录。',
+      columns: {
+        username: '用户名',
+        displayName: '显示名称',
+        email: '邮箱',
+        role: '角色',
+        status: '状态',
+        lastLogin: '最后登录',
+        actions: '操作'
+      },
+      roles: {
+        admin: '管理员',
+        member: '普通用户'
+      },
+      status: {
+        active: '正常',
+        inactive: '已停用'
+      },
+      actions: {
+        deactivate: '停用',
+        activate: '启用'
+      },
+      form: {
+        username: '用户名',
+        password: '密码',
+        displayName: '显示名称',
+        email: '邮箱',
+        role: '角色',
+        create: '创建',
+        creating: '创建中...',
+        save: '保存',
+        saving: '保存中...'
       }
     }
   }

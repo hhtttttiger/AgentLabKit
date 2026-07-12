@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
+  KeyRound,
   Languages,
   LogOut,
   Moon,
@@ -9,13 +10,16 @@ import {
   SlidersHorizontal,
   Sparkles,
   Sun,
+  User,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAdminLocale } from '@/shared/i18n/useAdminLocale';
 import { useTheme } from '../theme';
 import { useMotion } from '../motion/useMotion';
 import { AccentPicker } from './AccentPicker';
+import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { LanguagePicker } from './LanguagePicker';
+import { ProfileDialog } from './ProfileDialog';
 import { ZoomSlider } from './ZoomSlider';
 import './UserMenu.css';
 
@@ -62,6 +66,8 @@ export function UserMenu({ displayName, onLogout }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<UserMenuView>('root');
   const [transition, setTransition] = useState<UserMenuTransitionState | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const dropdownId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
   const openRef = useRef(false);
@@ -270,6 +276,32 @@ export function UserMenu({ displayName, onLogout }: UserMenuProps) {
 
         <button
           type="button"
+          className="user-menu__item"
+          onClick={() => {
+            close();
+            setProfileOpen(true);
+          }}
+        >
+          <User size={16} />
+          <span className="user-menu__item-label">{t('userMenu.profile')}</span>
+        </button>
+
+        <button
+          type="button"
+          className="user-menu__item"
+          onClick={() => {
+            close();
+            setChangePasswordOpen(true);
+          }}
+        >
+          <KeyRound size={16} />
+          <span className="user-menu__item-label">{t('userMenu.changePassword')}</span>
+        </button>
+
+        <div className="user-menu__divider" />
+
+        <button
+          type="button"
           className="user-menu__item user-menu__item--danger"
           onClick={() => {
             onLogout();
@@ -352,53 +384,58 @@ export function UserMenu({ displayName, onLogout }: UserMenuProps) {
   }
 
   return (
-    <div className="user-menu" ref={menuRef}>
-      <button
-        ref={triggerRef}
-        type="button"
-        className="user-menu__trigger"
-        onClick={() => {
-          if (open) {
-            close();
-          } else {
-            openRoot();
-          }
-        }}
-        aria-label={t('userMenu.ariaLabel')}
-        aria-expanded={open}
-        aria-controls={open ? dropdownId : undefined}
-      >
-        {initials}
-      </button>
-
-      {open && (
-        <div
-          id={dropdownId}
-          className="user-menu__dropdown"
-          data-current-view={view}
-          data-transition-direction={transition?.direction ?? 'idle'}
+    <>
+      <div className="user-menu" ref={menuRef}>
+        <button
+          ref={triggerRef}
+          type="button"
+          className="user-menu__trigger"
+          onClick={() => {
+            if (open) {
+              close();
+            } else {
+              openRoot();
+            }
+          }}
+          aria-label={t('userMenu.ariaLabel')}
+          aria-expanded={open}
+          aria-controls={open ? dropdownId : undefined}
         >
-          <div className="user-menu__viewport">
-            {transition ? (
-              <>
-                <div
-                  className="user-menu__panel-frame user-menu__panel-frame--outgoing"
-                  aria-hidden="true"
-                >
-                  {renderView(transition.from, { showSectionDivider: false })}
+          {initials}
+        </button>
+
+        {open && (
+          <div
+            id={dropdownId}
+            className="user-menu__dropdown"
+            data-current-view={view}
+            data-transition-direction={transition?.direction ?? 'idle'}
+          >
+            <div className="user-menu__viewport">
+              {transition ? (
+                <>
+                  <div
+                    className="user-menu__panel-frame user-menu__panel-frame--outgoing"
+                    aria-hidden="true"
+                  >
+                    {renderView(transition.from, { showSectionDivider: false })}
+                  </div>
+                  <div className="user-menu__panel-frame user-menu__panel-frame--incoming">
+                    {renderView(transition.to)}
+                  </div>
+                </>
+              ) : (
+                <div className="user-menu__panel-frame user-menu__panel-frame--current">
+                  {renderView(view)}
                 </div>
-                <div className="user-menu__panel-frame user-menu__panel-frame--incoming">
-                  {renderView(transition.to)}
-                </div>
-              </>
-            ) : (
-              <div className="user-menu__panel-frame user-menu__panel-frame--current">
-                {renderView(view)}
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+
+      <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <ChangePasswordDialog open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
+    </>
   );
 }

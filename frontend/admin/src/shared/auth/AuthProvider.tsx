@@ -14,8 +14,8 @@ import { queryClient } from '@/shared/api/queryClient';
 
 export const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
 
-const DEV_USER: AuthUser = { userId: 'dev', userName: 'Dev User' };
-const DEV_TOKEN = `dev.${btoa(JSON.stringify({ sub: 'dev', name: 'Dev User', exp: Math.floor(Date.now() / 1000) + 86400 }))}.dev`;
+const DEV_USER: AuthUser = { userId: 'dev', userName: 'Dev User', role: 'admin' };
+const DEV_TOKEN = `dev.${btoa(JSON.stringify({ sub: 'dev', name: 'Dev User', role: 'admin', exp: Math.floor(Date.now() / 1000) + 86400 }))}.dev`;
 
 export type AuthContextValue = {
   token: string | null;

@@ -36,7 +36,11 @@ async def _get_current_user(
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    return {"user_id": payload["sub"], "username": payload.get("username", "")}
+    return {
+        "user_id": payload["sub"],
+        "username": payload.get("username", ""),
+        "role": payload.get("role", "member"),
+    }
 
 
 async def require_auth(
@@ -66,3 +70,17 @@ async def require_auth(
 
 
 CurrentUser = Annotated[dict, Depends(_get_current_user)]
+
+
+def require_role(*roles: str):
+    """Dependency factory: require the current user to have one of the given roles.
+
+    Usage::
+
+        @router.get("/admin-only", dependencies=[Depends(require_role("admin"))])
+        async def admin_endpoint(): ...
+    """
+    async def _check(current_user: CurrentUser) -> None:
+        if current_user.get("role") not in roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    return _check

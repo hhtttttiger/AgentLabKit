@@ -32,7 +32,8 @@ export function parseTokenPayload(token: string): AuthUser | null {
     if (!userId) return null;
 
     const userName = (payload.name as string) ?? null;
-    return { userId, userName };
+    const role = (payload.role as string) ?? 'member';
+    return { userId, userName, role };
   } catch {
     return null;
   }
