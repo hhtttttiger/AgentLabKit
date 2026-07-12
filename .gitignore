@@ -38,3 +38,4 @@ _squash_backup_*/
 # ===== Misc =====
 *.log
 desktop/__pycache__/
+docs/plans/desktop-windows-build.md
