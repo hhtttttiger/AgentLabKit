@@ -20,14 +20,21 @@ def build_cost_analysis_module(session_factory: Any) -> Any:
     )
 
 
-def build_observability_module(session_factory: Any) -> Any:
+def build_observability_module(
+    session_factory: Any,
+    *,
+    queue_backend: Any | None = None,
+    service_name: str = "agentlabkit",
+) -> Any:
     """构造 Observability 模块（trace 采集 + 持久化）。"""
     from observability import create_observability_module
     from observability.config import ObservabilitySettings
 
     return create_observability_module(
         session_factory=session_factory,
+        queue_backend=queue_backend,
         settings=ObservabilitySettings(),
+        service_name=service_name,
     )
 
 
@@ -96,7 +103,7 @@ def build_agent_runtime(
     1. ToolRegistry + BackendKnowledgeProvider（可选，依赖 retrieval）
     2. 注册内置工具（time_now / calculator）
     3. BackendAgentDefinitionLoader（ORM → agent 快照）
-    4. Observability bridge（agent_runtime 事件 → TraceStore）
+    4. 注入 Observability 管理的 OTel Tracer
     5. create_agent_runtime 组装
 
     返回 ``(agent_runtime, agent_definition_loader)``。
@@ -113,7 +120,10 @@ def build_agent_runtime(
         try:
             from modules.knowledge_base.knowledge_provider import BackendKnowledgeProvider
 
-            registry_kwargs["knowledge_provider"] = BackendKnowledgeProvider(retrieval_service)
+            registry_kwargs["knowledge_provider"] = BackendKnowledgeProvider(
+                retrieval_service,
+                tracer=obs_module.get_tracer("knowledge_retrieval"),
+            )
         except Exception:
             from loguru import logger
 
@@ -128,7 +138,20 @@ def build_agent_runtime(
 
     agent_definition_loader = BackendAgentDefinitionLoader(session_factory)
 
-    # ── Observability bridge ──
+    agent_runtime = create_agent_runtime(
+        settings=AgentSettings(enable_mcp=True),
+        gateway=gateway_service,
+        tool_registry=tool_registry,
+        definition_loader=agent_definition_loader,
+        memory_module=memory_module,
+        observability_bridge_factory=_build_obs_bridge_factory(obs_module),
+    )
+
+    return agent_runtime, agent_definition_loader
+
+
+def _build_obs_bridge_factory(obs_module: Any):
+    """Build observability bridge factory using the deprecated SpanBridge."""
     obs_settings = obs_module.settings
 
     def _obs_bridge_factory(trace_id: str, event_bus, agent_key: str | None = None):
@@ -143,13 +166,4 @@ def build_agent_runtime(
             enabled=obs_settings.enabled,
         )
 
-    agent_runtime = create_agent_runtime(
-        settings=AgentSettings(enable_mcp=True),
-        gateway=gateway_service,
-        tool_registry=tool_registry,
-        definition_loader=agent_definition_loader,
-        memory_module=memory_module,
-        observability_bridge_factory=_obs_bridge_factory,
-    )
-
-    return agent_runtime, agent_definition_loader
+    return _obs_bridge_factory

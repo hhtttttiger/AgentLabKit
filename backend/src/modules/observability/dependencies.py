@@ -22,3 +22,7 @@ def get_trace_store(mod: ObservabilityModule = Depends(get_observability_module)
 
 
 TraceStoreDep = Annotated[TraceStore, Depends(get_trace_store)]
+ObservabilityModuleDep = Annotated[
+    ObservabilityModule,
+    Depends(get_observability_module),
+]
