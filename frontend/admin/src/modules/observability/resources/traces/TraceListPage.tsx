@@ -1,122 +1,124 @@
-import { useState } from 'react';
-import { useTraceList, useTraceStats } from './hooks';
-import { MetricStrip } from '@/shared/ui/MetricStrip';
-import { SkeletonRows } from '@/shared/ui/Skeleton';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
-import { Pagination } from '@/shared/ui/Pagination';
-import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { formatDuration, formatDateTime } from '../../lib/formatters';
-import type { TraceData } from '../../lib/contracts';
+import { MetricStrip } from '@/shared/ui/MetricStrip';
+import { SkeletonRows } from '@/shared/ui/Skeleton';
+import { formatDateTime, formatDuration } from '../../lib/formatters';
+import type { TraceData, TraceStatus } from '../../lib/contracts';
+import { useIngestionHealth, useTraceList, useTraceStats } from './hooks';
 
-const TIME_RANGE_OPTIONS = [
-  { days: 1, key: '24h' as const },
-  { days: 7, key: '7d' as const },
-  { days: 30, key: '30d' as const },
-];
+const PAGE_SIZE = 20;
 
 export function TraceListPage() {
   const { t } = useTranslation(['common', 'observability']);
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [days, setDays] = useState(7);
+  const [cursorStack, setCursorStack] = useState<Array<string | undefined>>([undefined]);
+  const [agentKey, setAgentKey] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [status, setStatus] = useState<TraceStatus | ''>('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const cursor = cursorStack[cursorStack.length - 1];
+  const params = useMemo(() => ({
+    cursor,
+    limit: PAGE_SIZE,
+    agent_key: agentKey || undefined,
+    session_id: sessionId || undefined,
+    status: status || undefined,
+    from_date: fromDate ? new Date(fromDate).toISOString() : undefined,
+    to_date: toDate ? new Date(toDate).toISOString() : undefined,
+  }), [agentKey, cursor, fromDate, sessionId, status, toDate]);
 
-  const { data: result, isLoading, isError } = useTraceList({ page, pageSize, days });
-  const { data: stats } = useTraceStats(days);
-
+  const { data: result, isLoading, isError } = useTraceList(params);
+  const { data: stats } = useTraceStats(7);
+  const { data: health } = useIngestionHealth();
   const traces = result?.items ?? [];
-  const total = result?.totalCount ?? 0;
 
-  const metrics = stats
-    ? [
-        { label: t('observability:traces.metrics.totalTraces'), value: String(stats.totalTraces), accent: 'blue' as const },
-        { label: t('observability:traces.metrics.avgLatency'), value: formatDuration(stats.avgDurationMs), accent: 'violet' as const },
-        { label: t('observability:traces.metrics.totalTokens'), value: stats.totalTokens.toLocaleString(), accent: 'teal' as const },
-        { label: t('observability:traces.metrics.errorCount'), value: String(stats.errorCount), accent: 'amber' as const },
-      ]
-    : [];
+  const resetCursor = () => setCursorStack([undefined]);
+  const metrics = stats ? [
+    { label: t('observability:traces.metrics.totalTraces'), value: String(stats.totalTraces), accent: 'blue' as const },
+    { label: 'P95', value: formatDuration(stats.p95DurationMs), accent: 'violet' as const },
+    { label: t('observability:traces.metrics.totalTokens'), value: stats.totalTokens.toLocaleString(), accent: 'teal' as const },
+    { label: 'Errors / timeout / cancel', value: `${stats.errorCount} / ${stats.timeoutCount} / ${stats.cancelledCount}`, accent: 'amber' as const },
+  ] : [];
 
   return (
-    <div className="flex flex-col gap-6 p-6 min-h-full">
-      {/* Time range selector */}
-      <div className="flex items-center gap-3">
-        {TIME_RANGE_OPTIONS.map(({ days: d, key }) => (
-          <button
-            key={key}
-            onClick={() => { setDays(d); setPage(1); }}
-            className={`rounded-[2px] px-3 py-1 text-xs ${days === d ? 'bg-primary text-background' : 'bg-surface border border-border text-text-secondary hover:border-primary'}`}
-          >
-            {t(`observability:traces.timeRange.${key}`)}
-          </button>
+    <div className="flex min-h-full flex-col gap-6 p-6">
+      {metrics.length > 0 && <MetricStrip items={metrics} columns={4} />}
+
+      <div className="grid gap-3 rounded-[2px] border border-border bg-surface p-3 text-xs text-text-secondary md:grid-cols-2">
+        <div>
+          Buffer: traces {health?.publisher.activeTraces ?? '—'}, spans {health?.publisher.bufferedSpans ?? '—'},
+          dropped {health?.publisher.bufferOverflowDropped ?? '—'} ·
+          Publisher: queued {health?.publisher.queueDepth ?? '—'}, published {health?.publisher.published ?? '—'},
+          dropped <span className={health?.publisher.dropped ? 'text-error' : ''}>{health?.publisher.dropped ?? '—'}</span>
+        </div>
+        <div>
+          Trace worker: {health?.queue?.available ? 'available' : 'unavailable'}, consumers {health?.queue?.consumers ?? '—'}, backlog {health?.queue?.backlog ?? '—'}, pending {health?.queue?.pending ?? '—'},
+          delayed {health?.queue?.delayed ?? '—'}, DLQ {health?.queue?.deadLetter ?? '—'}
+        </div>
+        {Object.entries(health?.workerTasks ?? {}).map(([name, task]) => (
+          <div key={name}>
+            {name}: {task.available ? 'available' : 'unavailable'}, consumers {task.consumers}, backlog {task.backlog}, pending {task.pending},
+            failures/DLQ {task.deadLetter}
+          </div>
         ))}
       </div>
 
-      {/* Stats */}
-      {metrics.length > 0 && <MetricStrip items={metrics} columns={4} />}
-
-      {/* Error */}
-      {isError && (
-        <InlineMessage tone="error">{t('observability:traces.loadError')}</InlineMessage>
-      )}
-
-      {/* Table */}
-      <div className="flex-1 min-h-0 overflow-x-auto">
-      {isLoading ? (
-        <SkeletonRows columns={7} rows={5} />
-      ) : !traces.length ? (
-        <EmptyState title={t('observability:traces.emptyTitle')} description={t('observability:traces.emptyDescription')} />
-      ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-text-muted">
-              <th className="pb-2 font-medium w-64">{t('observability:traces.columns.traceId')}</th>
-              <th className="pb-2 font-medium">{t('observability:traces.columns.agent')}</th>
-              <th className="pb-2 font-medium text-center">{t('observability:traces.columns.status')}</th>
-              <th className="pb-2 font-medium text-right">{t('observability:traces.columns.duration')}</th>
-              <th className="pb-2 font-medium text-right">{t('observability:traces.columns.tokens')}</th>
-              <th className="pb-2 font-medium text-right">{t('observability:traces.columns.spanCount')}</th>
-              <th className="pb-2 font-medium pl-4">{t('observability:traces.columns.startTime')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {traces.map((tr: TraceData) => (
-              <tr
-                key={tr.traceId}
-                className="cursor-pointer border-b border-border-subtle last:border-0 hover:bg-surface-raised"
-                onClick={() => navigate(`/observability/${tr.traceId}`)}
-              >
-                <td className="py-2 font-mono text-xs text-primary" title={tr.traceId}>
-                  <span className="cursor-pointer hover:underline" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(tr.traceId); }}>
-                    {tr.traceId.slice(0, 32)}…
-                  </span>
-                </td>
-                <td className="py-2 text-text-secondary">{tr.agentKey || '—'}</td>
-                <td className="py-2 text-center">
-                  <span className={`inline-block rounded-[2px] px-2 py-0.5 text-xs ${tr.status === 'ok' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}>
-                    {tr.status}
-                  </span>
-                </td>
-                <td className="py-2 text-right font-medium text-text">{formatDuration(tr.totalDurationMs)}</td>
-                <td className="py-2 text-right text-text-secondary">{(tr.totalInputTokens + tr.totalOutputTokens).toLocaleString()}</td>
-                <td className="py-2 text-right text-text-secondary">{tr.spanCount}</td>
-                <td className="py-2 pl-4 text-text-secondary">{formatDateTime(tr.startedAtUtc)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div className="flex flex-wrap gap-2">
+        <input value={agentKey} onChange={(event) => { setAgentKey(event.target.value); resetCursor(); }} placeholder="Agent key" className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
+        <input value={sessionId} onChange={(event) => { setSessionId(event.target.value); resetCursor(); }} placeholder="Session ID" className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
+        <select value={status} onChange={(event) => { setStatus(event.target.value as TraceStatus | ''); resetCursor(); }} className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm">
+          <option value="">All statuses</option>
+          <option value="ok">ok</option>
+          <option value="error">error</option>
+          <option value="timeout">timeout</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+        <input type="datetime-local" value={fromDate} onChange={(event) => { setFromDate(event.target.value); resetCursor(); }} aria-label="Started after" className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
+        <input type="datetime-local" value={toDate} onChange={(event) => { setToDate(event.target.value); resetCursor(); }} aria-label="Started before" className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
       </div>
 
-      {/* Pagination */}
-      <Pagination
-        page={page}
-        pageSize={pageSize}
-        totalCount={total}
-        onChange={setPage}
-        onPageSizeChange={(ps) => { setPageSize(ps); setPage(1); }}
-      />
+      {isError && <InlineMessage tone="error">{t('observability:traces.loadError')}</InlineMessage>}
+
+      <div className="min-h-0 flex-1 overflow-x-auto">
+        {isLoading ? <SkeletonRows columns={8} rows={5} /> : !traces.length ? (
+          <EmptyState title={t('observability:traces.emptyTitle')} description={t('observability:traces.emptyDescription')} />
+        ) : (
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-border text-left text-text-muted">
+              <th className="w-64 pb-2 font-medium">{t('observability:traces.columns.traceId')}</th>
+              <th className="pb-2 font-medium">{t('observability:traces.columns.agent')}</th>
+              <th className="pb-2 text-center font-medium">{t('observability:traces.columns.status')}</th>
+              <th className="pb-2 text-right font-medium">{t('observability:traces.columns.duration')}</th>
+              <th className="pb-2 text-right font-medium">{t('observability:traces.columns.tokens')}</th>
+              <th className="pb-2 text-right font-medium">Cost</th>
+              <th className="pb-2 text-right font-medium">Spans / dropped</th>
+              <th className="pb-2 pl-4 font-medium">{t('observability:traces.columns.startTime')}</th>
+            </tr></thead>
+            <tbody>{traces.map((trace: TraceData) => (
+              <tr key={trace.traceId} className="cursor-pointer border-b border-border-subtle hover:bg-surface-raised" onClick={() => navigate(`/observability/${trace.traceId}`)}>
+                <td className="py-2 font-mono text-xs text-primary" title={trace.traceId}>{trace.traceId}</td>
+                <td className="py-2 text-text-secondary">{trace.agentKey || '—'}</td>
+                <td className="py-2 text-center"><span className={`rounded-[2px] px-2 py-0.5 text-xs ${trace.status === 'ok' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}>{trace.status}</span></td>
+                <td className="py-2 text-right">{formatDuration(trace.totalDurationMs)}</td>
+                <td className="py-2 text-right text-text-secondary">{(trace.totalInputTokens + trace.totalOutputTokens).toLocaleString()}</td>
+                <td className="py-2 text-right text-text-secondary">${trace.totalEstimatedCost.toFixed(6)}</td>
+                <td className="py-2 text-right text-text-secondary">{trace.spanCount} / <span className={trace.droppedSpanCount ? 'text-error' : ''}>{trace.droppedSpanCount}</span></td>
+                <td className="py-2 pl-4 text-text-secondary">{formatDateTime(trace.startedAtUtc)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <button disabled={cursorStack.length === 1} onClick={() => setCursorStack((items) => items.slice(0, -1))} className="rounded-[2px] border border-border px-3 py-1 text-sm disabled:opacity-40">Previous</button>
+        <button disabled={!result?.nextCursor} onClick={() => result?.nextCursor && setCursorStack((items) => [...items, result.nextCursor!])} className="rounded-[2px] border border-border px-3 py-1 text-sm disabled:opacity-40">Next</button>
+      </div>
     </div>
   );
 }

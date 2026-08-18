@@ -6,7 +6,7 @@ import { MetricStrip } from '@/shared/ui/MetricStrip';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 import { formatDuration, formatSpanKind, getSpanKindColor } from '../../lib/formatters';
 import { useTranslation } from 'react-i18next';
-
+import type { SpanData } from '../../lib/contracts';
 
 export function TraceDetailPage() {
   const { t } = useTranslation(['common', 'observability']);
@@ -23,6 +23,21 @@ export function TraceDetailPage() {
     },
     [selectedSpanId, detail],
   );
+  const spanDepth = useMemo(() => {
+    const byId = new Map(detail?.spans.map((span) => [span.spanId, span]) ?? []);
+    const cache = new Map<string, number>();
+    const depthOf = (span: SpanData, seen = new Set<string>()): number => {
+      if (cache.has(span.spanId)) return cache.get(span.spanId)!;
+      if (!span.parentSpanId || seen.has(span.spanId)) return 0;
+      seen.add(span.spanId);
+      const parent = byId.get(span.parentSpanId);
+      const depth = parent ? depthOf(parent, seen) + 1 : 0;
+      cache.set(span.spanId, depth);
+      return depth;
+    };
+    for (const span of detail?.spans ?? []) depthOf(span);
+    return cache;
+  }, [detail]);
 
   if (isLoading) {
     return <div className="p-6 text-text-muted">{t('states.loading')}</div>;
@@ -64,6 +79,11 @@ export function TraceDetailPage() {
       </div>
 
       <MetricStrip items={metrics} columns={4} compact />
+      <div className="rounded-[2px] border border-border bg-surface p-3 text-xs text-text-secondary">
+        Sample: {trace.sampleReason} · dropped spans: <span className={trace.droppedSpanCount ? 'text-error' : ''}>{trace.droppedSpanCount}</span>
+        {' · '}cache read/write: {trace.cacheReadTokens.toLocaleString()} / {trace.cacheWriteTokens.toLocaleString()}
+        {' · '}cost: ${trace.totalEstimatedCost.toFixed(6)}
+      </div>
 
       {/* Waterfall chart */}
       <div className="overflow-x-auto rounded-[2px] border border-border bg-surface px-4 py-4">
@@ -102,9 +122,9 @@ export function TraceDetailPage() {
                 <td className="px-6 py-2">
                   <span
                     className="inline-block rounded-[2px] px-2 py-0.5 text-xs"
-                    style={{ backgroundColor: `rgb(${getSpanKindColor(span.spanKind)} / 0.15)`, color: `rgb(${getSpanKindColor(span.spanKind)})` }}
+                    style={{ marginLeft: `${(spanDepth.get(span.spanId) ?? 0) * 16}px`, backgroundColor: `rgb(${getSpanKindColor(span.kind)} / 0.15)`, color: `rgb(${getSpanKindColor(span.kind)})` }}
                   >
-                    {formatSpanKind(span.spanKind, span.attributes)}
+                    {formatSpanKind(span.kind, span.attributes)}
                   </span>
                 </td>
                 <td className="py-2 text-text">{span.name}</td>
