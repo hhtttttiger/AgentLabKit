@@ -73,6 +73,10 @@ class QueueBackend(Protocol):
         """Return the number of pending (unconsumed) messages."""
         ...
 
+    async def queue_stats(self, queue_name: str) -> dict[str, int]:
+        """Return stream, pending, delayed and dead-letter counts."""
+        ...
+
     async def purge(self, queue_name: str) -> int:
         """Remove all messages from *queue_name*.  Returns count purged."""
         ...

@@ -5,6 +5,7 @@ import time
 from typing import Any
 
 from loguru import logger
+from redis.exceptions import ResponseError
 
 from .config import QueueSettings
 from .message import Message
@@ -66,9 +67,9 @@ class RedisStreamsQueue:
         try:
             await self._redis.xgroup_create(stream, group, id="0", mkstream=True)
             logger.debug("Created consumer group {} on {}", group, stream)
-        except Exception:
-            # BUSYGROUP = already exists; safe to ignore.
-            pass
+        except ResponseError as exc:
+            if "BUSYGROUP" not in str(exc):
+                raise
         self._groups_created.add(group)
 
     # -- QueueBackend --------------------------------------------------------
@@ -92,12 +93,10 @@ class RedisStreamsQueue:
             return message.message_id
 
         entry_id: str = await self._redis.xadd(
-            self._stream_key(queue_name), fields
-        )
-        await self._redis.xtrim(
             self._stream_key(queue_name),
+            fields,
             maxlen=self._settings.default_max_length,
-            approximate=True,
+            approximate=False,
         )
         logger.debug(
             "Published {} to {} [entry={}]",
@@ -113,6 +112,7 @@ class RedisStreamsQueue:
         if not messages:
             return []
 
+        await self._ensure_group(queue_name)
         results: list[str] = []
         async with self._redis.pipeline() as pipe:
             for msg in messages:
@@ -127,9 +127,12 @@ class RedisStreamsQueue:
                 else:
                     pipe.xadd(self._stream_key(queue_name), fields)
                     results.append("")  # placeholder; replaced below
+            pipe.xtrim(
+                self._stream_key(queue_name),
+                maxlen=self._settings.default_max_length,
+                approximate=False,
+            )
             raw = await pipe.execute()
-
-        await self._ensure_group(queue_name)
 
         # Replace XADD placeholders with actual entry IDs.
         pipe_idx = 0
@@ -151,8 +154,15 @@ class RedisStreamsQueue:
         group = self._group_name(queue_name)
         stream = self._stream_key(queue_name)
 
-        # Try to reclaim messages stuck in crashed consumers.
-        await self._claim_stuck(queue_name, consumer_name)
+        # Reclaimed entries must be returned to the handler directly: XREADGROUP
+        # with ">" only yields messages that have never been delivered.
+        claimed = await self._claim_stuck(
+            queue_name,
+            consumer_name,
+            count=batch_size,
+        )
+        if claimed:
+            return claimed
 
         result = await self._redis.xreadgroup(
             group,
@@ -209,6 +219,11 @@ class RedisStreamsQueue:
         else:
             # Dead-letter.
             await self._redis.xadd(self._dead_key(queue_name), msg.to_dict())
+            await self._redis.xtrim(
+                self._dead_key(queue_name),
+                maxlen=self._settings.default_max_length,
+                approximate=False,
+            )
             logger.warning(
                 "Dead-lettered message {} on {} after {} retries",
                 msg.message_id,
@@ -222,6 +237,40 @@ class RedisStreamsQueue:
             return info.get("length", 0)
         except Exception:
             return 0
+
+    async def queue_stats(self, queue_name: str) -> dict[str, int]:
+        stream = self._stream_key(queue_name)
+        group = self._group_name(queue_name)
+        await self._ensure_group(queue_name)
+        try:
+            groups = await self._redis.xinfo_groups(stream)
+            consumers = await self._redis.xinfo_consumers(stream, group)
+            pending_info = await self._redis.xpending(stream, group)
+            pending = int(pending_info.get("pending", 0)) if isinstance(pending_info, dict) else int(pending_info[0])
+            group_info = next(
+                (item for item in groups if item.get("name") == group),
+                {},
+            )
+            backlog = int(group_info.get("lag") or 0)
+            delayed = int(await self._redis.zcard(self._delayed_key(queue_name)))
+            dead = int(await self._redis.xlen(self._dead_key(queue_name)))
+            return {
+                "backlog": backlog,
+                "pending": pending,
+                "delayed": delayed,
+                "dead_letter": dead,
+                "consumers": len(consumers),
+                "available": 1,
+            }
+        except Exception:
+            return {
+                "backlog": 0,
+                "pending": 0,
+                "delayed": 0,
+                "dead_letter": 0,
+                "consumers": 0,
+                "available": 0,
+            }
 
     async def purge(self, queue_name: str) -> int:
         stream = self._stream_key(queue_name)
@@ -265,6 +314,11 @@ class RedisStreamsQueue:
             promoted += 1
 
         if promoted:
+            await self._redis.xtrim(
+                self._stream_key(queue_name),
+                maxlen=self._settings.default_max_length,
+                approximate=False,
+            )
             logger.debug(
                 "Promoted {} delayed messages for {}", promoted, queue_name
             )
@@ -272,7 +326,13 @@ class RedisStreamsQueue:
 
     # -- stuck message recovery ----------------------------------------------
 
-    async def _claim_stuck(self, queue_name: str, consumer_name: str) -> int:
+    async def _claim_stuck(
+        self,
+        queue_name: str,
+        consumer_name: str,
+        *,
+        count: int,
+    ) -> list[tuple[str, Message]]:
         """Claim pending messages idle longer than ``claim_min_idle_ms``."""
         group = self._group_name(queue_name)
         stream = self._stream_key(queue_name)
@@ -283,27 +343,30 @@ class RedisStreamsQueue:
                 group,
                 min="-",
                 max="+",
-                count=10,
+                count=count,
                 idle=self._settings.claim_min_idle_ms,
             )
         except Exception:
-            return 0
+            return []
 
         if not pending:
-            return 0
+            return []
 
         entry_ids = [p["message_id"] for p in pending]
         try:
-            await self._redis.xclaim(
+            claimed = await self._redis.xclaim(
                 stream, group, consumer_name,
                 self._settings.claim_min_idle_ms, entry_ids,
             )
             logger.debug(
                 "Claimed {} stuck messages from {}", len(entry_ids), queue_name
             )
-            return len(entry_ids)
+            return [
+                (entry_id, Message.from_dict(fields, entry_id=entry_id))
+                for entry_id, fields in claimed
+            ]
         except Exception:
             logger.opt(exception=True).debug(
                 "Failed to claim stuck messages on {}", queue_name
             )
-            return 0
+            return []

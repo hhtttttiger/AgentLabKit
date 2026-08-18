@@ -24,6 +24,7 @@ class InMemoryQueue:
             list
         )
         self._dead: dict[str, list[Message]] = defaultdict(list)
+        self._pending: dict[str, set[str]] = defaultdict(set)
         self._locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
         self._events: dict[str, asyncio.Event] = defaultdict(asyncio.Event)
         self._entry_counter: int = 0
@@ -71,8 +72,13 @@ class InMemoryQueue:
         await self._promote_due(queue_name)
 
         async with self._lock(queue_name):
-            batch = self._queues[queue_name][:batch_size]
+            batch = [
+                item
+                for item in self._queues[queue_name]
+                if item[0] not in self._pending[queue_name]
+            ][:batch_size]
             if batch:
+                self._pending[queue_name].update(entry_id for entry_id, _ in batch)
                 return list(batch)
 
         # Wait for new messages up to poll_timeout.
@@ -86,7 +92,13 @@ class InMemoryQueue:
             return []
 
         async with self._lock(queue_name):
-            return list(self._queues[queue_name][:batch_size])
+            batch = [
+                item
+                for item in self._queues[queue_name]
+                if item[0] not in self._pending[queue_name]
+            ][:batch_size]
+            self._pending[queue_name].update(entry_id for entry_id, _ in batch)
+            return list(batch)
 
     async def ack(
         self, queue_name: str, consumer_name: str, entry_id: str
@@ -97,6 +109,7 @@ class InMemoryQueue:
                 for eid, msg in self._queues[queue_name]
                 if eid != entry_id
             ]
+            self._pending[queue_name].discard(entry_id)
 
     async def nack(
         self,
@@ -115,6 +128,7 @@ class InMemoryQueue:
                 else:
                     remaining.append((eid, m))
             self._queues[queue_name] = remaining
+            self._pending[queue_name].discard(entry_id)
 
         if msg is None:
             return
@@ -132,11 +146,22 @@ class InMemoryQueue:
     async def queue_length(self, queue_name: str) -> int:
         return len(self._queues.get(queue_name, []))
 
+    async def queue_stats(self, queue_name: str) -> dict[str, int]:
+        return {
+            "backlog": await self.queue_length(queue_name),
+            "pending": len(self._pending.get(queue_name, set())),
+            "delayed": len(self._delayed.get(queue_name, [])),
+            "dead_letter": len(self._dead.get(queue_name, [])),
+            "consumers": 0,
+            "available": 1,
+        }
+
     async def purge(self, queue_name: str) -> int:
         async with self._lock(queue_name):
             length = len(self._queues[queue_name])
             self._queues[queue_name] = []
             self._delayed[queue_name] = []
+            self._pending[queue_name] = set()
             return length
 
     async def close(self) -> None:

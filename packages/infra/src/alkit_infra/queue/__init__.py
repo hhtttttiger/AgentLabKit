@@ -1,6 +1,12 @@
 from .config import QueueSettings
 from .consumer import MessageHandler, QueueConsumer
-from .errors import DeadLetterError, QueueClosedError, QueueError, QueueFullError
+from .errors import (
+    DeadLetterError,
+    NonRetryableQueueError,
+    QueueClosedError,
+    QueueError,
+    QueueFullError,
+)
 from .memory_backend import InMemoryQueue
 from .message import Message
 from .protocol import QueueBackend
@@ -11,6 +17,7 @@ __all__ = [
     "InMemoryQueue",
     "Message",
     "MessageHandler",
+    "NonRetryableQueueError",
     "QueueBackend",
     "QueueClosedError",
     "QueueConsumer",
