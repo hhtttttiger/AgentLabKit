@@ -122,7 +122,6 @@ def build_agent_runtime(
 
             registry_kwargs["knowledge_provider"] = BackendKnowledgeProvider(
                 retrieval_service,
-                tracer=obs_module.get_tracer("knowledge_retrieval"),
             )
         except Exception:
             from loguru import logger

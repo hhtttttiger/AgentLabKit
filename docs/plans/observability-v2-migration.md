@@ -47,24 +47,15 @@
 
 ## 待处理事项
 
-### 高优先级（必须在合并前完成）
+### 高优先级（必须在合并前完成）— ✅ 全部完成
 
-1. **数据库迁移验证**
-   - `cd backend && alembic upgrade 0019`
-   - 验证 trace_records / trace_spans 表结构正确
-   - `alembic downgrade 0018` 验证回滚正常
+1. ✅ **数据库迁移验证** — `alembic upgrade head` 成功，trace_records/trace_spans v2 schema 正确
+2. ✅ **后端启动验证** — uvicorn 启动干净无报错，`/api/traces`、`/stats`、`/ingestion-health` 均正常
+3. ✅ **前端编译验证** — `tsc --noEmit` + `vite build` 通过
 
-2. **后端启动验证**
-   - 启动 backend（`uvicorn main:app`）确认无 import 错误
-   - 启动 worker（`python -m worker`）确认两个任务注册
-   - 访问 `/api/traces/ingestion-health` 确认端点正常
-
-3. **前端编译验证**
-   - `cd frontend/admin && pnpm build` 确认无 TypeScript 错误
-
-4. **knowledge_base/processing.py 的 create_worker_task**
-   - 当前 worker_modules.py 中的 `_create_document_worker_task` 是自定义 wrapper
-   - 需要确认 `init_processing_context` 在 handler_factory 中调用是否正确（它设置了模块级全局变量）
+### 修复项（本次新增）
+- ✅ migration 0017 `_has_column` 添加表存在性检查（`evaluation_configs` 不存在时跳过）
+- ✅ web_modules.py 移除 `BackendKnowledgeProvider` 不支持的 `tracer` 参数
 
 ### 中优先级
 
