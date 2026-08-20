@@ -74,8 +74,45 @@ def expired_headers(make_token):
 @pytest.fixture(scope="session")
 def app(settings):
     """Create a FastAPI app with test settings (no lifespan — no DB/Redis)."""
+    from unittest.mock import patch
+
+    from fastapi import HTTPException, status
+
+    from common.auth import configure_auth
+    from common.dependencies import get_db
     from main import create_app
-    return create_app(settings)
+
+    # configure_auth is normally called inside lifespan, but we skip lifespan
+    # in tests (no DB/Redis).  Call it manually so auth middleware works.
+    configure_auth(settings)
+
+    # Patch get_session_factory so services that call it directly (e.g.
+    # ChatSessionService) don't crash with RuntimeError.
+    from contextlib import asynccontextmanager
+    from unittest.mock import AsyncMock
+
+    @asynccontextmanager
+    async def _mock_session_ctx():
+        yield AsyncMock()
+
+    _sf_patcher = patch("alkit_db.engine.get_session_factory")
+    _mock_get_sf = _sf_patcher.start()
+    _mock_get_sf.return_value = _mock_session_ctx
+
+    application = create_app(settings)
+
+    # Override DB dependency: raise 503 instead of crashing with RuntimeError.
+    # Tests that need real DB should use @pytest.mark.db and provide a DB.
+    async def _no_db():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database not available in test environment",
+        )
+        yield  # pragma: no cover — make this an async generator
+
+    application.dependency_overrides[get_db] = _no_db
+
+    return application
 
 
 @pytest.fixture

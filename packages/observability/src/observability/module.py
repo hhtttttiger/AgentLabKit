@@ -1,26 +1,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
-
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.trace import NoOpTracer, Tracer
+from typing import TYPE_CHECKING, Any
 
 from .config import ObservabilitySettings
 from .publisher import AsyncTracePublisher
-from .span_processor import TraceBufferSpanProcessor
 from .trace_store import PostgresTraceStore, TraceStore
+
+if TYPE_CHECKING:
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.trace import Tracer
 
 
 @dataclass(slots=True)
 class ObservabilityModule:
     settings: ObservabilitySettings
     trace_store: TraceStore
-    tracer_provider: TracerProvider
-    tracer: Tracer
+    tracer_provider: Any  # opentelemetry.sdk.trace.TracerProvider
+    tracer: Any  # opentelemetry.trace.Tracer
     publisher: AsyncTracePublisher
-    span_processor: TraceBufferSpanProcessor | None = None
+    span_processor: Any = None  # TraceBufferSpanProcessor | None
 
     async def start(self) -> None:
         await self.publisher.start()
@@ -38,7 +37,9 @@ class ObservabilityModule:
             **(self.span_processor.snapshot() if self.span_processor else {}),
         }
 
-    def get_tracer(self, name: str, version: str = "2.0.0") -> Tracer:
+    def get_tracer(self, name: str, version: str = "2.0.0") -> Any:
+        from opentelemetry.trace import NoOpTracer
+
         if not self.settings.enabled:
             return NoOpTracer()
         return self.tracer_provider.get_tracer(name, version)
@@ -51,6 +52,12 @@ def create_observability_module(
     settings: ObservabilitySettings | None = None,
     service_name: str = "agentlabkit",
 ) -> ObservabilityModule:
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.trace import NoOpTracer
+
+    from .span_processor import TraceBufferSpanProcessor
+
     resolved = settings or ObservabilitySettings()
     publisher = AsyncTracePublisher(queue_backend, resolved)
     provider = TracerProvider(

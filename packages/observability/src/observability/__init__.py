@@ -13,8 +13,16 @@ from .contracts import (
 )
 from .module import ObservabilityModule, create_observability_module
 from .publisher import AsyncTracePublisher
-from .span_processor import TraceBufferSpanProcessor
 from .trace_store import PostgresTraceStore, TraceStore
+
+
+def __getattr__(name: str):
+    """Lazy import for OTel-heavy modules."""
+    if name == "TraceBufferSpanProcessor":
+        from .span_processor import TraceBufferSpanProcessor
+        return TraceBufferSpanProcessor
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "AsyncTracePublisher",

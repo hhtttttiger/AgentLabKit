@@ -60,12 +60,14 @@ async def test_create_session_missing_required_fields(client, auth_headers):
 
 # ── Auth acceptance (valid token passes auth, returns non-401) ────────
 
+@pytest.mark.db
 async def test_list_sessions_accepts_valid_token(client, auth_headers):
     """Valid token should pass auth gate (will fail with 500 due to no DB, not 401)."""
     resp = await client.get("/api/chat/sessions", headers=auth_headers)
     assert resp.status_code != 401
 
 
+@pytest.mark.db
 async def test_create_session_accepts_valid_token(client, auth_headers):
     resp = await client.post("/api/chat/sessions", json={
         "title": "Test", "modelType": "model", "modelId": "gpt-4",
@@ -73,6 +75,7 @@ async def test_create_session_accepts_valid_token(client, auth_headers):
     assert resp.status_code != 401
 
 
+@pytest.mark.db
 async def test_delete_session_accepts_valid_token(client, auth_headers):
     resp = await client.delete("/api/chat/sessions/1", headers=auth_headers)
     assert resp.status_code != 401
