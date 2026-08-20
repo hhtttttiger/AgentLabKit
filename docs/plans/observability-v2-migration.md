@@ -73,7 +73,7 @@
 
 9. ✅ **docker-compose.yml** — worker 已使用通用入口 `python -m worker`，无需修改
 
-10. **测试补充** — 后续迭代
+10. ✅ **测试补充** — 55 个单元测试覆盖 sanitizer、contracts、span_processor（packages/observability/tests/）
 
 ---
 
