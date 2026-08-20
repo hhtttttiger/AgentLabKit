@@ -21,6 +21,8 @@ depends_on = None
 
 
 def _has_column(inspector, table: str, column: str) -> bool:
+    if table not in inspector.get_table_names():
+        return False
     return any(col["name"] == column for col in inspector.get_columns(table))
 
 

@@ -1,18 +1,39 @@
-"""Observability & distributed tracing for AgentLabKit."""
+"""OpenTelemetry-based tracing and PostgreSQL query support."""
 
-from .contracts import TraceRecord, SpanRecord, SpanKind
-from .span_builder import SpanBuilder
-from .trace_store import TraceStore, PostgresTraceStore
+from .config import ObservabilitySettings
+from .contracts import (
+    SpanEnvelope,
+    SpanRecord,
+    TRACE_QUEUE_NAME,
+    TRACE_SCHEMA_VERSION,
+    TraceEnvelope,
+    TracePage,
+    TraceRecord,
+    TraceStats,
+)
 from .module import ObservabilityModule, create_observability_module
+from .publisher import AsyncTracePublisher
+from .span_processor import TraceBufferSpanProcessor
+from .trace_store import PostgresTraceStore, TraceStore
+
+# Deprecated: kept for backward compatibility with EventBus-based integration.
+from .span_builder import SpanBuilder  # noqa: F401
 
 __all__ = [
+    "AsyncTracePublisher",
     "ObservabilityModule",
-    "create_observability_module",
-    "SpanBuilder",
-    "TraceStore",
+    "ObservabilitySettings",
     "PostgresTraceStore",
-    "TraceRecord",
+    "SpanBuilder",
+    "SpanEnvelope",
     "SpanRecord",
-    "SpanKind",
-    "NoopSpanBridge",
+    "TRACE_QUEUE_NAME",
+    "TRACE_SCHEMA_VERSION",
+    "TraceBufferSpanProcessor",
+    "TraceEnvelope",
+    "TracePage",
+    "TraceRecord",
+    "TraceStats",
+    "TraceStore",
+    "create_observability_module",
 ]

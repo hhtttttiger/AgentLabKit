@@ -13,6 +13,12 @@ class QueueClosedError(QueueError):
     """Raised when operating on a closed queue."""
 
 
+class NonRetryableQueueError(QueueError):
+    """Handler error that should be moved directly to the dead-letter queue."""
+
+    non_retryable = True
+
+
 class DeadLetterError(QueueError):
     """Raised when a message exceeds max_retries and enters the dead-letter stream."""
 

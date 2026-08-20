@@ -1,7 +1,8 @@
 """SpanBuilder — 从 EventBus 事件累积构建 span。
 
-监听 agent_runtime 的 EventBus 事件，逐步构建出完整的 SpanRecord 列表，
-最终 finalize() 输出 TraceRecord + list[SpanRecord]。
+.. deprecated::
+    已被 TraceBufferSpanProcessor (OpenTelemetry SpanProcessor) 替代。
+    保留此文件仅为向后兼容，新代码应使用 OTel pipeline。
 """
 
 from __future__ import annotations

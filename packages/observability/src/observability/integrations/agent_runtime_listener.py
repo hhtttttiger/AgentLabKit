@@ -1,7 +1,8 @@
 """集成模块 — 将 SpanBuilder 桥接到 agent_runtime 的 EventBus。
 
-提供 ``create_span_bridge`` 工厂函数，返回一个可订阅 EventBus 的 listener。
-在 run_turn 开始时调用，结束时 finalize 并写入 TraceStore。
+.. deprecated::
+    已被 AsyncTracePublisher + TraceBufferSpanProcessor 替代。
+    保留此文件仅为向后兼容，新代码应使用 OTel tracer 注入。
 """
 
 from __future__ import annotations

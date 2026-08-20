@@ -1,400 +1,331 @@
-"""TraceStore — Protocol + PostgresTraceStore。
-
-使用原始 SQL（text query）操作 trace_records / trace_spans 表，
-避免与 backend ORM 强耦合。
-"""
-
 from __future__ import annotations
 
-import logging
+import base64
+import json
+from datetime import datetime, timedelta, timezone
 from typing import Protocol, runtime_checkable
 
-from .contracts import TraceRecord, SpanRecord
+from sqlalchemy import text as sa_text
 
-logger = logging.getLogger(__name__)
-
-
-# ── Column name constants ──────────────────────────────────────────────
-# Single source of truth for trace_records / trace_spans column names.
-# Used by PostgresTraceStore to avoid hardcoded strings in raw SQL.
-
-
-class _TC:
-    """trace_records column names."""
-    trace_id = "trace_id"
-    root_span_id = "root_span_id"
-    agent_key = "agent_key"
-    session_id = "session_id"
-    status = "status"
-    total_duration_ms = "total_duration_ms"
-    total_input_tokens = "total_input_tokens"
-    total_output_tokens = "total_output_tokens"
-    total_estimated_cost = "total_estimated_cost"
-    span_count = "span_count"
-    started_at_utc = "started_at_utc"
-    completed_at_utc = "completed_at_utc"
-
-
-class _SC:
-    """trace_spans column names."""
-    trace_id = "trace_id"
-    span_id = "span_id"
-    parent_span_id = "parent_span_id"
-    span_kind = "span_kind"
-    name = "name"
-    status = "status"
-    started_at_utc = "started_at_utc"
-    completed_at_utc = "completed_at_utc"
-    duration_ms = "duration_ms"
-    attributes_json = "attributes_json"
-    error_code = "error_code"
-    error_message = "error_message"
+from .contracts import SpanEnvelope, TraceEnvelope, TracePage, TraceRecord, TraceStats
 
 
 @runtime_checkable
 class TraceStore(Protocol):
-    async def save_trace(self, trace: TraceRecord) -> None: ...
-    async def save_spans(self, spans: list[SpanRecord]) -> None: ...
-    async def save_trace_and_spans(self, trace: TraceRecord, spans: list[SpanRecord]) -> None: ...
+    async def ingest_trace(self, envelope: TraceEnvelope) -> None: ...
     async def get_trace(self, trace_id: str) -> TraceRecord | None: ...
-    async def get_trace_spans(self, trace_id: str) -> list[SpanRecord]: ...
+    async def get_trace_spans(self, trace_id: str) -> list[SpanEnvelope]: ...
     async def list_traces(
         self,
         *,
         agent_key: str | None = None,
+        session_id: str | None = None,
         status: str | None = None,
-        from_date=None,
-        to_date=None,
-        page: int = 1,
-        page_size: int = 20,
-    ) -> tuple[list[TraceRecord], int]: ...
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> TracePage: ...
     async def get_stats(
         self,
         *,
-        from_date=None,
-        to_date=None,
-    ) -> dict: ...
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+    ) -> TraceStats: ...
+    async def delete_expired(self, *, retention_days: int, batch_size: int) -> int: ...
 
 
 class PostgresTraceStore:
-    """基于 PostgreSQL 的 TraceStore 实现。"""
-
     def __init__(self, session_factory) -> None:
         self._session_factory = session_factory
 
-    async def save_trace(self, trace: TraceRecord) -> None:
-        from sqlalchemy import text as sa_text
-
-        logger.info("save_trace: trace_id=%s span_count=%d", trace.trace_id, trace.span_count)
+    async def ingest_trace(self, envelope: TraceEnvelope) -> None:
+        trace_params = {
+            "trace_id": envelope.trace_id,
+            "root_span_id": envelope.root_span_id,
+            "run_id": envelope.run_id,
+            "agent_key": envelope.agent_key,
+            "session_id": envelope.session_id,
+            "user_id": envelope.user_id,
+            "correlation_id": envelope.correlation_id,
+            "status": envelope.status,
+            "duration": envelope.total_duration_ms,
+            "input_tokens": envelope.total_input_tokens,
+            "output_tokens": envelope.total_output_tokens,
+            "cache_write": envelope.cache_write_tokens,
+            "cache_read": envelope.cache_read_tokens,
+            "cost": envelope.total_estimated_cost,
+            "span_count": envelope.span_count,
+            "dropped_count": envelope.dropped_span_count,
+            "sample_reason": envelope.sample_reason,
+            "attributes": json.dumps(envelope.attributes, ensure_ascii=False, default=str),
+            "schema_version": envelope.schema_version,
+            "started": envelope.started_at_utc,
+            "completed": envelope.completed_at_utc,
+        }
+        span_params = [
+            {
+                "span_id": span.span_id,
+                "trace_id": span.trace_id,
+                "parent_span_id": span.parent_span_id,
+                "name": span.name,
+                "kind": span.kind,
+                "status": span.status,
+                "scope": span.instrumentation_scope,
+                "started": span.started_at_utc,
+                "completed": span.completed_at_utc,
+                "duration": span.duration_ms,
+                "attributes": json.dumps(span.attributes, ensure_ascii=False, default=str),
+                "events": json.dumps(span.events, ensure_ascii=False, default=str),
+                "links": json.dumps(span.links, ensure_ascii=False, default=str),
+                "error_code": span.error_code,
+                "error_message": span.error_message,
+            }
+            for span in envelope.spans
+        ]
         async with self._session_factory() as session:
             await session.execute(
                 sa_text(
-                    "INSERT INTO trace_records "
-                    "(trace_id, root_span_id, agent_key, session_id, status, "
-                    " total_duration_ms, total_input_tokens, total_output_tokens, "
-                    " total_estimated_cost, span_count, started_at_utc, completed_at_utc, "
-                    " created_at_utc, updated_at_utc) "
-                    "VALUES (:tid, :root, :agent, :sess, :status, "
-                    " :dur, :in_tok, :out_tok, :cost, :cnt, :start, :end, NOW(), NOW()) "
-                    "ON CONFLICT (trace_id) DO UPDATE SET "
-                    " status = EXCLUDED.status, "
-                    " total_duration_ms = EXCLUDED.total_duration_ms, "
-                    " total_input_tokens = EXCLUDED.total_input_tokens, "
-                    " total_output_tokens = EXCLUDED.total_output_tokens, "
-                    " total_estimated_cost = EXCLUDED.total_estimated_cost, "
-                    " span_count = EXCLUDED.span_count, "
-                    " completed_at_utc = EXCLUDED.completed_at_utc, "
-                    " updated_at_utc = NOW()"
+                    """
+                    INSERT INTO trace_records (
+                        trace_id, root_span_id, run_id, agent_key, session_id, user_id,
+                        correlation_id, status, total_duration_ms, total_input_tokens,
+                        total_output_tokens, cache_write_tokens, cache_read_tokens,
+                        total_estimated_cost, span_count, dropped_span_count, sample_reason,
+                        attributes_json, schema_version, started_at_utc, completed_at_utc,
+                        created_at_utc, updated_at_utc
+                    ) VALUES (
+                        :trace_id, :root_span_id, CAST(:run_id AS uuid), :agent_key, :session_id,
+                        :user_id, :correlation_id, :status, :duration, :input_tokens,
+                        :output_tokens, :cache_write, :cache_read, :cost, :span_count,
+                        :dropped_count, :sample_reason, CAST(:attributes AS jsonb),
+                        :schema_version, :started, :completed, NOW(), NOW()
+                    )
+                    ON CONFLICT (trace_id) DO UPDATE SET
+                        root_span_id=EXCLUDED.root_span_id, run_id=EXCLUDED.run_id,
+                        agent_key=EXCLUDED.agent_key, session_id=EXCLUDED.session_id,
+                        user_id=EXCLUDED.user_id, correlation_id=EXCLUDED.correlation_id,
+                        status=EXCLUDED.status, total_duration_ms=EXCLUDED.total_duration_ms,
+                        total_input_tokens=EXCLUDED.total_input_tokens,
+                        total_output_tokens=EXCLUDED.total_output_tokens,
+                        cache_write_tokens=EXCLUDED.cache_write_tokens,
+                        cache_read_tokens=EXCLUDED.cache_read_tokens,
+                        total_estimated_cost=EXCLUDED.total_estimated_cost,
+                        span_count=EXCLUDED.span_count,
+                        dropped_span_count=EXCLUDED.dropped_span_count,
+                        sample_reason=EXCLUDED.sample_reason,
+                        attributes_json=EXCLUDED.attributes_json,
+                        schema_version=EXCLUDED.schema_version,
+                        started_at_utc=EXCLUDED.started_at_utc,
+                        completed_at_utc=EXCLUDED.completed_at_utc,
+                        updated_at_utc=NOW()
+                    """,
                 ),
-                {
-                    "tid": trace.trace_id,
-                    "root": trace.root_span_id,
-                    "agent": trace.agent_key,
-                    "sess": trace.session_id,
-                    "status": trace.status,
-                    "dur": trace.total_duration_ms,
-                    "in_tok": trace.total_input_tokens,
-                    "out_tok": trace.total_output_tokens,
-                    "cost": trace.total_estimated_cost,
-                    "cnt": trace.span_count,
-                    "start": trace.started_at_utc,
-                    "end": trace.completed_at_utc,
-                },
+                trace_params,
             )
-            await session.commit()
-
-    async def save_spans(self, spans: list[SpanRecord]) -> None:
-        if not spans:
-            logger.warning("save_spans: called with empty spans list, skipping")
-            return
-        from sqlalchemy import text as sa_text
-        import json
-
-        trace_id = spans[0].trace_id
-        logger.info("save_spans: saving %d spans for trace_id=%s", len(spans), trace_id)
-        try:
-            # Build a single multi-VALUES INSERT for all spans
-            value_clauses: list[str] = []
-            params: dict[str, object] = {}
-            for i, span in enumerate(spans):
-                value_clauses.append(
-                    f"(:tid_{i}, :sid_{i}, :pid_{i}, :kind_{i}, :name_{i}, :status_{i}, "
-                    f" :start_{i}, :end_{i}, :dur_{i}, CAST(:attrs_{i} AS jsonb), "
-                    f" :ecode_{i}, :emsg_{i}, NOW(), NOW())"
-                )
-                params.update({
-                    f"tid_{i}": span.trace_id,
-                    f"sid_{i}": span.span_id,
-                    f"pid_{i}": span.parent_span_id,
-                    f"kind_{i}": span.span_kind,
-                    f"name_{i}": span.name,
-                    f"status_{i}": span.status,
-                    f"start_{i}": span.started_at_utc,
-                    f"end_{i}": span.completed_at_utc,
-                    f"dur_{i}": span.duration_ms,
-                    f"attrs_{i}": json.dumps(span.attributes),
-                    f"ecode_{i}": span.error_code,
-                    f"emsg_{i}": span.error_message,
-                })
-
-            sql = (
-                "INSERT INTO trace_spans "
-                "(trace_id, span_id, parent_span_id, span_kind, name, status, "
-                " started_at_utc, completed_at_utc, duration_ms, "
-                " attributes_json, error_code, error_message, "
-                " created_at_utc, updated_at_utc) "
-                f"VALUES {', '.join(value_clauses)} "
-                "ON CONFLICT (span_id) DO NOTHING"
-            )
-
-            async with self._session_factory() as session:
-                await session.execute(sa_text(sql), params)
-                await session.commit()
-                logger.info("save_spans: successfully committed %d spans", len(spans))
-        except Exception:
-            logger.exception("save_spans: failed to save %d spans", len(spans))
-            raise
-
-    async def save_trace_and_spans(self, trace: TraceRecord, spans: list[SpanRecord]) -> None:
-        """Atomically save a trace and its spans in a single transaction."""
-        from sqlalchemy import text as sa_text
-        import json
-
-        logger.info(
-            "save_trace_and_spans: trace_id=%s span_count=%d spans_len=%d",
-            trace.trace_id, trace.span_count, len(spans),
-        )
-        try:
-            async with self._session_factory() as session:
-                # Save trace
+            if span_params:
                 await session.execute(
                     sa_text(
-                        "INSERT INTO trace_records "
-                        "(trace_id, root_span_id, agent_key, session_id, status, "
-                        " total_duration_ms, total_input_tokens, total_output_tokens, "
-                        " total_estimated_cost, span_count, started_at_utc, completed_at_utc, "
-                        " created_at_utc, updated_at_utc) "
-                        "VALUES (:tid, :root, :agent, :sess, :status, "
-                        " :dur, :in_tok, :out_tok, :cost, :cnt, :start, :end, NOW(), NOW()) "
-                        "ON CONFLICT (trace_id) DO UPDATE SET "
-                        " status = EXCLUDED.status, "
-                        " total_duration_ms = EXCLUDED.total_duration_ms, "
-                        " total_input_tokens = EXCLUDED.total_input_tokens, "
-                        " total_output_tokens = EXCLUDED.total_output_tokens, "
-                        " total_estimated_cost = EXCLUDED.total_estimated_cost, "
-                        " span_count = EXCLUDED.span_count, "
-                        " completed_at_utc = EXCLUDED.completed_at_utc, "
-                        " updated_at_utc = NOW()"
-                    ),
-                    {
-                        "tid": trace.trace_id,
-                        "root": trace.root_span_id,
-                        "agent": trace.agent_key,
-                        "sess": trace.session_id,
-                        "status": trace.status,
-                        "dur": trace.total_duration_ms,
-                        "in_tok": trace.total_input_tokens,
-                        "out_tok": trace.total_output_tokens,
-                        "cost": trace.total_estimated_cost,
-                        "cnt": trace.span_count,
-                        "start": trace.started_at_utc,
-                        "end": trace.completed_at_utc,
-                    },
-                )
-
-                # Save spans (batch INSERT)
-                if spans:
-                    value_clauses: list[str] = []
-                    span_params: dict[str, object] = {}
-                    for i, span in enumerate(spans):
-                        value_clauses.append(
-                            f"(:tid_{i}, :sid_{i}, :pid_{i}, :kind_{i}, :name_{i}, :status_{i}, "
-                            f" :start_{i}, :end_{i}, :dur_{i}, CAST(:attrs_{i} AS jsonb), "
-                            f" :ecode_{i}, :emsg_{i}, NOW(), NOW())"
+                        """
+                        INSERT INTO trace_spans (
+                            span_id, trace_id, parent_span_id, name, span_kind, status,
+                            instrumentation_scope, started_at_utc, completed_at_utc,
+                            duration_ms, attributes_json, events_json, links_json,
+                            error_code, error_message, created_at_utc, updated_at_utc
+                        ) VALUES (
+                            :span_id, :trace_id, :parent_span_id, :name, :kind, :status,
+                            :scope, :started, :completed, :duration,
+                            CAST(:attributes AS jsonb), CAST(:events AS jsonb),
+                            CAST(:links AS jsonb), :error_code, :error_message, NOW(), NOW()
                         )
-                        span_params.update({
-                            f"tid_{i}": span.trace_id,
-                            f"sid_{i}": span.span_id,
-                            f"pid_{i}": span.parent_span_id,
-                            f"kind_{i}": span.span_kind,
-                            f"name_{i}": span.name,
-                            f"status_{i}": span.status,
-                            f"start_{i}": span.started_at_utc,
-                            f"end_{i}": span.completed_at_utc,
-                            f"dur_{i}": span.duration_ms,
-                            f"attrs_{i}": json.dumps(span.attributes),
-                            f"ecode_{i}": span.error_code,
-                            f"emsg_{i}": span.error_message,
-                        })
-
-                    span_sql = (
-                        "INSERT INTO trace_spans "
-                        "(trace_id, span_id, parent_span_id, span_kind, name, status, "
-                        " started_at_utc, completed_at_utc, duration_ms, "
-                        " attributes_json, error_code, error_message, "
-                        " created_at_utc, updated_at_utc) "
-                        f"VALUES {', '.join(value_clauses)} "
-                        "ON CONFLICT (span_id) DO NOTHING"
-                    )
-                    await session.execute(sa_text(span_sql), span_params)
-
-                await session.commit()
-                logger.info(
-                    "save_trace_and_spans: committed trace_id=%s with %d spans",
-                    trace.trace_id, len(spans),
+                        ON CONFLICT (span_id) DO UPDATE SET
+                            parent_span_id=EXCLUDED.parent_span_id, name=EXCLUDED.name,
+                            span_kind=EXCLUDED.span_kind, status=EXCLUDED.status,
+                            instrumentation_scope=EXCLUDED.instrumentation_scope,
+                            started_at_utc=EXCLUDED.started_at_utc,
+                            completed_at_utc=EXCLUDED.completed_at_utc,
+                            duration_ms=EXCLUDED.duration_ms,
+                            attributes_json=EXCLUDED.attributes_json,
+                            events_json=EXCLUDED.events_json, links_json=EXCLUDED.links_json,
+                            error_code=EXCLUDED.error_code, error_message=EXCLUDED.error_message,
+                            updated_at_utc=NOW()
+                        """,
+                    ),
+                    span_params,
                 )
-        except Exception:
-            logger.exception(
-                "save_trace_and_spans: failed for trace_id=%s", trace.trace_id,
-            )
-            raise
+            await session.commit()
 
     async def get_trace(self, trace_id: str) -> TraceRecord | None:
-        from sqlalchemy import text as sa_text
-
         async with self._session_factory() as session:
             result = await session.execute(
-                sa_text(
-                    "SELECT trace_id, root_span_id, agent_key, session_id, status, "
-                    " total_duration_ms, total_input_tokens, total_output_tokens, "
-                    " total_estimated_cost, span_count, started_at_utc, completed_at_utc "
-                    "FROM trace_records WHERE trace_id = :tid"
-                ),
-                {"tid": trace_id},
+                sa_text(f"{_TRACE_SELECT} WHERE trace_id=:trace_id"),
+                {"trace_id": trace_id},
             )
             row = result.mappings().first()
-            if not row:
-                return None
-            return TraceRecord(**dict(row))
+            return _trace_from_row(row) if row else None
 
-    async def get_trace_spans(self, trace_id: str) -> list[SpanRecord]:
-        from sqlalchemy import text as sa_text
-        import json
-
+    async def get_trace_spans(self, trace_id: str) -> list[SpanEnvelope]:
         async with self._session_factory() as session:
             result = await session.execute(
                 sa_text(
-                    "SELECT span_id, trace_id, parent_span_id, span_kind, name, status, "
-                    " started_at_utc, completed_at_utc, duration_ms, "
-                    " attributes_json, error_code, error_message "
-                    "FROM trace_spans WHERE trace_id = :tid "
-                    "ORDER BY started_at_utc"
+                    """
+                    SELECT span_id, trace_id, parent_span_id, name, span_kind, status,
+                           instrumentation_scope, started_at_utc, completed_at_utc,
+                           duration_ms, attributes_json, events_json, links_json,
+                           error_code, error_message
+                    FROM trace_spans WHERE trace_id=:trace_id
+                    ORDER BY started_at_utc, span_id
+                    """,
                 ),
-                {"tid": trace_id},
+                {"trace_id": trace_id},
             )
-            rows = result.mappings().all()
-            logger.info("get_trace_spans: trace_id=%s found %d rows", trace_id, len(rows))
-            spans = []
-            for row in rows:
-                d = dict(row)
-                attrs_raw = d.pop("attributes_json", None)
-                d["attributes"] = json.loads(attrs_raw) if isinstance(attrs_raw, str) else (attrs_raw or {})
-                spans.append(SpanRecord(**d))
-            return spans
+            return [_span_from_row(row) for row in result.mappings().all()]
 
     async def list_traces(
         self,
         *,
         agent_key: str | None = None,
+        session_id: str | None = None,
         status: str | None = None,
-        from_date=None,
-        to_date=None,
-        page: int = 1,
-        page_size: int = 20,
-    ) -> tuple[list[TraceRecord], int]:
-        from sqlalchemy import text as sa_text
-
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        cursor: str | None = None,
+        limit: int = 20,
+    ) -> TracePage:
         conditions: list[str] = []
-        params: dict[str, object] = {"lim": page_size, "offset": (page - 1) * page_size}
-        if agent_key:
-            conditions.append(f"{_TC.agent_key} = :agent")
-            params["agent"] = agent_key
-        if status:
-            conditions.append(f"{_TC.status} = :status")
-            params["status"] = status
-        if from_date:
-            conditions.append(f"{_TC.started_at_utc} >= :from")
-            params["from"] = from_date
-        if to_date:
-            conditions.append(f"{_TC.started_at_utc} < :to")
-            params["to"] = to_date
-
-        where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+        params: dict[str, object] = {"limit": limit + 1}
+        for value, expression, key in (
+            (agent_key, "agent_key=:agent_key", "agent_key"),
+            (session_id, "session_id=:session_id", "session_id"),
+            (status, "status=:status", "status"),
+            (from_date, "started_at_utc>=:from_date", "from_date"),
+            (to_date, "started_at_utc<:to_date", "to_date"),
+        ):
+            if value is not None:
+                conditions.append(expression)
+                params[key] = value
+        if cursor:
+            cursor_time, cursor_id = decode_cursor(cursor)
+            conditions.append("(started_at_utc, trace_id) < (:cursor_time, :cursor_id)")
+            params.update({"cursor_time": cursor_time, "cursor_id": cursor_id})
+        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
 
         async with self._session_factory() as session:
-            count_result = await session.execute(
-                sa_text(f"SELECT COUNT(*) FROM trace_records{where}"), params,
-            )
-            total = int(count_result.scalar_one())
-
-            cols = (
-                f"{_TC.trace_id}, {_TC.root_span_id}, {_TC.agent_key}, "
-                f"{_TC.session_id}, {_TC.status}, "
-                f"{_TC.total_duration_ms}, {_TC.total_input_tokens}, {_TC.total_output_tokens}, "
-                f"{_TC.total_estimated_cost}, {_TC.span_count}, "
-                f"{_TC.started_at_utc}, {_TC.completed_at_utc}"
-            )
             result = await session.execute(
                 sa_text(
-                    f"SELECT {cols} "
-                    f"FROM trace_records{where} "
-                    f"ORDER BY {_TC.started_at_utc} DESC "
-                    f"LIMIT :lim OFFSET :offset"
+                    f"{_TRACE_SELECT}{where} "
+                    "ORDER BY started_at_utc DESC, trace_id DESC LIMIT :limit",
                 ),
                 params,
             )
-            traces = [TraceRecord(**dict(row)) for row in result.mappings().all()]
-            return traces, total
+            records = [_trace_from_row(row) for row in result.mappings().all()]
+        has_more = len(records) > limit
+        items = records[:limit]
+        next_cursor = (
+            encode_cursor(items[-1].started_at_utc, items[-1].trace_id)
+            if has_more and items
+            else None
+        )
+        return TracePage(items=items, next_cursor=next_cursor)
 
     async def get_stats(
         self,
         *,
-        from_date=None,
-        to_date=None,
-    ) -> dict:
-        from sqlalchemy import text as sa_text
-
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+    ) -> TraceStats:
         conditions: list[str] = []
         params: dict[str, object] = {}
         if from_date:
-            conditions.append(f"{_TC.started_at_utc} >= :from")
-            params["from"] = from_date
+            conditions.append("started_at_utc>=:from_date")
+            params["from_date"] = from_date
         if to_date:
-            conditions.append(f"{_TC.started_at_utc} < :to")
-            params["to"] = to_date
+            conditions.append("started_at_utc<:to_date")
+            params["to_date"] = to_date
+        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+        async with self._session_factory() as session:
+            row = (
+                await session.execute(
+                    sa_text(
+                        """
+                        SELECT COUNT(*) AS total_traces,
+                               COUNT(*) FILTER (WHERE status='error') AS error_count,
+                               COUNT(*) FILTER (WHERE status='timeout') AS timeout_count,
+                               COUNT(*) FILTER (WHERE status='cancelled') AS cancelled_count,
+                               COALESCE(percentile_cont(0.5) WITHIN GROUP
+                                   (ORDER BY total_duration_ms), 0) AS p50_duration_ms,
+                               COALESCE(percentile_cont(0.95) WITHIN GROUP
+                                   (ORDER BY total_duration_ms), 0) AS p95_duration_ms,
+                               COALESCE(SUM(total_input_tokens + total_output_tokens), 0) AS total_tokens,
+                               COALESCE(SUM(total_estimated_cost), 0) AS total_estimated_cost
+                        FROM trace_records
+                        """
+                        + where,
+                    ),
+                    params,
+                )
+            ).mappings().first()
+        return TraceStats.model_validate(dict(row or {}))
 
-        where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
-
+    async def delete_expired(self, *, retention_days: int, batch_size: int) -> int:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
         async with self._session_factory() as session:
             result = await session.execute(
                 sa_text(
-                    f"SELECT COUNT(*) as total_traces, "
-                    f" COALESCE(AVG({_TC.total_duration_ms}), 0) as avg_duration_ms, "
-                    f" COALESCE(SUM({_TC.total_input_tokens} + {_TC.total_output_tokens}), 0) as total_tokens, "
-                    f" COALESCE(SUM(CASE WHEN {_TC.status}='error' THEN 1 ELSE 0 END), 0) as error_count "
-                    f"FROM trace_records{where}"
+                    """
+                    DELETE FROM trace_records WHERE id IN (
+                        SELECT id FROM trace_records
+                        WHERE completed_at_utc < :cutoff
+                        ORDER BY completed_at_utc
+                        LIMIT :batch_size
+                    )
+                    """,
                 ),
-                params,
+                {"cutoff": cutoff, "batch_size": batch_size},
             )
-            row = result.mappings().first()
-            return dict(row) if row else {}
+            await session.commit()
+            return int(result.rowcount or 0)
+
+
+_TRACE_SELECT = """
+SELECT trace_id, root_span_id, run_id::text AS run_id, agent_key, session_id,
+       user_id, correlation_id, status, total_duration_ms, total_input_tokens,
+       total_output_tokens, cache_write_tokens, cache_read_tokens,
+       total_estimated_cost, span_count, dropped_span_count, sample_reason,
+       attributes_json, schema_version, started_at_utc, completed_at_utc
+FROM trace_records
+"""
+
+
+def encode_cursor(started_at: datetime, trace_id: str) -> str:
+    raw = json.dumps([started_at.isoformat(), trace_id], separators=(",", ":")).encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def decode_cursor(cursor: str) -> tuple[datetime, str]:
+    padding = "=" * (-len(cursor) % 4)
+    started, trace_id = json.loads(base64.urlsafe_b64decode(cursor + padding))
+    return datetime.fromisoformat(started), str(trace_id)
+
+
+def _trace_from_row(row) -> TraceRecord:
+    values = dict(row)
+    values["attributes"] = values.pop("attributes_json") or {}
+    return TraceRecord.model_validate(values)
+
+
+def _span_from_row(row) -> SpanEnvelope:
+    values = dict(row)
+    values["kind"] = values.pop("span_kind")
+    values["attributes"] = values.pop("attributes_json") or {}
+    values["events"] = values.pop("events_json") or []
+    values["links"] = values.pop("links_json") or []
+    return SpanEnvelope.model_validate(values)
+
+
+__all__ = [
+    "PostgresTraceStore",
+    "TraceStore",
+    "decode_cursor",
+    "encode_cursor",
+]

@@ -10,6 +10,8 @@ Environment variables support **both** the old flat names and new nested names:
 """
 from __future__ import annotations
 
+import os
+import socket
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -91,6 +93,21 @@ class RedisSettings(BaseSettings):
     enabled: bool = False
 
 
+class WorkerSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="APP_WORKER_", extra="ignore")
+
+    tasks: str = "*"
+    worker_id: str = ""
+    document_indexing_concurrency: int = Field(default=3, ge=1, le=128)
+    trace_ingestion_concurrency: int = Field(default=2, ge=1, le=128)
+    shutdown_timeout_seconds: float = Field(default=30.0, ge=1.0, le=300.0)
+
+    @computed_field
+    @property
+    def resolved_worker_id(self) -> str:
+        return self.worker_id or f"{socket.gethostname()}-{os.getpid()}"
+
+
 # ── Composite root settings ────────────────────────────────────────
 
 
@@ -122,6 +139,7 @@ class Settings(BaseSettings):
     gateway: GatewaySettings = Field(default_factory=GatewaySettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
+    worker: WorkerSettings = Field(default_factory=WorkerSettings)
 
     # ── Flat backward-compatible properties ────────────────────────
     # These let existing code like ``settings.db_host`` keep working.

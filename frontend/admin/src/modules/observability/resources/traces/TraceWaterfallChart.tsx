@@ -38,7 +38,7 @@ export function TraceWaterfallChart({ spans, traceStart, emptyText = 'No span da
         const x1 = xScale(row.offsetMs);
         const x2 = xScale(row.offsetMs + row.durationMs);
         const barWidth = Math.max(x2 - x1, 2);
-        const color = getSpanKindColor(row.span.spanKind);
+        const color = getSpanKindColor(row.span.kind);
         const y = i * rowHeight + 4;
 
         return (
