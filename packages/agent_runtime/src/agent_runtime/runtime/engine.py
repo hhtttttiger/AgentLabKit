@@ -33,6 +33,13 @@ if TYPE_CHECKING:
 
 from llm_gateway import GatewayProtocol, UsageInfo
 
+try:
+    from opentelemetry.trace import Span, StatusCode, Tracer
+except ModuleNotFoundError:  # pragma: no cover
+    Span = None  # type: ignore[assignment,misc]
+    StatusCode = None  # type: ignore[assignment,misc]
+    Tracer = None  # type: ignore[assignment,misc]
+
 from ..config import AgentSettings
 from ..contracts.models import (
     AgentAction,
@@ -153,6 +160,62 @@ class AgentRunDeps:
 create_agent_runtime = _create_agent_runtime_impl
 
 
+# ── OTel tracer span manager ───────────────────────────────────────────
+
+_ROOT_ATTR = "agentlabkit.trace.root"
+
+
+class _TracerSpanManager:
+    """Manages an OTel root span for a single agent turn.
+
+    Creates child spans for LLM calls and tool executions.  The root span
+    carries ``agentlabkit.trace.root=True`` so the
+    :class:`TraceBufferSpanProcessor` knows to flush the trace when it ends.
+    """
+
+    def __init__(self, tracer: Any, trace_id: str, agent_key: str | None = None) -> None:
+        self._tracer = tracer
+        self._trace_id = trace_id
+        self._agent_key = agent_key
+        self._root_span: Any = None
+        self._error_message: str | None = None
+
+    def start(self) -> None:
+        self._root_span = self._tracer.start_span(
+            "agent.run",
+            attributes={
+                _ROOT_ATTR: True,
+                "agentlabkit.trace_id": self._trace_id,
+                **({"agentlabkit.agent_key": self._agent_key} if self._agent_key else {}),
+            },
+        )
+
+    def start_llm_span(self) -> Any:
+        if self._root_span is None:
+            return None
+        return self._tracer.start_span("llm.generate")
+
+    def start_tool_span(self, tool_name: str) -> Any:
+        if self._root_span is None:
+            return None
+        return self._tracer.start_span(
+            f"tool.{tool_name}",
+            attributes={"tool.name": tool_name},
+        )
+
+    def set_error(self, message: str) -> None:
+        self._error_message = message
+
+    def end(self) -> None:
+        if self._root_span is None:
+            return
+        if self._error_message:
+            self._root_span.set_status(StatusCode.ERROR, self._error_message)
+            self._root_span.set_attribute("agentlabkit.status", "error")
+        self._root_span.end()
+        self._root_span = None
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # AgentRuntime — main public class
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -180,6 +243,7 @@ class AgentRuntime:
         mcp_client_manager=None,
         handoff_manager: HandoffManager | None = None,
         global_guardrails_repository: GlobalGuardrailsRepository | None = None,
+        tracer: Tracer | None = None,
         observability_bridge_factory: Any | None = None,
         memory_module: Any | None = None,
     ) -> None:
@@ -191,6 +255,7 @@ class AgentRuntime:
         self.session_store = session_store
         self.guards_pipeline = guards_pipeline
         self.global_guardrails_repository = global_guardrails_repository
+        self._tracer = tracer
         self._observability_bridge_factory = observability_bridge_factory
         self._memory_module = memory_module
 
@@ -322,11 +387,18 @@ class AgentRuntime:
         Uses the self-built agent loop (no pydantic-ai). Delegates preparation,
         guards, and session management to the extracted helper modules.
         """
-        # ── Observability bridge (optional) ─────────────────────────────
+        # ── Observability (tracer preferred, bridge factory fallback) ────
+        _trace_id = getattr(request, "trace_id", None) or str(uuid4())
+        _span_mgr: _TracerSpanManager | None = None
         _obs_bridge = None
-        if self._observability_bridge_factory is not None:
+        if self._tracer is not None:
+            _span_mgr = _TracerSpanManager(
+                self._tracer, _trace_id, getattr(request, "agent_key", None),
+            )
+            _span_mgr.start()
+        elif self._observability_bridge_factory is not None:
             _obs_bridge = self._observability_bridge_factory(
-                trace_id=getattr(request, "trace_id", None) or str(uuid4()),
+                trace_id=_trace_id,
                 agent_key=getattr(request, "agent_key", None),
                 event_bus=self._event_bus,
             )
@@ -405,11 +477,15 @@ class AgentRuntime:
                 cancel=cancel_token,
             )
         except AgentError:
-            if _obs_bridge:
+            if _span_mgr:
+                _span_mgr.set_error("AgentError")
+            elif _obs_bridge:
                 _obs_bridge.set_error("AgentError")
             raise
         except Exception as exc:
-            if _obs_bridge:
+            if _span_mgr:
+                _span_mgr.set_error(str(exc))
+            elif _obs_bridge:
                 _obs_bridge.set_error(str(exc))
             raise AgentError(
                 AgentErrorCode.RUNTIME_ERROR,
@@ -418,7 +494,12 @@ class AgentRuntime:
                 trace_id=resolved_request.trace_id,
             ) from exc
         finally:
-            if _obs_bridge:
+            if _span_mgr:
+                try:
+                    _span_mgr.end()
+                except Exception:
+                    logger.exception("observability.span_end_failed")
+            elif _obs_bridge:
                 try:
                     await _obs_bridge.finalize()
                 except Exception:
@@ -502,18 +583,30 @@ class AgentRuntime:
         resolved_request = guard_result.resolved_request
         input_global_alert_match = guard_result.input_global_alert_match
 
-        # ── Observability bridge (optional) ─────────────────────────────
+        # ── Observability (tracer preferred, bridge factory fallback) ────
+        _trace_id = getattr(resolved_request, "trace_id", None) or str(uuid4())
+        _span_mgr: _TracerSpanManager | None = None
         _obs_bridge = None
-        if self._observability_bridge_factory is not None:
+        if self._tracer is not None:
+            _span_mgr = _TracerSpanManager(
+                self._tracer, _trace_id, getattr(resolved_request, "agent_key", None),
+            )
+            _span_mgr.start()
+        elif self._observability_bridge_factory is not None:
             _obs_bridge = self._observability_bridge_factory(
-                trace_id=getattr(resolved_request, "trace_id", None) or str(uuid4()),
+                trace_id=_trace_id,
                 agent_key=getattr(resolved_request, "agent_key", None),
                 event_bus=self._event_bus,
             )
             await self._event_bus.emit(TurnStartEvent())
 
         async def _finalize_obs() -> None:
-            if _obs_bridge is not None:
+            if _span_mgr is not None:
+                try:
+                    _span_mgr.end()
+                except Exception:
+                    logger.exception("observability.span_end_failed trace_id=%s", resolved_request.trace_id)
+            elif _obs_bridge is not None:
                 await self._event_bus.emit(TurnEndEvent())
                 try:
                     await _obs_bridge.finalize()
@@ -587,6 +680,7 @@ class AgentRuntime:
                 await self._event_bus.emit(MessageStartEvent(
                     message=AgentMessage(role=AgentRole.ASSISTANT, content=""),
                 ))
+            _llm_span = _span_mgr.start_llm_span() if _span_mgr else None
             try:
                 async for stream_delta in llm.generate_stream(
                     system_prompt=system_prompt,
@@ -604,7 +698,9 @@ class AgentRuntime:
                         usage = stream_delta.usage
                         pending_reply_deltas.extend(await voice_handler.flush())
             except AgentError as exc:
-                if _obs_bridge:
+                if _span_mgr:
+                    _span_mgr.set_error(exc.message or "AgentError")
+                elif _obs_bridge:
                     _obs_bridge.set_error(exc.message or "AgentError")
                 await self._session_mgr.best_effort_save_on_error(
                     request=resolved_request, snapshot=restored_snapshot, settings=effective_settings,
@@ -613,7 +709,9 @@ class AgentRuntime:
             except Exception as exc:
                 from llm_gateway import GatewayError
 
-                if _obs_bridge:
+                if _span_mgr:
+                    _span_mgr.set_error(str(exc))
+                elif _obs_bridge:
                     _obs_bridge.set_error(str(exc))
                 await self._session_mgr.best_effort_save_on_error(
                     request=resolved_request, snapshot=restored_snapshot, settings=effective_settings,
@@ -639,6 +737,8 @@ class AgentRuntime:
                     message=AgentMessage(role=AgentRole.ASSISTANT, content=directive_text),
                     usage=usage,
                 ))
+            if _llm_span is not None:
+                _llm_span.end()
             if isinstance(directive, ToolDirective):
                 self._ensure_tool_allowed(directive.tool_name, auto_tool_names)
                 started_tool_event = self._tool_exec.build_tool_started_event(
@@ -658,6 +758,7 @@ class AgentRuntime:
                         tool_name=directive.tool_name,
                         args=dict(directive.arguments),
                     ))
+                _tool_span = _span_mgr.start_tool_span(directive.tool_name) if _span_mgr else None
                 recorded_before = len(deps.tool_events)
 
                 # Streaming delegation
@@ -704,6 +805,8 @@ class AgentRuntime:
                         result=tool_output[:200] if tool_output else "",
                         is_error=False,
                     ))
+                if _tool_span is not None:
+                    _tool_span.end()
 
                 for tool_event in deps.tool_events[recorded_before:]:
                     yield AgentTurnStreamEvent(
@@ -1224,7 +1327,9 @@ class AgentRuntime:
             yield reply_event
             return
 
-        if _obs_bridge:
+        if _span_mgr:
+            _span_mgr.set_error("Streaming agent exceeded the maximum tool-call rounds.")
+        elif _obs_bridge:
             _obs_bridge.set_error("Streaming agent exceeded the maximum tool-call rounds.")
         await _finalize_obs()
         raise AgentError(

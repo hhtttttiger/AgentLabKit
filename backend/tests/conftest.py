@@ -24,11 +24,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 @pytest.fixture(scope="session")
 def settings():
     """Create settings with test-friendly defaults."""
-    from config import Settings
+    from config import AuthSettings, Settings
     return Settings(
         debug=True,
-        jwt_secret_key="test-secret-key-do-not-use-in-production",
-        jwt_expires_minutes=60,
+        auth=AuthSettings(
+            secret_key="test-secret-key-do-not-use-in-production",
+            expires_minutes=60,
+        ),
         redis_enabled=False,
         retrieval_enabled=False,
     )

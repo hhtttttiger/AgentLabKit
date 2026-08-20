@@ -10,6 +10,11 @@ from typing import TYPE_CHECKING, Any
 
 from llm_gateway import GatewayModule, GatewayProtocol, load_gateway_module
 
+try:
+    from opentelemetry.trace import Tracer
+except ModuleNotFoundError:  # pragma: no cover
+    Tracer = None  # type: ignore[assignment,misc]
+
 from ..config import AgentSettings
 from ..guardrails import GuardsPipeline
 from ..guardrails.factory import build_guards_pipeline
@@ -102,10 +107,17 @@ def create_agent_runtime(
     mcp_client_manager: McpClientManager | None = None,
     handoff_manager: HandoffManager | None = None,
     global_guardrails_repository: GlobalGuardrailsRepository | None = None,
+    tracer: Tracer | None = None,
     observability_bridge_factory: Any | None = None,
     memory_module: Any | None = None,
 ) -> AgentRuntime:
-    """Factory function — creates a fully wired :class:`AgentRuntime`."""
+    """Factory function — creates a fully wired :class:`AgentRuntime`.
+
+    Args:
+        tracer: OpenTelemetry tracer for direct span injection. Preferred over
+            the deprecated *observability_bridge_factory*.
+        observability_bridge_factory: Deprecated. Use *tracer* instead.
+    """
     # Avoid circular import: AgentRuntime is defined in engine.py
     from .engine import AgentRuntime
 
@@ -124,6 +136,7 @@ def create_agent_runtime(
         mcp_client_manager=mcp_client_manager or build_mcp_client_manager(resolved_settings),
         handoff_manager=handoff_manager,
         global_guardrails_repository=global_guardrails_repository,
+        tracer=tracer,
         observability_bridge_factory=observability_bridge_factory,
         memory_module=memory_module,
     )

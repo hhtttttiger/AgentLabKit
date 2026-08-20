@@ -16,15 +16,11 @@ from .publisher import AsyncTracePublisher
 from .span_processor import TraceBufferSpanProcessor
 from .trace_store import PostgresTraceStore, TraceStore
 
-# Deprecated: kept for backward compatibility with EventBus-based integration.
-from .span_builder import SpanBuilder  # noqa: F401
-
 __all__ = [
     "AsyncTracePublisher",
     "ObservabilityModule",
     "ObservabilitySettings",
     "PostgresTraceStore",
-    "SpanBuilder",
     "SpanEnvelope",
     "SpanRecord",
     "TRACE_QUEUE_NAME",

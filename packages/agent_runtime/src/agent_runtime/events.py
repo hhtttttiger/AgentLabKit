@@ -80,7 +80,7 @@ class MessageEndEvent:
     """Emitted when a message is finalized.
 
     ``usage`` is optionally set when token usage data is available (e.g.
-    from the LLM gateway response), allowing SpanBuilder to record it.
+    from the LLM gateway response), allowing the observability layer to record it.
     """
 
     type: str = "message_end"

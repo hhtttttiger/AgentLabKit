@@ -339,7 +339,7 @@ async def _run_loop_body(
     pending_messages: list[AgentMessage] = []
 
     # Map tool_name → tags so we can resolve source_type when emitting
-    # ToolExecutionStartEvent (needed by SpanBuilder for observability).
+    # ToolExecutionStartEvent (needed by the observability layer).
     _tool_tags_lookup: dict[str, list[str]] = {
         t.name: t.tags for t in context.tools if t.tags
     }
@@ -557,7 +557,7 @@ async def _run_streaming_loop_body(
             completed_text: str | None = None
             stream_usage: Any = None
 
-            # Emit start event so SpanBuilder can track the LLM call span
+            # Emit start event so the observability layer can track the LLM call span
             await emit(MessageStartEvent(
                 message=AgentMessage(role=AgentRole.ASSISTANT, content=""),
             ))
