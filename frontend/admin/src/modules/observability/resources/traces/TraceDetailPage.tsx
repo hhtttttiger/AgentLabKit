@@ -69,7 +69,7 @@ export function TraceDetailPage() {
           {t('observability:traces.detail.backToList')}
         </button>
         <h2 className="font-mono text-sm text-text-muted">
-          Trace: {trace.traceId}
+          {t('observability:traces.detail.tracePrefix')}: {trace.traceId}
         </h2>
         {trace.agentKey && (
           <span className="rounded-[2px] bg-primary/10 px-2 py-0.5 text-xs text-primary">
@@ -80,9 +80,9 @@ export function TraceDetailPage() {
 
       <MetricStrip items={metrics} columns={4} compact />
       <div className="rounded-[2px] border border-border bg-surface p-3 text-xs text-text-secondary">
-        Sample: {trace.sampleReason} · dropped spans: <span className={trace.droppedSpanCount ? 'text-error' : ''}>{trace.droppedSpanCount}</span>
-        {' · '}cache read/write: {trace.cacheReadTokens.toLocaleString()} / {trace.cacheWriteTokens.toLocaleString()}
-        {' · '}cost: ${trace.totalEstimatedCost.toFixed(6)}
+        {t('observability:traces.detail.sample')}: {trace.sampleReason} · {t('observability:traces.detail.droppedSpans')}: <span className={trace.droppedSpanCount ? 'text-error' : ''}>{trace.droppedSpanCount}</span>
+        {' · '}{t('observability:traces.detail.cacheReadWrite')}: {trace.cacheReadTokens.toLocaleString()} / {trace.cacheWriteTokens.toLocaleString()}
+        {' · '}{t('observability:traces.detail.cost')}: ${trace.totalEstimatedCost.toFixed(6)}
       </div>
 
       {/* Waterfall chart */}

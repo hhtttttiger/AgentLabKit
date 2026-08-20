@@ -59,37 +59,21 @@
 
 ### 中优先级
 
-5. **engine.py tracer 集成**
-   - 当前 web_modules.py 使用 bridge factory（兼容旧方式）
-   - Windows 版本改为 `tracer=obs_module.tracer` 直接注入
-   - 需要修改 `packages/agent_runtime/src/agent_runtime/runtime/factory.py`：
-     - 添加 `tracer: Tracer | None = None` 参数
-     - engine 内部使用 tracer（可选，渐进式）
-   - 这是一个独立的重构任务，不阻塞当前迁移
+5. **engine.py tracer 集成** — 后续优化项
+   - 当前 bridge factory 方式已工作正常，不阻塞迁移
+   - 未来可改为 `tracer=obs_module.tracer` 直接注入
 
-6. **ObservabilityModule 在 main.py 的 lifespan 中注册**
-   - 确认 `request.app.state.observability_module` 被正确设置
-   - 确认 `request.app.state.queue_backend` 被正确设置（ingestion-health 需要）
-   - 需要检查 `backend/src/main.py` 的 lifespan 逻辑
+6. ✅ **ObservabilityModule lifespan 注册** — 已验证 `app.state.observability_module` 和 `app.state.queue_backend` 正确设置
 
-7. **前端 i18n 补充**
-   - 新增的 UI 文字（ingestion health dashboard、cost、dropped spans）目前是硬编码英文
-   - 需要添加到 `frontend/admin/src/shared/i18n/locales/en-US/observability.ts`
-   - 和 `zh-CN/observability.ts`
+7. ✅ **前端 i18n 补充** — 所有硬编码英文已替换为 i18n key（health dashboard、filters、pagination、detail info bar）
 
 ### 低优先级
 
-8. **span_builder.py / agent_runtime_listener.py 清理**
-   - 确认没有其他地方引用后可删除
-   - 或者保留为 deprecated 直到下个大版本
+8. **span_builder.py / agent_runtime_listener.py 清理** — 保留为 deprecated（bridge factory 仍引用）
 
-9. **docker-compose.yml 更新**
-   - worker 服务的 command 可能需要调整（从单任务改为通用）
-   - 环境变量 `APP_WORKER_TASKS=*` 已是默认值
+9. ✅ **docker-compose.yml** — worker 已使用通用入口 `python -m worker`，无需修改
 
-10. **测试补充**
-    - 为新的 queue consumer、sanitizer、span_processor 编写单元测试
-    - 为 worker_task.py 编写集成测试
+10. **测试补充** — 后续迭代
 
 ---
 

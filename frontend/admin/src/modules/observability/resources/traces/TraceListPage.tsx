@@ -42,7 +42,7 @@ export function TraceListPage() {
     { label: t('observability:traces.metrics.totalTraces'), value: String(stats.totalTraces), accent: 'blue' as const },
     { label: 'P95', value: formatDuration(stats.p95DurationMs), accent: 'violet' as const },
     { label: t('observability:traces.metrics.totalTokens'), value: stats.totalTokens.toLocaleString(), accent: 'teal' as const },
-    { label: 'Errors / timeout / cancel', value: `${stats.errorCount} / ${stats.timeoutCount} / ${stats.cancelledCount}`, accent: 'amber' as const },
+    { label: t('observability:traces.metrics.errorTimeoutCancel'), value: `${stats.errorCount} / ${stats.timeoutCount} / ${stats.cancelledCount}`, accent: 'amber' as const },
   ] : [];
 
   return (
@@ -51,35 +51,35 @@ export function TraceListPage() {
 
       <div className="grid gap-3 rounded-[2px] border border-border bg-surface p-3 text-xs text-text-secondary md:grid-cols-2">
         <div>
-          Buffer: traces {health?.publisher.activeTraces ?? '—'}, spans {health?.publisher.bufferedSpans ?? '—'},
-          dropped {health?.publisher.bufferOverflowDropped ?? '—'} ·
-          Publisher: queued {health?.publisher.queueDepth ?? '—'}, published {health?.publisher.published ?? '—'},
-          dropped <span className={health?.publisher.dropped ? 'text-error' : ''}>{health?.publisher.dropped ?? '—'}</span>
+          {t('observability:traces.health.buffer')}: {t('observability:traces.health.traces')} {health?.publisher.activeTraces ?? '—'}, {t('observability:traces.health.spans')} {health?.publisher.bufferedSpans ?? '—'},
+          {t('observability:traces.health.dropped')} {health?.publisher.bufferOverflowDropped ?? '—'} ·
+          {t('observability:traces.health.publisher')}: {t('observability:traces.health.queued')} {health?.publisher.queueDepth ?? '—'}, {t('observability:traces.health.published')} {health?.publisher.published ?? '—'},
+          {t('observability:traces.health.dropped')} <span className={health?.publisher.dropped ? 'text-error' : ''}>{health?.publisher.dropped ?? '—'}</span>
         </div>
         <div>
-          Trace worker: {health?.queue?.available ? 'available' : 'unavailable'}, consumers {health?.queue?.consumers ?? '—'}, backlog {health?.queue?.backlog ?? '—'}, pending {health?.queue?.pending ?? '—'},
-          delayed {health?.queue?.delayed ?? '—'}, DLQ {health?.queue?.deadLetter ?? '—'}
+          {t('observability:traces.health.worker')}: {health?.queue?.available ? t('observability:traces.health.available') : t('observability:traces.health.unavailable')}, {t('observability:traces.health.consumers')} {health?.queue?.consumers ?? '—'}, {t('observability:traces.health.backlog')} {health?.queue?.backlog ?? '—'}, {t('observability:traces.health.pending')} {health?.queue?.pending ?? '—'},
+          {t('observability:traces.health.delayed')} {health?.queue?.delayed ?? '—'}, {t('observability:traces.health.dlq')} {health?.queue?.deadLetter ?? '—'}
         </div>
         {Object.entries(health?.workerTasks ?? {}).map(([name, task]) => (
           <div key={name}>
-            {name}: {task.available ? 'available' : 'unavailable'}, consumers {task.consumers}, backlog {task.backlog}, pending {task.pending},
-            failures/DLQ {task.deadLetter}
+            {name}: {task.available ? t('observability:traces.health.available') : t('observability:traces.health.unavailable')}, {t('observability:traces.health.consumers')} {task.consumers}, {t('observability:traces.health.backlog')} {task.backlog}, {t('observability:traces.health.pending')} {task.pending},
+            {t('observability:traces.health.failuresDlq')} {task.deadLetter}
           </div>
         ))}
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <input value={agentKey} onChange={(event) => { setAgentKey(event.target.value); resetCursor(); }} placeholder="Agent key" className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
-        <input value={sessionId} onChange={(event) => { setSessionId(event.target.value); resetCursor(); }} placeholder="Session ID" className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
+        <input value={agentKey} onChange={(event) => { setAgentKey(event.target.value); resetCursor(); }} placeholder={t('observability:traces.filters.agentKey')} className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
+        <input value={sessionId} onChange={(event) => { setSessionId(event.target.value); resetCursor(); }} placeholder={t('observability:traces.filters.sessionId')} className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
         <select value={status} onChange={(event) => { setStatus(event.target.value as TraceStatus | ''); resetCursor(); }} className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm">
-          <option value="">All statuses</option>
+          <option value="">{t('observability:traces.filters.allStatuses')}</option>
           <option value="ok">ok</option>
           <option value="error">error</option>
           <option value="timeout">timeout</option>
           <option value="cancelled">cancelled</option>
         </select>
-        <input type="datetime-local" value={fromDate} onChange={(event) => { setFromDate(event.target.value); resetCursor(); }} aria-label="Started after" className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
-        <input type="datetime-local" value={toDate} onChange={(event) => { setToDate(event.target.value); resetCursor(); }} aria-label="Started before" className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
+        <input type="datetime-local" value={fromDate} onChange={(event) => { setFromDate(event.target.value); resetCursor(); }} aria-label={t('observability:traces.filters.startedAfter')} className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
+        <input type="datetime-local" value={toDate} onChange={(event) => { setToDate(event.target.value); resetCursor(); }} aria-label={t('observability:traces.filters.startedBefore')} className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-sm" />
       </div>
 
       {isError && <InlineMessage tone="error">{t('observability:traces.loadError')}</InlineMessage>}
@@ -95,8 +95,8 @@ export function TraceListPage() {
               <th className="pb-2 text-center font-medium">{t('observability:traces.columns.status')}</th>
               <th className="pb-2 text-right font-medium">{t('observability:traces.columns.duration')}</th>
               <th className="pb-2 text-right font-medium">{t('observability:traces.columns.tokens')}</th>
-              <th className="pb-2 text-right font-medium">Cost</th>
-              <th className="pb-2 text-right font-medium">Spans / dropped</th>
+              <th className="pb-2 text-right font-medium">{t('observability:traces.columns.cost')}</th>
+              <th className="pb-2 text-right font-medium">{t('observability:traces.columns.spansDropped')}</th>
               <th className="pb-2 pl-4 font-medium">{t('observability:traces.columns.startTime')}</th>
             </tr></thead>
             <tbody>{traces.map((trace: TraceData) => (
@@ -116,8 +116,8 @@ export function TraceListPage() {
       </div>
 
       <div className="flex justify-end gap-2">
-        <button disabled={cursorStack.length === 1} onClick={() => setCursorStack((items) => items.slice(0, -1))} className="rounded-[2px] border border-border px-3 py-1 text-sm disabled:opacity-40">Previous</button>
-        <button disabled={!result?.nextCursor} onClick={() => result?.nextCursor && setCursorStack((items) => [...items, result.nextCursor!])} className="rounded-[2px] border border-border px-3 py-1 text-sm disabled:opacity-40">Next</button>
+        <button disabled={cursorStack.length === 1} onClick={() => setCursorStack((items) => items.slice(0, -1))} className="rounded-[2px] border border-border px-3 py-1 text-sm disabled:opacity-40">{t('observability:traces.pagination.previous')}</button>
+        <button disabled={!result?.nextCursor} onClick={() => result?.nextCursor && setCursorStack((items) => [...items, result.nextCursor!])} className="rounded-[2px] border border-border px-3 py-1 text-sm disabled:opacity-40">{t('observability:traces.pagination.next')}</button>
       </div>
     </div>
   );
