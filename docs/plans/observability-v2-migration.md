@@ -59,9 +59,11 @@
 
 ### 中优先级
 
-5. **engine.py tracer 集成** — 后续优化项
-   - 当前 bridge factory 方式已工作正常，不阻塞迁移
-   - 未来可改为 `tracer=obs_module.tracer` 直接注入
+5. ✅ **engine.py tracer 集成** — 已完成（`17c251d`）
+   - 新增 `_TracerSpanManager` 管理 OTel root span 生命周期
+   - `AgentRuntime` 和 `create_agent_runtime` 新增 `tracer` 参数
+   - `web_modules.py` 改为传入 `obs_module.get_tracer("agent_runtime")`
+   - `_build_obs_bridge_factory` 标记 deprecated（`DeprecationWarning`）
 
 6. ✅ **ObservabilityModule lifespan 注册** — 已验证 `app.state.observability_module` 和 `app.state.queue_backend` 正确设置
 
@@ -69,11 +71,21 @@
 
 ### 低优先级
 
-8. **span_builder.py / agent_runtime_listener.py 清理** — 保留为 deprecated（bridge factory 仍引用）
+8. ✅ **span_builder.py / agent_runtime_listener.py 清理** — 已完成（`17c251d`）
+   - 删除 `span_builder.py`、`agent_runtime_listener.py`、`test_span_builder.py`
+   - `observability/__init__.py` 移除 `SpanBuilder` 导出
+   - `events.py` / `loop.py` 注释更新
 
 9. ✅ **docker-compose.yml** — worker 已使用通用入口 `python -m worker`，无需修改
 
 10. ✅ **测试补充** — 55 个单元测试覆盖 sanitizer、contracts、span_processor（packages/observability/tests/）
+
+### 后续优化（`17c251d` 完成）
+
+11. ✅ **预存测试修复** — `conftest.py` 中 `Settings` 构造方式修正
+    - `jwt_secret_key` / `jwt_expires_minutes` 是 property，不能作为顶层 kwarg 传入
+    - 改为 `auth=AuthSettings(secret_key=..., expires_minutes=...)`
+    - 修复 `test_auth.py`、`test_agent_lifecycle.py`、`test_chat_sessions.py` 中约 22 个 401 失败
 
 ---
 
