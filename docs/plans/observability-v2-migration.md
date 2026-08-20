@@ -80,12 +80,14 @@
 
 10. ✅ **测试补充** — 55 个单元测试覆盖 sanitizer、contracts、span_processor（packages/observability/tests/）
 
-### 后续优化（`17c251d` 完成）
+### 后续优化（`17c251d` + `b26e7c6` 完成）
 
-11. ✅ **预存测试修复** — `conftest.py` 中 `Settings` 构造方式修正
-    - `jwt_secret_key` / `jwt_expires_minutes` 是 property，不能作为顶层 kwarg 传入
-    - 改为 `auth=AuthSettings(secret_key=..., expires_minutes=...)`
-    - 修复 `test_auth.py`、`test_agent_lifecycle.py`、`test_chat_sessions.py` 中约 22 个 401 失败
+11. ✅ **预存测试修复** — `conftest.py` + observability lazy imports
+    - `conftest.py`：`auth=AuthSettings(secret_key=...)` 替代被忽略的 property kwarg
+    - `conftest.py`：手动调用 `configure_auth()`（lifespan 跳过时不会自动调用）
+    - `conftest.py`：override `get_db` → HTTP 503 + patch `get_session_factory`
+    - `module.py` / `__init__.py`：OTel 导入延迟化，避免 `ModuleNotFoundError`
+    - 16/22 测试通过（6 个 `@pytest.mark.db` 需要真实数据库）
 
 ---
 
