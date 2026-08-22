@@ -34,6 +34,7 @@ from .models import (
 
 if TYPE_CHECKING:
     from .retrieval_service import KnowledgeRetrievalService
+    from retrieval.providers.file_storage import BaseFileStorage
 
 def _utcnow() -> datetime:
     """Naive UTC now：document_processing_jobs 的 *_utc 列是 TIMESTAMP WITHOUT
@@ -72,7 +73,8 @@ class DocumentProcessingPayload(BaseModel):
     version: int = _DOCUMENT_PROCESSING_PAYLOAD_VERSION
     kb_id: int
     doc_id: int
-    file_bytes_b64: str
+    file_bytes_b64: str | None = None  # 降级：无 file_storage 时传递原始字节
+    stored_file_id: str | None = None   # 优先：通过 file_storage 取回
     file_name: str
     content_type: str
 
@@ -82,6 +84,7 @@ class _ProcessingContext:
     """Holds runtime dependencies for the queue consumer handler."""
     retrieval_service: KnowledgeRetrievalService
     session_factory: object
+    file_storage: BaseFileStorage | None = None
 
 
 _processing_ctx: _ProcessingContext | None = None
@@ -90,12 +93,14 @@ _processing_ctx: _ProcessingContext | None = None
 def init_processing_context(
     retrieval_service: KnowledgeRetrievalService,
     session_factory: object,
+    file_storage: BaseFileStorage | None = None,
 ) -> None:
     """Called during lifespan to set up the processing context."""
     global _processing_ctx
     _processing_ctx = _ProcessingContext(
         retrieval_service=retrieval_service,
         session_factory=session_factory,
+        file_storage=file_storage,
     )
 
 
@@ -104,17 +109,23 @@ async def enqueue_document_processing(
     *,
     kb_id: int,
     doc_id: int,
-    file_bytes: bytes,
+    file_bytes: bytes | None = None,
+    stored_file_id: str | None = None,
     file_name: str,
     content_type: str,
 ) -> None:
-    """Publish a document processing message to the queue."""
+    """Publish a document processing message to the queue.
+
+    优先传递 stored_file_id（consumer 端从 file_storage 取回），
+    降级时传递 file_bytes_b64（向后兼容）。
+    """
     from alkit_infra.queue.message import Message
 
     payload = DocumentProcessingPayload(
         kb_id=kb_id,
         doc_id=doc_id,
-        file_bytes_b64=base64.b64encode(file_bytes).decode("ascii"),
+        file_bytes_b64=base64.b64encode(file_bytes).decode("ascii") if file_bytes else None,
+        stored_file_id=stored_file_id,
         file_name=file_name,
         content_type=content_type,
     )
@@ -140,10 +151,33 @@ async def handle_queue_message(message) -> None:
             f"expected {_DOCUMENT_PROCESSING_PAYLOAD_VERSION}"
         )
 
+    # 优先：通过 stored_file_id 从 file_storage 取回文件
+    file_bytes: bytes | None = None
+    if payload.stored_file_id and _processing_ctx.file_storage:
+        try:
+            file_bytes = await _processing_ctx.file_storage.retrieve(payload.stored_file_id)
+        except Exception as exc:
+            logger.warning(f"Failed to retrieve file {payload.stored_file_id}, falling back to payload bytes: {exc}")
+
+    # 降级：从 payload 中解码 base64 字节
+    if file_bytes is None and payload.file_bytes_b64:
+        file_bytes = base64.b64decode(payload.file_bytes_b64)
+
+    if file_bytes is None:
+        logger.error(f"No file content available for doc {payload.doc_id}")
+        # 标记文档为 FAILED，防止永久卡在 PENDING
+        async with _processing_ctx.session_factory() as session:
+            doc = await session.get(KnowledgeDocument, payload.doc_id)
+            if doc and doc.status not in (IngestStatus.COMPLETED, IngestStatus.FAILED):
+                doc.status = IngestStatus.FAILED
+                doc.ingest_error = "File content not available (storage retrieval failed)"
+                await session.commit()
+        return
+
     await process_document(
         kb_id=payload.kb_id,
         doc_id=payload.doc_id,
-        file_bytes=base64.b64decode(payload.file_bytes_b64),
+        file_bytes=file_bytes,
         file_name=payload.file_name,
         content_type=payload.content_type,
         retrieval_service=_processing_ctx.retrieval_service,
@@ -237,7 +271,7 @@ async def process_document(
         async with session_factory() as session:
             job = await session.get(DocumentProcessingJob, job_id)
             if job:
-                job.status = IngestStatus.COMPLETED if result.success else IngestStatus.FAILED
+                job.status = JobStatus.COMPLETED if result.success else JobStatus.FAILED
                 job.error_message = result.error_message if not result.success else None
                 job.completed_at_utc = _utcnow()
                 job.current_stage = "Completed" if result.success else "Failed"
@@ -252,7 +286,7 @@ async def process_document(
         async with session_factory() as session:
             job = await session.get(DocumentProcessingJob, job_id)
             if job:
-                job.status = IngestStatus.FAILED
+                job.status = JobStatus.FAILED
                 job.current_stage = "Failed"
                 job.stage_progress_json = stage_progress
                 job.error_message = str(exc)[:2000]
@@ -278,11 +312,16 @@ async def _update_job_progress(
     if job_id is None:
         return
     try:
+        from sqlalchemy import update
         async with session_factory() as session:
-            job = await session.get(DocumentProcessingJob, job_id)
-            if job:
-                job.current_stage = current_stage
-                job.stage_progress_json = json.loads(json.dumps(stage_progress))
-                await session.commit()
+            await session.execute(
+                update(DocumentProcessingJob)
+                .where(DocumentProcessingJob.id == job_id)
+                .values(
+                    current_stage=current_stage,
+                    stage_progress_json=json.loads(json.dumps(stage_progress)),
+                )
+            )
+            await session.commit()
     except Exception as exc:
         logger.warning(f"Failed to update job progress for job {job_id}: {exc}")
