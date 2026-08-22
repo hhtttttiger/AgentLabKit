@@ -92,19 +92,66 @@ def build_memory_module(
 
     依赖 retrieval_service 提供 embedding_provider；retrieval 不可用时
     embedding 降级为 None（memory 仍可初始化但功能受限）。
+
+    支持通过 LONG_TERM_MEMORY_PROVIDER 环境变量切换 provider：
+      - mem0（默认）: Mem0 开源记忆库（自动提取、去重、合并）
+      - native: PostgresMemoryStore + GatewayMemoryExtractor
     """
     from memory import create_memory_module
     from memory.config import MemorySettings
+    from memory.providers.registry import MemoryProviderRegistry
+
+    settings = MemorySettings()
 
     embedding_prov = None
     if retrieval_service is not None:
         embedding_prov = retrieval_service.embedding_provider
 
+    # 构建 provider registry
+    registry = MemoryProviderRegistry()
+
+    # Native provider（始终注册，作为 fallback）
+    try:
+        from memory.providers.native_provider import NativeMemoryProvider
+
+        native = NativeMemoryProvider(
+            session_factory=session_factory,
+            gateway_service=gateway_service,
+            embedding_provider=embedding_prov,
+            extraction_model=settings.extraction_model,
+        )
+        registry.register(native, default=(settings.provider == "native"))
+    except Exception:
+        pass
+
+    # Mem0 provider（默认）
+    try:
+        import json as _json
+        from memory.providers.mem0_provider import Mem0MemoryProvider
+
+        mem0_config = {}
+        if settings.mem0_config_path:
+            with open(settings.mem0_config_path) as f:
+                mem0_config = _json.load(f)
+
+        mem0 = Mem0MemoryProvider(config=mem0_config)
+        registry.register(mem0, default=(settings.provider == "mem0"))
+    except ImportError:
+        import logging
+        logging.getLogger(__name__).warning(
+            "mem0ai not installed; falling back to native provider"
+        )
+        # mem0 不可用时，如果用户请求的是 mem0，回退到 native
+        if settings.provider == "mem0" and "native" in registry.list_providers():
+            registry._default = "native"
+
     return create_memory_module(
         session_factory=session_factory,
         gateway_service=gateway_service,
         embedding_provider=embedding_prov,
-        settings=MemorySettings(),
+        settings=settings,
+        provider_registry=registry,
+        provider_name=settings.provider,
     )
 
 
