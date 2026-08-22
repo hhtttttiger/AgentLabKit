@@ -22,6 +22,7 @@ def _create_document_worker_task(settings):
         init_processing_context(
             retrieval_service=context.require_retrieval(),
             session_factory=context.session_factory,
+            file_storage=context.file_storage,
         )
         return handle_queue_message
 

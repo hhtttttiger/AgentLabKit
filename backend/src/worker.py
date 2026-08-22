@@ -15,6 +15,7 @@ from loguru import logger
 
 from config import Settings
 from runtime.bootstrap import (
+    build_file_storage,
     build_gateway_service,
     build_retrieval_service,
     cleanup_infrastructure,
@@ -59,12 +60,14 @@ async def _run(settings: Settings) -> None:
             if WorkerCapability.RETRIEVAL in capabilities
             else None
         )
+        file_storage = build_file_storage(settings)
         context = WorkerContext(
             settings=settings,
             session_factory=get_session_factory(),
             queue_backend=queue,
             gateway_service=gateway,
             retrieval_service=retrieval,
+            file_storage=file_storage,
         )
         supervisor = WorkerSupervisor(
             context,

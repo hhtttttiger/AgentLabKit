@@ -29,6 +29,7 @@ class WorkerContext:
     queue_backend: QueueBackend
     gateway_service: GatewayService | None = None
     retrieval_service: KnowledgeRetrievalService | None = None
+    file_storage: Any | None = None
 
     def require_gateway(self) -> GatewayService:
         if self.gateway_service is None:

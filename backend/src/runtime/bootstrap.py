@@ -98,3 +98,13 @@ def build_retrieval_service(settings: Settings, gateway_service):
         embedding_provider=embedding_provider,
         vector_store=vector_store,
     )
+
+
+def build_file_storage(settings: Settings):
+    """构造本地文件存储（纯磁盘 I/O，不依赖 DB session）。
+
+    返回 ``LocalFileStorage`` 实例，供知识库模块和 processing 使用。
+    """
+    from modules.files.local_file_storage import LocalFileStorage
+
+    return LocalFileStorage(base_path=settings.file_storage_local_base_path)

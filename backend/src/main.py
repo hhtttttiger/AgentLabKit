@@ -13,6 +13,7 @@ from config import Settings
 from alkit_db.engine import get_session_factory
 from alkit_infra.queue import RedisStreamsQueue, QueueSettings
 from runtime.bootstrap import (
+    build_file_storage,
     build_gateway_service,
     build_retrieval_service,
     cleanup_infrastructure,
@@ -59,6 +60,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if settings.retrieval_enabled and gateway is not None:
             retrieval = build_retrieval_service(settings, gateway)
             app.state.retrieval_service = retrieval
+
+        # ── 文件存储（知识库原始文件持久化）──
+        file_storage = build_file_storage(settings)
+        app.state.file_storage = file_storage
 
         app.state.memory_module = await build_memory_module(sf, gateway, retrieval)
 
