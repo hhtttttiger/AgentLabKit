@@ -9,6 +9,8 @@ dependencies = [
   "pydantic-settings>=2.7.0",
   "sqlalchemy[asyncio]>=2.0.0",
   "agentlabkit-db>=0.1.0",
+  "ragas>=0.4.3,<0.5",
+  "datasets>=3.0",
 ]
 
 [project.optional-dependencies]
