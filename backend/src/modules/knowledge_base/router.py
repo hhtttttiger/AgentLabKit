@@ -8,9 +8,13 @@
 
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile, File as FastAPIFile
+from fastapi.responses import Response
 
 from common.dependencies import DbSession
+from common.errors import NotFoundError
 from common.response import ok, paged
 from .dependencies import get_kb_service, get_document_service, get_search_service
 from .schemas import (
@@ -203,9 +207,10 @@ async def get_document(kb_id: int, doc_id: int, db: DbSession, svc=Depends(get_d
 @router.put("/{kb_id}/documents/{doc_id}")
 async def update_document(
     kb_id: int, doc_id: int, body: QaUpdateRequest,
+    background_tasks: BackgroundTasks,
     db: DbSession, svc=Depends(get_document_service),
 ):
-    return ok((await svc.update_qa(kb_id, doc_id, body)).model_dump(by_alias=True))
+    return ok((await svc.update_qa(kb_id, doc_id, body, background_tasks)).model_dump(by_alias=True))
 
 
 @router.delete("/{kb_id}/documents/{doc_id}")
@@ -222,6 +227,24 @@ async def move_document(
     target_id = int(body.target_folder_id) if body.target_folder_id else None
     await svc.move_document(kb_id, doc_id, target_id)
     return ok(None)
+
+
+@router.get("/{kb_id}/documents/{doc_id}/download")
+async def download_document_file(
+    kb_id: int, doc_id: int,
+    db: DbSession, svc=Depends(get_document_service),
+):
+    """下载文档原始文件。"""
+    content, file_name, content_type = await svc.download_document_file(kb_id, doc_id)
+    # RFC 5987: filename*=UTF-8''<encoded> 防 header 注入
+    encoded_name = quote(file_name, safe="")
+    return Response(
+        content=content,
+        media_type=content_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_name}",
+        },
+    )
 
 
 @router.post("/{kb_id}/documents/{doc_id}/reindex")
