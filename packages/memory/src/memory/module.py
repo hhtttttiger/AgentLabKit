@@ -11,6 +11,7 @@ from .extractor import MemoryExtractor, GatewayMemoryExtractor
 from .retrieval import MemoryRetriever
 from .injector import MemoryInjector
 from .consolidator import MemoryConsolidator
+from .providers._common import DummyExtractor
 
 
 @dataclass(slots=True)
@@ -24,7 +25,7 @@ class MemoryModule:
     embedding_provider: Any = None
 
 
-def create_memory_module(
+async def create_memory_module(
     *,
     session_factory=None,
     gateway_service=None,
@@ -56,6 +57,8 @@ def create_memory_module(
     # Provider 模式：从 registry 获取组件
     if provider_registry is not None:
         provider = provider_registry.get(provider_name or settings.provider)
+        # 确保 provider 初始化（验证配置、建立连接等）
+        await provider.initialize()
         store = provider.get_store()
         extractor = provider.get_extractor()
         prov_embedding = provider.get_embedding_provider()
@@ -72,7 +75,7 @@ def create_memory_module(
                 model_key=settings.extraction_model,
             )
         else:
-            extractor = _DummyExtractor()
+            extractor = DummyExtractor()
 
     if embedding_provider is None:
         embedding_provider = _NullEmbeddingProvider()
@@ -107,16 +110,3 @@ class _NullEmbeddingProvider:
 
     async def aembed(self, text: str) -> list[float]:
         return [0.0] * self._DIM
-
-
-class _DummyExtractor:
-    """当没有 gateway 时的 fallback extractor。"""
-
-    async def extract_episodic(self, messages: list) -> list[str]:
-        return []
-
-    async def extract_semantic(self, messages: list) -> list[str]:
-        return []
-
-    async def extract_procedural(self, messages: list) -> list[str]:
-        return []

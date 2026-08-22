@@ -73,6 +73,11 @@ def build_evaluation_module(gateway_service: Any | None) -> Any:
             registry.register(ragas_provider, default=True)
         except Exception:
             # ragas 未安装或构建失败时静默降级到 legacy 模式
+            import logging
+            logging.getLogger(__name__).warning(
+                "RAGAS evaluation provider init failed; falling back to legacy",
+                exc_info=True,
+            )
             registry = None
 
     return create_evaluation_module(
@@ -83,7 +88,7 @@ def build_evaluation_module(gateway_service: Any | None) -> Any:
     )
 
 
-def build_memory_module(
+async def build_memory_module(
     session_factory: Any,
     gateway_service: Any | None,
     retrieval_service: Any | None,
@@ -143,9 +148,9 @@ def build_memory_module(
         )
         # mem0 不可用时，如果用户请求的是 mem0，回退到 native
         if settings.provider == "mem0" and "native" in registry.list_providers():
-            registry._default = "native"
+            registry.register(native, default=True)
 
-    return create_memory_module(
+    return await create_memory_module(
         session_factory=session_factory,
         gateway_service=gateway_service,
         embedding_provider=embedding_prov,

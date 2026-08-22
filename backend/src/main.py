@@ -60,7 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             retrieval = build_retrieval_service(settings, gateway)
             app.state.retrieval_service = retrieval
 
-        app.state.memory_module = build_memory_module(sf, gateway, retrieval)
+        app.state.memory_module = await build_memory_module(sf, gateway, retrieval)
 
         # ── 文档队列（web 只 enqueue，消费在 worker 进程）──
         if settings.redis_enabled and retrieval is not None:

@@ -26,6 +26,13 @@ BUILTIN_METRICS = {
     "context_relevance": ContextRelevanceMetric,
 }
 
+# 用户常用名 → RAGAS 实际 metric 名映射
+METRIC_NAME_MAP = {
+    "answer_relevance": "answer_relevancy",      # RAGAS 用这个名字
+    "context_relevance": "context_precision",     # RAGAS 用这个名字
+    "faithfulness": "faithfulness",               # 一致
+}
+
 
 class EvaluationRunner:
     """执行评估运行。
@@ -112,10 +119,8 @@ class EvaluationRunner:
             start = time.monotonic()
             try:
                 metric_names = self._resolve_metric_names(config)
-                result = await provider.evaluate(cases, metric_names, config)
-                # 将聚合结果拆分为 per-case 列表（保持 API 兼容）
-                # 如果 provider 返回了 per-case 信息则使用，否则返回聚合结果
-                return [result]
+                # provider.evaluate() 返回 per-case 结果列表
+                return await provider.evaluate(cases, metric_names, config)
             except Exception as e:
                 return [EvalRunResult(
                     error_message=str(e),
@@ -142,7 +147,8 @@ class EvaluationRunner:
     ) -> EvalRunResult:
         """通过 EvalProvider 评估单个用例。"""
         metric_names = self._resolve_metric_names(config)
-        result = await provider.evaluate([case], metric_names, config)
+        results = await provider.evaluate([case], metric_names, config)
+        result = results[0] if results else EvalRunResult(case_id=case.id)
         result.case_id = case.id
         return result
 
@@ -184,9 +190,11 @@ class EvaluationRunner:
 
     @staticmethod
     def _resolve_metric_names(config: EvalRunConfig) -> list[str]:
-        """从配置中提取 metric 名称列表。"""
+        """从配置中提取 metric 名称列表，并映射为 provider 使用的标准名。"""
         names = [mc.get("name", "") for mc in config.metric_configs if mc.get("name")]
-        return names or list(BUILTIN_METRICS.keys())
+        if not names:
+            names = list(BUILTIN_METRICS.keys())
+        return [METRIC_NAME_MAP.get(m, m) for m in names]
 
     @staticmethod
     def _resolve_legacy_metrics(config: EvalRunConfig) -> list:

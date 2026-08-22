@@ -8,6 +8,7 @@ Mem0 内置记忆提取、去重、合并，因此 extractor 为 no-op。
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any
@@ -46,6 +47,10 @@ class Mem0MemoryProvider:
         self._config = config or {}
         self._api_key = api_key
         self._client = None  # 延迟初始化
+        # 缓存 store / extractor 实例，避免重复创建
+        # Mem0StoreAdapter 内部维护 ID 映射，必须复用同一实例
+        self._store = Mem0StoreAdapter(self)
+        self._extractor = _Mem0NoOpExtractor()
 
     async def initialize(self) -> None:
         """延迟初始化 Mem0 客户端。"""
@@ -54,25 +59,27 @@ class Mem0MemoryProvider:
 
         try:
             from mem0 import Memory
-
-            if self._api_key:
-                import os
-                os.environ.setdefault("OPENAI_API_KEY", self._api_key)
-
-            self._client = Memory.from_config(self._config)
-            logger.info("Mem0 provider initialized")
         except ImportError:
             raise ImportError(
                 "mem0ai is required for Mem0MemoryProvider. "
                 "Install it with: pip install mem0ai"
             )
 
+        # 通过 config dict 传递 api_key，避免污染全局环境变量
+        init_config = dict(self._config)
+        if self._api_key:
+            init_config.setdefault("api_key", self._api_key)
+
+        self._client = await asyncio.to_thread(Memory.from_config, init_config)
+        logger.info("Mem0 provider initialized")
+
     def get_store(self) -> MemoryStore:
-        return Mem0StoreAdapter(self)
+        """返回缓存的 store 适配器（内部维护 ID 映射，必须复用）。"""
+        return self._store
 
     def get_extractor(self) -> MemoryExtractor:
         """Mem0 自动提取记忆，extractor 为 no-op。"""
-        return _Mem0NoOpExtractor()
+        return self._extractor
 
     def get_embedding_provider(self) -> Any | None:
         """Mem0 内置 embedding，不需要外部 provider。"""
@@ -89,19 +96,49 @@ class Mem0MemoryProvider:
 class Mem0StoreAdapter:
     """将 Mem0 SDK 适配为 MemoryStore 协议。
 
+    Mem0 使用 UUID 标识记忆，我们的 MemoryStore 使用 int ID。
+    本适配器维护 int ↔ UUID 双向映射，保证 save→get→delete 链路正确。
+
     Mem0 使用 user_id 隔离记忆，与我们的 user_id 字段直接对应。
     记忆类型通过 metadata.memory_type 存储。
     """
 
     def __init__(self, provider: Mem0MemoryProvider) -> None:
         self._provider = provider
+        # int_id ↔ mem0_uuid 双向映射
+        self._id_map: dict[int, str] = {}       # int_id -> mem0_uuid
+        self._reverse_map: dict[str, int] = {}   # mem0_uuid -> int_id
+        self._counter = 0
+
+    def _to_int_id(self, mem0_uuid: str) -> int:
+        """将 Mem0 UUID 映射为 int ID（幂等：相同 UUID 返回相同 int）。"""
+        if mem0_uuid in self._reverse_map:
+            return self._reverse_map[mem0_uuid]
+        self._counter += 1
+        int_id = self._counter
+        self._id_map[int_id] = mem0_uuid
+        self._reverse_map[mem0_uuid] = int_id
+        return int_id
+
+    def _to_mem0_id(self, int_id: int) -> str | None:
+        """将 int ID 映射回 Mem0 UUID。"""
+        return self._id_map.get(int_id)
 
     async def _ensure_client(self):
         await self._provider.initialize()
         return self._provider._client
 
-    def _mem0_to_record(self, mem: dict) -> MemoryRecord:
-        """将 Mem0 记忆转为 MemoryRecord。"""
+    def _mem0_to_record(self, mem: dict, int_id: int = 0) -> MemoryRecord:
+        """将 Mem0 记忆转为 MemoryRecord。
+
+        Args:
+            mem: Mem0 返回的记忆字典。
+            int_id: 已映射的 int ID。为 0 时从 mem["id"] 映射。
+        """
+        if int_id == 0:
+            mem0_uuid = mem.get("id", "")
+            int_id = self._to_int_id(mem0_uuid) if mem0_uuid else 0
+
         metadata = mem.get("metadata", {}) or {}
         memory_type_str = metadata.get("memory_type", "semantic")
         try:
@@ -117,7 +154,7 @@ class Mem0StoreAdapter:
             updated_at = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
 
         return MemoryRecord(
-            id=0,  # Mem0 使用 UUID，这里用 0 占位
+            id=int_id,
             user_id=mem.get("user_id", ""),
             session_id=metadata.get("session_id"),
             memory_type=memory_type,
@@ -143,7 +180,8 @@ class Mem0StoreAdapter:
             "session_id": record.session_id or "",
             "source_turn_ids": record.source_turn_ids_json,
         }
-        result = client.add(
+        result = await asyncio.to_thread(
+            client.add,
             messages,
             user_id=record.user_id,
             metadata=metadata,
@@ -151,7 +189,8 @@ class Mem0StoreAdapter:
         # Mem0 返回 [{"id": "...", "memory": "...", ...}]
         if result and isinstance(result, list) and len(result) > 0:
             mem = result[0]
-            record.id = hash(mem.get("id", "")) % (2**31)
+            mem0_id = mem.get("id", "")
+            record.id = self._to_int_id(mem0_id)
         return record
 
     async def save_batch(self, records: list[MemoryRecord]) -> list[MemoryRecord]:
@@ -161,18 +200,32 @@ class Mem0StoreAdapter:
         return results
 
     async def get(self, memory_id: int) -> MemoryRecord | None:
+        mem0_id = self._to_mem0_id(memory_id)
+        if not mem0_id:
+            return None
         client = await self._ensure_client()
         try:
-            mem = client.get(str(memory_id))
+            mem = await asyncio.to_thread(client.get, mem0_id)
             if mem:
-                return self._mem0_to_record(mem)
+                return self._mem0_to_record(mem, int_id=memory_id)
         except Exception:
             pass
         return None
 
-    async def search(self, query: MemoryQuery, embedding: list[float]) -> list[MemoryRecord]:
+    async def search(
+        self,
+        query: MemoryQuery,
+        embedding: list[float],
+    ) -> list[MemoryRecord]:
+        """检索记忆。
+
+        Note:
+            ``embedding`` 参数为 MemoryStore Protocol 兼容保留，
+            Mem0 内部自行处理 embedding，此参数被忽略。
+        """
         client = await self._ensure_client()
-        results = client.search(
+        results = await asyncio.to_thread(
+            client.search,
             query.query,
             user_id=query.user_id,
             limit=query.top_k,
@@ -194,9 +247,15 @@ class Mem0StoreAdapter:
         return await self.delete(memory_id)
 
     async def delete(self, memory_id: int) -> bool:
+        mem0_id = self._to_mem0_id(memory_id)
+        if not mem0_id:
+            return False
         client = await self._ensure_client()
         try:
-            client.delete(str(memory_id))
+            await asyncio.to_thread(client.delete, mem0_id)
+            # 清理映射
+            self._id_map.pop(memory_id, None)
+            self._reverse_map.pop(mem0_id, None)
             return True
         except Exception:
             return False
@@ -209,7 +268,7 @@ class Mem0StoreAdapter:
         page_size: int = 20,
     ) -> tuple[list[MemoryRecord], int]:
         client = await self._ensure_client()
-        all_mems = client.get_all(user_id=user_id)
+        all_mems = await asyncio.to_thread(client.get_all, user_id=user_id)
         if not all_mems:
             return [], 0
 
@@ -228,7 +287,7 @@ class Mem0StoreAdapter:
 
     async def count_by_type(self, user_id: str) -> dict[str, int]:
         client = await self._ensure_client()
-        all_mems = client.get_all(user_id=user_id)
+        all_mems = await asyncio.to_thread(client.get_all, user_id=user_id)
         if not all_mems:
             return {}
 

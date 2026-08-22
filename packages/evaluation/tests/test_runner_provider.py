@@ -29,14 +29,18 @@ class _StubProvider:
         return ["faithfulness", "answer_relevancy"]
 
     async def evaluate(self, cases, metrics, config):
-        metric_results = [
-            EvalMetricResult(metric_name=m, score=self._score)
-            for m in metrics
-        ]
-        return EvalRunResult(
-            metric_results=metric_results,
-            overall_score=self._score,
-        )
+        results = []
+        for case in cases:
+            metric_results = [
+                EvalMetricResult(metric_name=m, score=self._score)
+                for m in metrics
+            ]
+            results.append(EvalRunResult(
+                case_id=case.id,
+                metric_results=metric_results,
+                overall_score=self._score,
+            ))
+        return results
 
 
 @pytest.fixture
@@ -94,8 +98,10 @@ class TestRunnerProviderMode:
         runner = EvaluationRunner(provider_registry=reg)
         results = await runner.run_batch(cases, sample_config)
 
-        assert len(results) >= 1
+        # provider.evaluate() 返回 per-case 结果列表
+        assert len(results) == 2
         assert results[0].overall_score == 0.9
+        assert results[1].overall_score == 0.9
 
     @pytest.mark.asyncio
     async def test_provider_error_returns_error_result(self, sample_case, sample_config):
@@ -158,11 +164,19 @@ class TestResolveMetricNames:
     def test_from_config(self):
         config = EvalRunConfig(metric_configs=[{"name": "faithfulness"}, {"name": "context_precision"}])
         names = EvaluationRunner._resolve_metric_names(config)
+        # context_precision 映射到 context_precision（已是 RAGAS 名）
         assert names == ["faithfulness", "context_precision"]
+
+    def test_metric_name_mapping(self):
+        """用户常用名应映射为 RAGAS 标准名。"""
+        config = EvalRunConfig(metric_configs=[{"name": "answer_relevance"}, {"name": "context_relevance"}])
+        names = EvaluationRunner._resolve_metric_names(config)
+        assert names == ["answer_relevancy", "context_precision"]
 
     def test_fallback_to_builtin(self):
         config = EvalRunConfig(metric_configs=[])
         names = EvaluationRunner._resolve_metric_names(config)
-        assert "answer_relevance" in names
+        # BUILTIN_METRICS 的 key 经过映射
+        assert "answer_relevancy" in names
         assert "faithfulness" in names
-        assert "context_relevance" in names
+        assert "context_precision" in names

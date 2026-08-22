@@ -48,6 +48,6 @@ class EvalProvider(Protocol):
         cases: list[EvalCase],
         metrics: list[str],
         config: EvalRunConfig,
-    ) -> EvalRunResult:
-        """批量评估：对每个 case 执行指定 metrics，聚合返回结果。"""
+    ) -> list[EvalRunResult]:
+        """批量评估：对每个 case 执行指定 metrics，返回 per-case 结果列表。"""
         ...

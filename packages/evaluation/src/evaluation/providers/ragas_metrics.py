@@ -2,11 +2,28 @@
 
 提供 faithfulness、answer_relevancy、context_relevance 的中文 rubric 版本，
 用于中文问答场景下的 LLM-as-Judge 评估。
+
+依赖：pip install agentlabkit-evaluation[ragas]
 """
 
 from __future__ import annotations
 
 from typing import Any
+
+try:
+    from ragas.metrics import DiscreteMetric, RubricsScore
+except ImportError:
+    DiscreteMetric = None  # type: ignore[assignment,misc]
+    RubricsScore = None  # type: ignore[assignment,misc]
+
+
+def _check_ragas():
+    """检查 RAGAS 是否已安装。"""
+    if DiscreteMetric is None:
+        raise ImportError(
+            "RAGAS metrics require the 'ragas' package. "
+            "Install with: pip install agentlabkit-evaluation[ragas]"
+        )
 
 
 def create_faithfulness_cn(llm: Any | None = None) -> Any:
@@ -14,7 +31,7 @@ def create_faithfulness_cn(llm: Any | None = None) -> Any:
 
     评估回答是否忠实于给定的上下文。
     """
-    from ragas.metrics import DiscreteMetric
+    _check_ragas()
 
     return DiscreteMetric(
         name="faithfulness_cn",
@@ -33,31 +50,31 @@ def create_faithfulness_cn(llm: Any | None = None) -> Any:
 
 
 def create_answer_relevancy_cn(llm: Any | None = None) -> Any:
-    """中文答案相关性指标（数值评分 1-5）。
+    """中文答案相关性指标（数值评分 0-1）。
 
     评估回答与问题的相关性和完整性。
     """
-    from ragas.metrics import RubricsScore
+    _check_ragas()
 
     return RubricsScore(
         name="answer_relevancy_cn",
         rubrics={
-            "5": "回答完全针对问题，内容准确、完整、有条理",
-            "4": "回答基本针对问题，内容准确但可能缺少部分细节",
-            "3": "回答与问题相关，但有明显的信息缺失或偏差",
-            "2": "回答与问题部分相关，包含较多无关或错误内容",
-            "1": "回答与问题无关，或完全错误",
+            "1.0": "回答与问题高度相关，完全解答了问题",
+            "0.75": "回答与问题大部分相关，基本解答了问题",
+            "0.5": "回答与问题部分相关，但有明显遗漏",
+            "0.25": "回答与问题关联度低，未有效解答",
+            "0.0": "回答与问题无关",
         },
         llm=llm,
     )
 
 
-def create_context_relevance_cn(llm: Any | None = None) -> None:
+def create_context_relevance_cn(llm: Any | None = None) -> Any:
     """中文上下文相关性指标（离散值: relevant / partial / irrelevant）。
 
     评估 RAG 检索到的上下文与问题的相关性。
     """
-    from ragas.metrics import DiscreteMetric
+    _check_ragas()
 
     return DiscreteMetric(
         name="context_relevance_cn",

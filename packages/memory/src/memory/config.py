@@ -28,7 +28,7 @@ class MemorySettings(BaseSettings):
     """单用户最大记忆条数。"""
 
     consolidation_threshold: int = Field(default=50, ge=10, le=10000)
-    """触发整合的 episodoc 记忆阈值。"""
+    """触发整合的 episodic 记忆阈值。"""
 
     retrieval_top_k: int = Field(default=5, ge=1, le=100)
     """每次检索返回的最大记忆数。"""

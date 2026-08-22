@@ -11,6 +11,7 @@ from typing import Any
 from ..store import MemoryStore, PostgresMemoryStore
 from ..extractor import MemoryExtractor, GatewayMemoryExtractor
 from .base import MemoryProvider
+from ._common import DummyExtractor
 
 
 class NativeMemoryProvider:
@@ -47,7 +48,7 @@ class NativeMemoryProvider:
                 model_key=extraction_model,
             )
         else:
-            self._extractor = _DummyExtractor()
+            self._extractor = DummyExtractor()
 
         self._embedding_provider = embedding_provider
 
@@ -71,16 +72,3 @@ class NativeMemoryProvider:
             return True
         except Exception:
             return False
-
-
-class _DummyExtractor:
-    """当没有 gateway 时的 fallback extractor。"""
-
-    async def extract_episodic(self, messages: list) -> list[str]:
-        return []
-
-    async def extract_semantic(self, messages: list) -> list[str]:
-        return []
-
-    async def extract_procedural(self, messages: list) -> list[str]:
-        return []

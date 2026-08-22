@@ -14,6 +14,9 @@ from typing import Any
 from ..contracts import EvalCase, EvalMetricResult, EvalRunConfig, EvalRunResult
 from .base import EvalMetric, EvalProvider
 
+# RAGAS 是 optional dependency — 顶层不导入，延迟到函数内部
+# 未安装时 import 会在调用点抛出清晰的 ImportError
+
 logger = logging.getLogger(__name__)
 
 # ── 默认 metric 注册表 ────────────────────────────────────────────────
@@ -34,39 +37,26 @@ class _RAGASMetricAdapter:
 
     name: str
     _ragas_metric: Any = field(repr=False)
+    _llm: Any = field(repr=False, default=None)
     provider: str = "ragas"
 
     async def score(self, case: EvalCase) -> float:
-        raise NotImplementedError("Use evaluate() on the provider instead")
+        """单个 case 评分 — 构造最小 dataset 调用 RAGAS。"""
+        from ragas import EvaluationDataset, evaluate
 
-
-# ── EvalRunResult 聚合辅助 ────────────────────────────────────────────
-
-
-def _aggregate_results(per_case_results: list[EvalRunResult]) -> EvalRunResult:
-    """将多个 per-case 结果聚合为单一 EvalRunResult。"""
-    if not per_case_results:
-        return EvalRunResult()
-
-    all_metric_results: list[EvalMetricResult] = []
-    total_score = 0.0
-    total_duration = 0
-    errors: list[str] = []
-
-    for r in per_case_results:
-        all_metric_results.extend(r.metric_results)
-        total_score += r.overall_score
-        total_duration += r.duration_ms
-        if r.error_message:
-            errors.append(r.error_message)
-
-    n = len(per_case_results)
-    return EvalRunResult(
-        metric_results=all_metric_results,
-        overall_score=round(total_score / n, 4) if n else 0.0,
-        duration_ms=total_duration,
-        error_message="; ".join(errors) if errors else None,
-    )
+        dataset = EvaluationDataset.from_list([{
+            "user_input": case.input_text,
+            "retrieved_contexts": case.context or [],
+            "response": case.expected_output or "",
+            "reference": case.expected_output or "",
+        }])
+        result = await asyncio.to_thread(
+            evaluate,
+            dataset=dataset,
+            metrics=[self._ragas_metric],
+            llm=self._llm,
+        )
+        return float(result[self.name][0])
 
 
 # ── RAGAS LLM 构建桥接 ───────────────────────────────────────────────
@@ -177,7 +167,7 @@ class RAGASEvalProvider:
         if metric_name not in self._RAGAS_METRIC_NAMES():
             raise KeyError(f"Unknown RAGAS metric: {metric_name!r}")
         ragas_metric = self._resolve_ragas_metric(metric_name)
-        return _RAGASMetricAdapter(name=metric_name, _ragas_metric=ragas_metric)
+        return _RAGASMetricAdapter(name=metric_name, _ragas_metric=ragas_metric, _llm=self._llm)
 
     def list_metrics(self) -> list[str]:
         return list(self._RAGAS_METRIC_NAMES())
@@ -187,8 +177,8 @@ class RAGASEvalProvider:
         cases: list[EvalCase],
         metrics: list[str],
         config: EvalRunConfig,
-    ) -> EvalRunResult:
-        """批量评估 — 将 EvalCase 转换为 RAGAS EvaluationDataset 并执行。"""
+    ) -> list[EvalRunResult]:
+        """批量评估 — 返回 per-case 结果列表，与 legacy 行为一致。"""
         import time as _time
 
         start = _time.monotonic()
@@ -196,19 +186,21 @@ class RAGASEvalProvider:
         try:
             from ragas import EvaluationDataset, evaluate
         except ImportError:
-            return EvalRunResult(
-                error_message="ragas package not installed. pip install ragas>=0.4.3",
+            err = EvalRunResult(
+                error_message="ragas package not installed. pip install agentlabkit-evaluation[ragas]",
                 duration_ms=int((_time.monotonic() - start) * 1000),
             )
+            return [err]
 
         # 确保 LLM 已构建
         try:
             await self._ensure_llm()
         except RuntimeError as e:
-            return EvalRunResult(
+            err = EvalRunResult(
                 error_message=str(e),
                 duration_ms=int((_time.monotonic() - start) * 1000),
             )
+            return [err]
 
         # 解析 metric 实例
         ragas_metrics = []
@@ -221,10 +213,11 @@ class RAGASEvalProvider:
                 logger.warning("Skipping unknown RAGAS metric: %s", name)
 
         if not ragas_metrics:
-            return EvalRunResult(
+            err = EvalRunResult(
                 error_message="No valid metrics resolved",
                 duration_ms=int((_time.monotonic() - start) * 1000),
             )
+            return [err]
 
         # 构建 RAGAS dataset
         dataset_items = []
@@ -250,20 +243,38 @@ class RAGASEvalProvider:
             )
         except Exception as e:
             logger.error("RAGAS evaluate() failed: %s", e, exc_info=True)
-            return EvalRunResult(
+            err = EvalRunResult(
                 error_message=f"RAGAS evaluation failed: {e}",
                 duration_ms=int((_time.monotonic() - start) * 1000),
             )
+            return [err]
 
-        # 解析结果
-        metric_results = self._parse_ragas_result(result, metrics, len(cases))
-        scores = [mr.score for mr in metric_results]
+        # 拆分为 per-case 结果
+        duration = int((_time.monotonic() - start) * 1000)
+        results: list[EvalRunResult] = []
+        for i, case in enumerate(cases):
+            case_scores: list[float] = []
+            case_metric_results: list[EvalMetricResult] = []
+            for metric_name in metrics:
+                score = result.get(metric_name)
+                if score is not None:
+                    # RAGAS 返回 per-row 分数数组或聚合分数
+                    if hasattr(score, '__len__') and not isinstance(score, str):
+                        val = float(score[i]) if i < len(score) else 0.0
+                    else:
+                        val = float(score)
+                    case_metric_results.append(
+                        EvalMetricResult(metric_name=metric_name, score=val, reasoning=None)
+                    )
+                    case_scores.append(val)
 
-        return EvalRunResult(
-            metric_results=metric_results,
-            overall_score=round(sum(scores) / len(scores), 4) if scores else 0.0,
-            duration_ms=int((_time.monotonic() - start) * 1000),
-        )
+            results.append(EvalRunResult(
+                case_id=case.id,
+                metric_results=case_metric_results,
+                overall_score=round(sum(case_scores) / len(case_scores), 4) if case_scores else 0.0,
+                duration_ms=duration,
+            ))
+        return results
 
     # ── 内部方法 ──────────────────────────────────────────────────────
 

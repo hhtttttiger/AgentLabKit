@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from evaluation.contracts import EvalCase, EvalRunConfig
-from evaluation.providers.ragas_provider import RAGASEvalProvider, _aggregate_results
+from evaluation.providers.ragas_provider import RAGASEvalProvider
 
 
 # ── 辅助 fixtures ────────────────────────────────────────────────────
@@ -92,11 +92,11 @@ class TestRAGASEvalProvider:
     async def test_evaluate_success(self, sample_cases, sample_config):
         mock_llm = MagicMock()
 
-        # Mock RAGAS evaluate 返回值
+        # Mock RAGAS evaluate 返回值 — per-case 数组
         mock_result = MagicMock()
         mock_result.get.side_effect = lambda name: {
-            "faithfulness": 0.85,
-            "answer_relevancy": 0.92,
+            "faithfulness": [0.85, 0.80],
+            "answer_relevancy": [0.92, 0.88],
         }.get(name)
 
         mock_eval_fn = MagicMock(return_value=mock_result)
@@ -110,15 +110,18 @@ class TestRAGASEvalProvider:
 
         with patch.dict("sys.modules", {"ragas": ragas_mod}):
             provider = RAGASEvalProvider(llm=mock_llm)
-            result = await provider.evaluate(
+            results = await provider.evaluate(
                 sample_cases,
                 ["faithfulness", "answer_relevancy"],
                 sample_config,
             )
 
-            assert result.error_message is None
-            assert len(result.metric_results) == 2
-            assert result.overall_score > 0
+            # 返回 per-case 结果列表
+            assert len(results) == 2
+            for result in results:
+                assert result.error_message is None
+                assert len(result.metric_results) == 2
+                assert result.overall_score > 0
 
             # 验证 RAGAS evaluate 被调用
             mock_eval_fn.assert_called_once()
@@ -131,13 +134,14 @@ class TestRAGASEvalProvider:
         try:
             with patch.dict("sys.modules", {"ragas": None}):
                 provider = RAGASEvalProvider(llm=MagicMock())
-                result = await provider.evaluate(
+                results = await provider.evaluate(
                     sample_cases,
                     ["faithfulness"],
                     sample_config,
                 )
-                assert result.error_message is not None
-                assert "ragas" in result.error_message.lower()
+                assert len(results) == 1
+                assert results[0].error_message is not None
+                assert "ragas" in results[0].error_message.lower()
         finally:
             if saved is not None:
                 sys.modules["ragas"] = saved
@@ -148,8 +152,9 @@ class TestRAGASEvalProvider:
         ragas_mod = _make_ragas_module()
         with patch.dict("sys.modules", {"ragas": ragas_mod}):
             provider = RAGASEvalProvider(llm=MagicMock())
-            result = await provider.evaluate(sample_cases, [], sample_config)
-            assert result.error_message is not None
+            results = await provider.evaluate(sample_cases, [], sample_config)
+            assert len(results) == 1
+            assert results[0].error_message is not None
 
     @pytest.mark.asyncio
     async def test_evaluate_skips_unknown_metrics(self, sample_cases, sample_config):
@@ -158,7 +163,7 @@ class TestRAGASEvalProvider:
         mock_result = MagicMock()
         # 只有 faithfulness 有分数，未知 metric 返回 None
         mock_result.get.side_effect = lambda name: {
-            "faithfulness": 0.8,
+            "faithfulness": [0.8, 0.7],
         }.get(name)
 
         mock_eval_fn = MagicMock(return_value=mock_result)
@@ -172,14 +177,16 @@ class TestRAGASEvalProvider:
 
         with patch.dict("sys.modules", {"ragas": ragas_mod}):
             provider = RAGASEvalProvider(llm=mock_llm)
-            result = await provider.evaluate(
+            results = await provider.evaluate(
                 sample_cases,
                 ["faithfulness", "unknown_metric_xyz"],
                 sample_config,
             )
             # 只有 faithfulness 被解析（unknown_metric_xyz 被跳过，结果中也没有其分数）
-            assert len(result.metric_results) == 1
-            assert result.metric_results[0].metric_name == "faithfulness"
+            assert len(results) == 2
+            for result in results:
+                assert len(result.metric_results) == 1
+                assert result.metric_results[0].metric_name == "faithfulness"
 
     @pytest.mark.asyncio
     async def test_evaluate_ragas_exception(self, sample_cases, sample_config):
@@ -195,47 +202,11 @@ class TestRAGASEvalProvider:
 
         with patch.dict("sys.modules", {"ragas": ragas_mod}):
             provider = RAGASEvalProvider(llm=MagicMock())
-            result = await provider.evaluate(
+            results = await provider.evaluate(
                 sample_cases,
                 ["faithfulness"],
                 sample_config,
             )
-            assert result.error_message is not None
-            assert "RAGAS internal error" in result.error_message
-
-
-# ── _aggregate_results 测试 ─────────────────────────────────────────
-
-
-class TestAggregateResults:
-    def test_aggregate_empty(self):
-        from evaluation.contracts import EvalRunResult
-        result = _aggregate_results([])
-        assert result.overall_score == 0.0
-
-    def test_aggregate_single(self):
-        from evaluation.contracts import EvalMetricResult, EvalRunResult
-        r = EvalRunResult(
-            metric_results=[EvalMetricResult(metric_name="a", score=0.8)],
-            overall_score=0.8,
-            duration_ms=100,
-        )
-        result = _aggregate_results([r])
-        assert result.overall_score == 0.8
-        assert result.duration_ms == 100
-
-    def test_aggregate_multiple(self):
-        from evaluation.contracts import EvalMetricResult, EvalRunResult
-        r1 = EvalRunResult(overall_score=0.8, duration_ms=100)
-        r2 = EvalRunResult(overall_score=0.6, duration_ms=200)
-        result = _aggregate_results([r1, r2])
-        assert result.overall_score == 0.7
-        assert result.duration_ms == 300
-
-    def test_aggregate_with_errors(self):
-        from evaluation.contracts import EvalRunResult
-        r1 = EvalRunResult(overall_score=0.0, error_message="fail1")
-        r2 = EvalRunResult(overall_score=0.0, error_message="fail2")
-        result = _aggregate_results([r1, r2])
-        assert "fail1" in result.error_message
-        assert "fail2" in result.error_message
+            assert len(results) == 1
+            assert results[0].error_message is not None
+            assert "RAGAS internal error" in results[0].error_message
