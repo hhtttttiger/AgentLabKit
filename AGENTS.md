@@ -139,8 +139,8 @@ docker compose up --build
 | 模块 | 文档 | 一句话描述 |
 |------|------|-----------|
 | **cost_analysis** | [`packages/cost_analysis/AGENTS.md`](packages/cost_analysis/AGENTS.md) | LLM 用量成本聚合 + 预算/告警 |
-| **evaluation** | [`packages/evaluation/AGENTS.md`](packages/evaluation/AGENTS.md) | 评估框架：数据集、指标、LLM-as-Judge |
-| **memory** | [`packages/memory/AGENTS.md`](packages/memory/AGENTS.md) | 跨会话长期记忆（pgvector）≠ agent_runtime/memory |
+| **evaluation** | [`packages/evaluation/AGENTS.md`](packages/evaluation/AGENTS.md) | 评估框架：Provider 抽象层（RAGAS v0.4.3）、数据集、LLM-as-Judge |
+| **memory** | [`packages/memory/AGENTS.md`](packages/memory/AGENTS.md) | 跨会话长期记忆（pgvector），支持 Mem0/Native provider 切换 ≠ agent_runtime/memory |
 | **observability** | [`packages/observability/AGENTS.md`](packages/observability/AGENTS.md) | 分布式链路追踪（EventBus → Span/Trace） |
 
 ### 应用层

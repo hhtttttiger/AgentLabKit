@@ -88,7 +88,8 @@ AgentLabKit 采用分层架构，严格遵循单向依赖：
 | `llm_gateway` | 切换到新的 LLM Provider，或接入内部模型平台 |
 | `retrieval` | 从 pgvector 迁移到 Milvus / Qdrant / Elasticsearch |
 | `agent_runtime` | 替换编排策略，或接入第三方 Agent 框架 |
-| `memory` | 换成更复杂的记忆管理方案（如 MemGPT） |
+| `evaluation` | 切换评估 Provider（RAGAS → DeepEval 等），通过 ProviderRegistry 注册 |
+| `memory` | 切换到 Mem0 / Zep 等成熟记忆方案（已支持 Mem0 provider） |
 | `observability` | 从 EventBus 切换到 OpenTelemetry 采集器 |
 
 ### 🐚 Web 层只是壳
@@ -438,13 +439,13 @@ async for event in engine.stream_workflow(workflow, user_input, context):
 ### 平台能力层
 
 #### `memory` — 长期记忆
-跨会话 episodic/semantic 记忆提取、注入、合并（pgvector）。
+跨会话 episodic/semantic 记忆提取、注入、合并（pgvector）。支持 Mem0/Native provider 切换。
 
 #### `observability` — 可观测性
 EventBus 驱动的分布式链路追踪（Span/Trace）。
 
 #### `evaluation` — 评估框架
-数据集管理、LLM-as-Judge 质量评估、可插拔指标。
+数据集管理、LLM-as-Judge 质量评估、可插拔指标。Provider 抽象层支持 RAGAS v0.4.3（30+ metric），后端启动时自动注册，gateway 不可用时降级到 legacy Judge 模式。
 
 #### `cost_analysis` — 成本分析
 按模型/Agent/时间段聚合 token 用量和成本。
