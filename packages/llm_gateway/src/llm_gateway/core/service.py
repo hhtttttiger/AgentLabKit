@@ -778,6 +778,26 @@ class GatewayService:
             **_pricing_from_route(route),
         )
 
+    async def resolve_provider_config(
+        self,
+        model_key: str | None = None,
+        *,
+        capability: Capability = Capability.TEXT,
+    ) -> RuntimeProviderConfig:
+        """解析模型的运行时 provider 配置。
+
+        供需要原生 SDK client 的场景使用（如 RAGAS llm_factory 桥接）。
+
+        Args:
+            model_key: 模型标识，None 时使用默认 binding。
+            capability: 能力类型，默认 TEXT。
+
+        Returns:
+            RuntimeProviderConfig（api_key / base_url / provider 等）。
+        """
+        route = await self._resolve_route(capability, model_key, None)
+        return route.runtime_config
+
     def providers(self) -> ProviderSummary:
         return ProviderSummary(providers=self.registry.list_provider_capabilities())
 

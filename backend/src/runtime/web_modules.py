@@ -42,9 +42,11 @@ def build_evaluation_module(gateway_service: Any | None) -> Any:
     """构造 Evaluation 模块。
 
     gateway_service 为 None 时 judge 回退为 None（评测功能降级但 API 仍可启动）。
+    gateway_service 可用时同时注册 RAGAS provider 作为默认评估后端。
     """
     from evaluation import create_evaluation_module
     from evaluation.config import EvaluationSettings
+    from evaluation.providers.registry import ProviderRegistry
     from modules.evaluation.adapters import GatewayJudge
 
     eval_settings = EvaluationSettings()
@@ -57,10 +59,27 @@ def build_evaluation_module(gateway_service: Any | None) -> Any:
         else None
     )
 
+    # Provider 模式: 注册 RAGAS provider
+    registry = None
+    if gateway_service is not None:
+        try:
+            from evaluation.providers.ragas_provider import RAGASEvalProvider
+
+            registry = ProviderRegistry()
+            ragas_provider = RAGASEvalProvider(
+                model_name=eval_settings.default_judge_model or "gpt-4o",
+                gateway_service=gateway_service,
+            )
+            registry.register(ragas_provider, default=True)
+        except Exception:
+            # ragas 未安装或构建失败时静默降级到 legacy 模式
+            registry = None
+
     return create_evaluation_module(
         judge=judge,
         target_executor=None,  # per-run 动态解析
         settings=eval_settings,
+        provider_registry=registry,
     )
 
 

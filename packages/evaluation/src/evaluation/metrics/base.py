@@ -1,7 +1,13 @@
-"""Metric Protocol + MetricResult。"""
+"""Metric Protocol + MetricResult。
+
+.. deprecated::
+    旧的内置 Metric（AnswerRelevanceMetric、FaithfulnessMetric、ContextRelevanceMetric）
+    已标记为 deprecated，请使用 ``evaluation.providers.ragas_provider.RAGASEvalProvider``。
+"""
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
@@ -30,12 +36,32 @@ class Metric(Protocol):
     ) -> EvalMetricResult: ...
 
 
-# ── 内置指标实现 ────────────────────────────────────────────────────
+# ── 内置指标实现（deprecated） ─────────────────────────────────────────
+
+_DEPRECATED_MSG = (
+    "{cls} is deprecated and will be removed in a future version. "
+    "Use evaluation.providers.ragas_provider.RAGASEvalProvider instead."
+)
+
+
+def _warn_deprecated(cls_name: str) -> None:
+    warnings.warn(
+        _DEPRECATED_MSG.format(cls=cls_name),
+        DeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class AnswerRelevanceMetric:
-    """答案相关性 — 输入与输出的语义相关性。"""
+    """答案相关性 — 输入与输出的语义相关性。
+
+    .. deprecated:: 使用 RAGAS ``AnswerRelevancy`` metric 替代。
+    """
+
     name = "answer_relevance"
+
+    def __init__(self) -> None:
+        _warn_deprecated("AnswerRelevanceMetric")
 
     async def evaluate(
         self,
@@ -64,8 +90,15 @@ class AnswerRelevanceMetric:
 
 
 class FaithfulnessMetric:
-    """忠实度 — 输出是否忠于上下文。"""
+    """忠实度 — 输出是否忠于上下文。
+
+    .. deprecated:: 使用 RAGAS ``Faithfulness`` metric 替代。
+    """
+
     name = "faithfulness"
+
+    def __init__(self) -> None:
+        _warn_deprecated("FaithfulnessMetric")
 
     async def evaluate(
         self,
@@ -94,8 +127,15 @@ class FaithfulnessMetric:
 
 
 class ContextRelevanceMetric:
-    """上下文相关性 — RAG 检索的上下文与问题的相关性。"""
+    """上下文相关性 — RAG 检索的上下文与问题的相关性。
+
+    .. deprecated:: 使用 RAGAS ``ContextPrecision`` metric 替代。
+    """
+
     name = "context_relevance"
+
+    def __init__(self) -> None:
+        _warn_deprecated("ContextRelevanceMetric")
 
     async def evaluate(
         self,
