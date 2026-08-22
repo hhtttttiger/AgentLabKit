@@ -26,17 +26,19 @@ class MemoryModule:
 
 def create_memory_module(
     *,
-    session_factory,
+    session_factory=None,
     gateway_service=None,
     embedding_provider=None,
     settings: MemorySettings | None = None,
+    provider_registry: Any | None = None,
+    provider_name: str | None = None,
 ) -> MemoryModule:
     """工厂函数：创建 MemoryModule 实例。
 
     Parameters
     ----------
     session_factory:
-        async_sessionmaker 实例。
+        async_sessionmaker 实例（provider 模式下可选）。
     gateway_service:
         GatewayService 实例，用于记忆提取 LLM 调用。
     embedding_provider:
@@ -44,18 +46,33 @@ def create_memory_module(
         为 None 时使用 _NullEmbeddingProvider 占位（向量搜索返回空）。
     settings:
         可选配置。
+    provider_registry:
+        MemoryProviderRegistry 实例。传入时使用 provider 模式。
+    provider_name:
+        要使用的 provider 名称。为 None 时使用默认 provider。
     """
     settings = settings or MemorySettings()
-    store = PostgresMemoryStore(session_factory)
 
-    extractor: MemoryExtractor
-    if gateway_service is not None:
-        extractor = GatewayMemoryExtractor(
-            gateway_service=gateway_service,
-            model_key=settings.extraction_model,
-        )
+    # Provider 模式：从 registry 获取组件
+    if provider_registry is not None:
+        provider = provider_registry.get(provider_name or settings.provider)
+        store = provider.get_store()
+        extractor = provider.get_extractor()
+        prov_embedding = provider.get_embedding_provider()
+        if prov_embedding is not None:
+            embedding_provider = prov_embedding
     else:
-        extractor = _DummyExtractor()
+        # Legacy 模式：直接构建组件
+        store = PostgresMemoryStore(session_factory)
+
+        extractor: MemoryExtractor
+        if gateway_service is not None:
+            extractor = GatewayMemoryExtractor(
+                gateway_service=gateway_service,
+                model_key=settings.extraction_model,
+            )
+        else:
+            extractor = _DummyExtractor()
 
     if embedding_provider is None:
         embedding_provider = _NullEmbeddingProvider()

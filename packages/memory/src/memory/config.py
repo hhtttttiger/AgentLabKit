@@ -15,6 +15,9 @@ class MemorySettings(BaseSettings):
     enabled: bool = True
     """是否启用长期记忆（始终初始化，与其他模块保持一致）。"""
 
+    provider: str = "mem0"
+    """记忆 provider 后端。可选: native | mem0"""
+
     extraction_model: str = ""
     """用于记忆提取的 LLM 模型 binding key。留空则使用默认。"""
 
@@ -32,3 +35,7 @@ class MemorySettings(BaseSettings):
 
     relevance_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
     """记忆检索最低相关度阈值。"""
+
+    # Mem0 专用配置
+    mem0_config_path: str = ""
+    """Mem0 配置文件路径（JSON）。留空使用默认配置。"""

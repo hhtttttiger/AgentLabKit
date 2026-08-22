@@ -7,6 +7,7 @@ from .retrieval import MemoryRetriever
 from .injector import MemoryInjector
 from .consolidator import MemoryConsolidator
 from .module import MemoryModule, create_memory_module
+from .providers import MemoryProvider, MemoryProviderRegistry
 
 __all__ = [
     "MemoryModule",
@@ -21,4 +22,6 @@ __all__ = [
     "MemoryType",
     "MemoryRecord",
     "MemoryQuery",
+    "MemoryProvider",
+    "MemoryProviderRegistry",
 ]
