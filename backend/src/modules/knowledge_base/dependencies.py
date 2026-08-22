@@ -20,7 +20,8 @@ def get_kb_service(db: DbSession):
 def get_document_service(db: DbSession, request: Request):
     from .services.document_service import DocumentService
     queue = getattr(request.app.state, "doc_queue", None)
-    return DocumentService(db, retrieval_service=_get_retrieval_service(request), queue=queue)
+    file_storage = getattr(request.app.state, "file_storage", None)
+    return DocumentService(db, retrieval_service=_get_retrieval_service(request), queue=queue, file_storage=file_storage)
 
 
 def get_search_service(db: DbSession, request: Request):

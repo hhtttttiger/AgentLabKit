@@ -40,14 +40,16 @@ if __name__.startswith("backend.") or True:
     from typing import TYPE_CHECKING
     if TYPE_CHECKING:
         from ..retrieval_service import KnowledgeRetrievalService
+        from retrieval.providers.file_storage import BaseFileStorage
 
 
 class DocumentService:
 
-    def __init__(self, db: AsyncSession, retrieval_service=None, queue=None):
+    def __init__(self, db: AsyncSession, retrieval_service=None, queue=None, file_storage=None):
         self._db = db
         self._retrieval = retrieval_service
         self._queue = queue
+        self._file_storage = file_storage
 
     # ── Document CRUD ──────────────────────────────────────────────
 
@@ -163,6 +165,15 @@ class DocumentService:
         folder_id: int | None,
         background_tasks=None,
     ) -> KbDocumentView:
+        # 持久化原始文件到存储后端
+        stored_file_id = None
+        if self._file_storage is not None:
+            try:
+                stored_file_id = await self._file_storage.store(file_name, file_content, content_type)
+            except Exception as exc:
+                logger.error(f"Failed to store file '{file_name}': {exc}")
+                raise
+
         doc = await create_entity(
             self._db,
             KnowledgeDocument,
@@ -173,12 +184,23 @@ class DocumentService:
             source_uri=file_name,
             content_type=content_type,
             file_size=file_size,
+            stored_file_id=stored_file_id,
             status=IngestStatus.PENDING,
         )
-        await self._db.commit()
+
+        try:
+            await self._db.commit()
+        except Exception:
+            # DB commit 失败 — 清理已存储的文件（防孤儿文件）
+            if stored_file_id and self._file_storage is not None:
+                try:
+                    await self._file_storage.delete(stored_file_id)
+                except Exception as cleanup_exc:
+                    logger.warning(f"Failed to cleanup file {stored_file_id} after DB failure: {cleanup_exc}")
+            raise
 
         if self._retrieval is not None and background_tasks is not None:
-            self._trigger_processing(background_tasks, kb_id, doc.id, file_content, file_name, content_type or "")
+            self._trigger_processing(background_tasks, kb_id, doc.id, file_content, file_name, content_type or "", stored_file_id=stored_file_id)
 
         return self._to_doc_view(doc)
 
@@ -212,31 +234,76 @@ class DocumentService:
 
         return self._to_doc_view(doc)
 
-    async def update_qa(self, kb_id: int, doc_id: int, req: QaUpdateRequest) -> KbDocumentView:
+    async def update_qa(self, kb_id: int, doc_id: int, req: QaUpdateRequest, background_tasks=None) -> KbDocumentView:
         doc = await self._get_doc(kb_id, doc_id)
         if doc.source_type != "qa":
             raise ValueError("Only QA documents can be updated via this endpoint")
         if req.question is not None:
             doc.qa_question = req.question
             doc.title = req.question[:200]
-        if req.answer is not None:
+
+        answer_changed = False
+        if req.answer is not None and req.answer != doc.content:
             doc.content = req.answer
+            answer_changed = True
+
         await self._db.commit()
+
+        # 答案变更时触发重建索引（向量需要同步更新）
+        if answer_changed and self._retrieval is not None and background_tasks is not None and doc.content:
+            self._trigger_processing(
+                background_tasks, kb_id, doc_id,
+                doc.content.encode("utf-8"),
+                f"{doc.qa_question[:50] if doc.qa_question else doc_id}.txt",
+                "text/plain",
+            )
+
         return self._to_doc_view(doc)
 
-    async def delete_document(self, kb_id: int, doc_id: int) -> None:
-        """删除文档 — 先调 retrieval 清理向量，FK CASCADE 清理子表。"""
+    async def download_document_file(self, kb_id: int, doc_id: int) -> tuple[bytes, str, str | None]:
+        """下载文档原始文件内容。
+
+        :returns: (content, file_name, content_type)
+        :raises NotFoundError: 文档不存在或文件不可用
+        """
         doc = await self._get_doc(kb_id, doc_id)
 
-        # 委托 retrieval service 清理向量和 segments
+        if self._file_storage is None:
+            raise NotFoundError("FileStorage", "not configured")
+
+        if not doc.stored_file_id:
+            raise NotFoundError("StoredFile", str(doc_id))
+
+        try:
+            content = await self._file_storage.retrieve(doc.stored_file_id)
+        except FileNotFoundError:
+            raise NotFoundError("FileContent", doc.stored_file_id)
+
+        return content, doc.source_uri or f"{doc_id}", doc.content_type
+
+    async def delete_document(self, kb_id: int, doc_id: int) -> None:
+        """删除文档 — 先删 DB 记录，再 best-effort 清理外部资源。"""
+        doc = await self._get_doc(kb_id, doc_id)
+
+        # 记住需要清理的外部资源 ID（DB 删完后就查不到了）
+        stored_file_id = doc.stored_file_id
+
+        # 1. 先删 DB 记录（FK CASCADE 清理 segments/embeddings/recall_stats）
+        await self._db.delete(doc)
+        await self._db.commit()
+
+        # 2. Best-effort 清理外部资源（失败不影响 DB 一致性）
         if self._retrieval is not None:
             try:
                 await self._retrieval.aremove_document(str(kb_id), str(doc_id))
             except Exception as exc:
                 logger.warning(f"Failed to clean retrieval data for doc {doc_id}: {exc}")
 
-        await self._db.delete(doc)
-        await self._db.commit()
+        if self._file_storage is not None and stored_file_id:
+            try:
+                await self._file_storage.delete(stored_file_id)
+            except Exception as exc:
+                logger.warning(f"Failed to delete stored file {stored_file_id}: {exc}")
 
     async def move_document(self, kb_id: int, doc_id: int, target_folder_id: int | None) -> None:
         doc = await self._get_doc(kb_id, doc_id)
@@ -250,6 +317,8 @@ class DocumentService:
     async def reindex_document(self, kb_id: int, doc_id: int, background_tasks=None) -> None:
         """重新索引：重置状态 + 重新触发处理。需要重新读取文件内容。"""
         doc = await self._get_doc(kb_id, doc_id)
+
+        # 原子状态检查 — 防止并发 reindex
         if doc.status not in (IngestStatus.COMPLETED, IngestStatus.FAILED):
             raise ValueError(f"Cannot reindex document in status '{doc.status}'")
 
@@ -265,9 +334,28 @@ class DocumentService:
         doc.ingest_error = None
         await self._db.commit()
 
-        # 重新触发 — 需要 file_bytes，这里用 content 字段作为降级
+        # 重新触发 — 优先从 file_storage 取回原始文件
         if self._retrieval is not None and background_tasks is not None:
-            content_bytes = (doc.content or "").encode("utf-8")
+            content_bytes = None
+
+            # 优先：从 file_storage 取回持久化的原始文件
+            if self._file_storage is not None and doc.stored_file_id:
+                try:
+                    content_bytes = await self._file_storage.retrieve(doc.stored_file_id)
+                except Exception as exc:
+                    logger.warning(f"Failed to retrieve file {doc.stored_file_id}: {exc}")
+
+            # 降级：QA 类型文档使用 content 字段
+            if content_bytes is None:
+                if doc.source_type == "qa" and doc.content:
+                    content_bytes = doc.content.encode("utf-8")
+                else:
+                    logger.error(f"Cannot reindex doc {doc_id}: no file content available")
+                    doc.status = IngestStatus.FAILED
+                    doc.ingest_error = "Original file not available for reindex"
+                    await self._db.commit()
+                    return
+
             self._trigger_processing(
                 background_tasks, kb_id, doc_id,
                 content_bytes,
@@ -373,24 +461,30 @@ class DocumentService:
 
     # ── Internal: processing trigger ───────────────────────────────
 
-    def _trigger_processing(self, background_tasks, kb_id, doc_id, file_bytes, file_name, content_type):
+    def _trigger_processing(self, background_tasks, kb_id, doc_id, file_bytes, file_name, content_type, stored_file_id=None):
         """委托给 processing 模块在后台执行。优先使用队列，降级到 BackgroundTask。"""
         from ..processing import enqueue_document_processing, process_document
         from alkit_db.engine import get_session_factory
 
         if self._queue is not None:
-            # Queue 模式：异步 enqueue，不阻塞当前请求
+            # Queue 模式：优先传 stored_file_id，降级传 file_bytes
             import asyncio
-            asyncio.get_running_loop().create_task(
-                enqueue_document_processing(
-                    self._queue,
-                    kb_id=kb_id,
-                    doc_id=doc_id,
-                    file_bytes=file_bytes,
-                    file_name=file_name,
-                    content_type=content_type,
-                )
-            )
+
+            async def _enqueue():
+                try:
+                    await enqueue_document_processing(
+                        self._queue,
+                        kb_id=kb_id,
+                        doc_id=doc_id,
+                        file_bytes=file_bytes if not stored_file_id else None,
+                        stored_file_id=stored_file_id,
+                        file_name=file_name,
+                        content_type=content_type,
+                    )
+                except Exception as exc:
+                    logger.error(f"Failed to enqueue processing for doc {doc_id}: {exc}")
+
+            asyncio.get_running_loop().create_task(_enqueue())
         else:
             # 降级：直接用 BackgroundTask
             background_tasks.add_task(
