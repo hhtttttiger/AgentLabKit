@@ -14,15 +14,19 @@ backend (main.py lifespan 初始化 + modules/memory HTTP 层)
    │            │ run_turn 后：提取 episodic/semantic → 存库 + 向量化
    ▼
         memory  ← 本包
-  (Store · Extractor · Retriever · Injector · Consolidator)
+  (Provider Registry → Store · Extractor · Retriever · Injector · Consolidator)
    │                        │ (硬依赖, extractor/consolidator 直接 import)
    ▼                        ▼
 agentlabkit-db (memory_records / memory_embeddings, pgvector)   llm_gateway (GatewayProtocol)
+                                   │
+                                   ▼
+                        Mem0 (可选, 自动提取/去重/合并)
 ```
 
-- 被 `backend/src/main.py` 通过 `create_memory_module(session_factory=..., gateway_service=..., embedding_provider=..., settings=...)` 初始化（默认 `enabled=False`），挂到 `app.state.memory_module`。
+- 被 `backend/src/main.py` 通过 `build_memory_module()` 初始化，挂到 `app.state.memory_module`。
+- **Provider 抽象**：支持通过 `LONG_TERM_MEMORY_PROVIDER` 环境变量切换后端（默认 `mem0`，可选 `native`）。
 - HTTP 层在 `backend/src/modules/memory/`。
-- **agent_runtime 集成**：`packages/agent_runtime/src/agent_runtime/runtime/engine.py` 接受 `memory_module` 参数，在 run_turn 前后做检索注入与提取保存（接口就绪；backend 当前未传入）。
+- **agent_runtime 集成**：`packages/agent_runtime/src/agent_runtime/runtime/engine.py` 接受 `memory_module` 参数，在 run_turn 前后做检索注入与提取保存。
 
 ## 目录结构
 
@@ -36,7 +40,13 @@ packages/memory/src/memory/
 ├── retrieval.py         # MemoryRetriever (语义搜索)
 ├── injector.py          # MemoryInjector (记忆注入到对话历史)
 ├── consolidator.py      # MemoryConsolidator (旧记忆合并为摘要)
-└── module.py            # MemoryModule + create_memory_module() 工厂
+├── module.py            # MemoryModule + create_memory_module() 工厂
+└── providers/           # Provider 抽象层
+    ├── __init__.py      # 导出 MemoryProvider, MemoryProviderRegistry
+    ├── base.py          # MemoryProvider Protocol
+    ├── registry.py      # MemoryProviderRegistry (注册/发现/切换)
+    ├── native_provider.py  # NativeMemoryProvider (Postgres + LLM Gateway)
+    └── mem0_provider.py    # Mem0MemoryProvider (Mem0 开源库适配)
 ```
 
 ## 核心接口
@@ -45,6 +55,28 @@ packages/memory/src/memory/
 
 ```python
 class MemoryType(str, Enum):   # EPISODIC="episodic" / SEMANTIC="semantic" / PROCEDURAL="procedural"
+```
+
+### MemoryProvider Protocol (`providers/base.py`)
+
+```python
+@runtime_checkable
+class MemoryProvider(Protocol):
+    name: str
+    def get_store(self) -> MemoryStore: ...
+    def get_extractor(self) -> MemoryExtractor: ...
+    def get_embedding_provider(self) -> Any | None: ...
+    async def initialize(self) -> None: ...
+    async def health_check(self) -> bool: ...
+```
+
+### MemoryProviderRegistry (`providers/registry.py`)
+
+```python
+class MemoryProviderRegistry:
+    def register(self, provider: MemoryProvider, *, default: bool = False) -> None: ...
+    def get(self, name: str | None = None) -> MemoryProvider: ...  # 不传返回默认
+    def list_providers(self) -> list[str]: ...
 ```
 
 ### MemoryStore / PostgresMemoryStore (`store.py`)
@@ -94,28 +126,61 @@ class MemoryQuery:    # user_id, query, memory_types, top_k=5, min_relevance=0.5
 ### 工厂 (`module.py`)
 
 ```python
-def create_memory_module(*, session_factory, gateway_service=None, embedding_provider=None, settings: MemorySettings | None = None) -> MemoryModule
+def create_memory_module(
+    *,
+    session_factory=None,
+    gateway_service=None,
+    embedding_provider=None,
+    settings: MemorySettings | None = None,
+    provider_registry: MemoryProviderRegistry | None = None,
+    provider_name: str | None = None,
+) -> MemoryModule
 ```
 
-注入：`session_factory`→Store；`gateway_service`→GatewayMemoryExtractor（无则用 `_DummyExtractor`）；`embedding_provider`→Retriever；返回含 settings/store/extractor/retriever/injector/consolidator 的 MemoryModule。
+**Provider 模式**（默认）：传入 `provider_registry`，通过 `provider_name` 或 `settings.provider` 选择后端。
+**Legacy 模式**：不传 `provider_registry`，直接用 `session_factory` + `gateway_service` 构建组件（向后兼容）。
 
 ## 配置
 
 | Settings 类 | env 前缀 | 关键字段 | 默认值 |
 |------|------|------|------|
-| `MemorySettings` | `LONG_TERM_MEMORY_` | `enabled`、`extraction_model`、`embedding_model`、`max_memories_per_user`、`consolidation_threshold`、`retrieval_top_k`、`relevance_threshold` | `False`、`""`、`""`、`1000`、`50`、`5`、`0.5` |
+| `MemorySettings` | `LONG_TERM_MEMORY_` | `enabled`、`provider`、`extraction_model`、`embedding_model`、`max_memories_per_user`、`consolidation_threshold`、`retrieval_top_k`、`relevance_threshold`、`mem0_config_path` | `True`、`"mem0"`、`""`、`""`、`1000`、`50`、`5`、`0.5`、`""` |
+
+### Provider 切换
+
+```bash
+# 使用 Mem0（默认，自动提取/去重/合并）
+LONG_TERM_MEMORY_PROVIDER=mem0
+
+# 使用原生 Postgres + LLM Gateway
+LONG_TERM_MEMORY_PROVIDER=native
+
+# Mem0 配置文件（可选，JSON 格式）
+LONG_TERM_MEMORY_MEM0_CONFIG_PATH=/path/to/mem0_config.json
+```
+
+**Native vs Mem0：**
+
+| 特性 | Native | Mem0 |
+|------|--------|------|
+| 记忆提取 | LLM Gateway 手动提取 | Mem0 自动提取 |
+| 去重/合并 | Consolidator 手动合并 | Mem0 内置自动去重 |
+| 存储 | PostgreSQL + pgvector | PostgreSQL + pgvector（可配置） |
+| 多租户 | user_id 字段隔离 | user_id 参数隔离 |
+| 依赖 | 无额外依赖 | `pip install mem0ai` |
 
 ## 依赖
 
 ### 内部
 
 - `agentlabkit-db`（硬依赖）
-- `llm_gateway` — **硬依赖**：`extractor.py` / `consolidator.py` 直接 `import TextGenerateRequest`
+- `llm_gateway` — **硬依赖**（native provider）：`extractor.py` / `consolidator.py` 直接 `import TextGenerateRequest`
 - `agent_runtime` — **可选**：`injector.py` import `AgentMessage/AgentRole` 有 ImportError fallback
 
 ### 外部
 
 - `pydantic`、`pydantic-settings`、`sqlalchemy[asyncio]`
+- `mem0ai` — **可选**（mem0 provider）：`pip install mem0ai`
 
 ## 另见
 
