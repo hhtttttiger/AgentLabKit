@@ -14,6 +14,7 @@ from .contracts_v2 import (
     eval_case_to_dataset_example,
     eval_run_result_to_evaluation_result,
 )
+from .compare import ComparisonResult, ExampleDiff, ChangeType, compare_runs, format_comparison_report
 from .dataset import DatasetManager, DatasetStore, InMemoryDatasetStore, DatasetEvaluationRunner
 from .evaluators import (
     RagasEvaluator,
@@ -62,6 +63,11 @@ __all__ = [
     "DatasetStore",
     "InMemoryDatasetStore",
     "DatasetEvaluationRunner",
+    "ComparisonResult",
+    "ExampleDiff",
+    "ChangeType",
+    "compare_runs",
+    "format_comparison_report",
     "RagasEvaluator",
     "ToolCalledEvaluator",
     "ToolNotCalledEvaluator",
