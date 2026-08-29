@@ -15,12 +15,12 @@ Branch: `refactor/execution-model-v2`
 | 7 | Simplify Evaluator Protocol | — | ✅ done |
 | 8 | Evaluation v2 Main Path | — | ✅ done |
 | 9 | Dataset Regression | — | ✅ done |
-| 10 | Replay Ownership Rewrite | — | ⏳ pending |
-| 11 | Replay→Compare Identity Fix | — | ⏳ pending |
-| 12 | Compare Contract | — | ⏳ pending |
-| 13 | Event Coverage Matrix | — | ⏳ pending |
-| 14 | Dual Emit Hardening | — | ⏳ pending |
-| 15 | Architecture Invariant Tests | — | ⏳ pending |
+| 10 | Replay Ownership Rewrite | — | ✅ done |
+| 11 | Replay→Compare Identity Fix | — | ✅ done |
+| 12 | Compare Contract | — | ✅ done |
+| 13 | Event Coverage Matrix | — | ✅ done |
+| 14 | Dual Emit Hardening | — | ✅ done |
+| 15 | Architecture Invariant Tests | — | ✅ done |
 | 16 | Legacy Migration | — | ⏳ pending |
 | 17 | Code Cleanup | — | ⏳ pending |
 | 18 | Acceptance Demo | — | ⏳ pending |
