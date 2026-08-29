@@ -14,6 +14,7 @@ from .contracts_v2 import (
     eval_case_to_dataset_example,
     eval_run_result_to_evaluation_result,
 )
+from .dataset import DatasetManager, DatasetStore, InMemoryDatasetStore, DatasetEvaluationRunner
 from .evaluators import (
     RagasEvaluator,
     ToolCalledEvaluator,
@@ -57,6 +58,10 @@ __all__ = [
     "EvaluationRunStatus",
     "EvaluationRun",
     "Evaluator",
+    "DatasetManager",
+    "DatasetStore",
+    "InMemoryDatasetStore",
+    "DatasetEvaluationRunner",
     "RagasEvaluator",
     "ToolCalledEvaluator",
     "ToolNotCalledEvaluator",

@@ -11,7 +11,7 @@
 | Phase 4: Cost Projection | ✅ 完成 | 2026-08-29 | CostProjector: LLMCallCompleted→CostRecord, 11 tests |
 | Phase 5: Evaluation Core v2 | ✅ 完成 | 2026-08-29 | DatasetExample/Evaluator/EvaluationResult 契约, RagasEvaluator 适配器, 16 tests |
 | Phase 6: Agent Native Evaluators | ✅ 完成 | 2026-08-29 | 8 个行为评估器(Tool/Steps/Latency/Cost/Error/Trajectory), 25 tests |
-| Phase 7: Dataset Regression | ⬜ 待开始 | | |
+| Phase 7: Dataset Regression | ✅ 完成 | 2026-08-29 | DatasetManager, Run→DatasetExample, DatasetEvaluationRunner, 14 tests |
 | Phase 8: Compare | ⬜ 待开始 | | |
 | Phase 9: Replay MVP | ⬜ 待开始 | | |
 | Phase 10: CLI + CI | ⬜ 待开始 | | |
