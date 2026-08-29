@@ -75,16 +75,57 @@ logger = logging.getLogger(__name__)
 SemanticEventSink = Callable[[RuntimeEvent], Awaitable[None] | None]
 
 
+@dataclass
+class _SpanContext:
+    """Manages span identity and parent hierarchy within a single run.
+
+    Runtime is the sole creator of span_id (Phase 3.1).
+    parent_span_id is determined by the span stack, not inferred by projector (3.2).
+    """
+
+    _stack: list[str] = field(default_factory=list)
+
+    def push(self, span_id: str) -> None:
+        """Push a new span onto the stack."""
+        self._stack.append(span_id)
+
+    def pop(self) -> str | None:
+        """Pop the current span off the stack."""
+        return self._stack.pop() if self._stack else None
+
+    @property
+    def current_span_id(self) -> str | None:
+        """The current (innermost) span."""
+        return self._stack[-1] if self._stack else None
+
+    @property
+    def parent_span_id(self) -> str | None:
+        """The parent of the next span to be created.
+
+        For a stack [run, agent, llm], the parent of the next span is 'llm'.
+        For a stack [run, agent], the parent of the next span is 'agent'.
+        """
+        return self._stack[-1] if self._stack else None
+
+
 def _make_semantic_emit(
     event_bus: EventBus | None,
     run_id: str,
     trace_id: str,
+    span_ctx: _SpanContext | None = None,
 ) -> SemanticEventSink:
-    """Create a callback that emits v2 semantic events with run_id/trace_id filled in."""
+    """Create a callback that emits v2 semantic events with run_id/trace_id/span_id filled in.
+
+    If span_ctx is provided, events that have span_id set will use it,
+    and parent_span_id will be derived from the span stack.
+    """
 
     async def _semantic_emit(event: RuntimeEvent) -> None:
         event.run_id = run_id
         event.trace_id = trace_id
+        # If the event already has a span_id (set by caller), derive parent
+        if event.span_id is not None and span_ctx is not None:
+            event.parent_span_id = span_ctx.parent_span_id
         if event_bus is not None:
             await event_bus.emit(event)
 
@@ -231,18 +272,30 @@ async def run_agent_loop(
         if event_bus is not None:
             await event_bus.emit(event)
 
-    _sem = _make_semantic_emit(event_bus, run_id, trace_id)
+    span_ctx = _SpanContext()
+    _sem = _make_semantic_emit(event_bus, run_id, trace_id, span_ctx)
 
     cancel = cancel or CancelToken()
     new_messages: list[AgentMessage] = list(prompts)
     current_messages = list(context.messages) + list(prompts)
 
     # ── Dual emit: old + v2 ────────────────────────────────────────
+    # Create root span for the run (3.1: Runtime creates span_id)
+    run_span_id = uuid4().hex[:16]
+    span_ctx.push(run_span_id)
+
     await _emit(AgentStartEvent())
-    await _sem(RunStarted(input_text=prompts[0].content if prompts else ""))
-    await _sem(AgentStarted())
+    await _sem(RunStarted(
+        input_text=prompts[0].content if prompts else "",
+        span_id=run_span_id,
+    ))
+    agent_span_id = uuid4().hex[:16]
+    span_ctx.push(agent_span_id)
+    await _sem(AgentStarted(span_id=agent_span_id))
+    turn_span_id = uuid4().hex[:16]
+    span_ctx.push(turn_span_id)
     await _emit(TurnStartEvent())
-    await _sem(AgentTurnStarted(turn_index=0))
+    await _sem(AgentTurnStarted(turn_index=0, span_id=turn_span_id))
 
     for prompt in prompts:
         await _emit(MessageStartEvent(message=prompt))
@@ -258,25 +311,36 @@ async def run_agent_loop(
             emit=_emit,
             cancel=cancel,
             semantic_emit=_sem,
+            span_ctx=span_ctx,
         )
     except asyncio.CancelledError:
         # ── Cancellation as first-class status (2.5) ──────────────
-        await _sem(RunCancelled(reason="cancelled"))
+        # Pop remaining spans
+        while span_ctx.current_span_id is not None:
+            span_ctx.pop()
+        await _sem(RunCancelled(reason="cancelled", span_id=run_span_id))
         raise
     except Exception as exc:
         # ── Run terminal invariant: failure path (2.1) ────────────
+        while span_ctx.current_span_id is not None:
+            span_ctx.pop()
         await _sem(RunFailed(
             error_code="RUNTIME_ERROR",
             error_message=str(exc),
+            span_id=run_span_id,
         ))
         raise
     else:
         # ── Run terminal invariant: success path (2.1) ────────────
+        # Pop turn and agent spans
+        span_ctx.pop()  # turn
+        span_ctx.pop()  # agent
+        span_ctx.pop()  # run
         final_text = result.final_directive.reply_text if result.final_directive else ""
         await _emit(AgentEndEvent(messages=result.messages))
-        await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text))
-        await _sem(AgentCompleted())
-        await _sem(RunCompleted(output_text=final_text))
+        await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text, span_id=turn_span_id))
+        await _sem(AgentCompleted(span_id=agent_span_id))
+        await _sem(RunCompleted(output_text=final_text, span_id=run_span_id))
         return result
 
 
@@ -428,6 +492,7 @@ async def _run_loop_body(
     emit: EventSink,
     cancel: CancelToken,
     semantic_emit: SemanticEventSink | None = None,
+    span_ctx: _SpanContext | None = None,
 ) -> LoopResult:
     """Core loop logic shared by blocking and streaming modes.
 
@@ -476,14 +541,19 @@ async def _run_loop_body(
 
             cancel.check()
 
-            # Call LLM — dual emit old + v2 (2.3: failure must emit)
+            # Call LLM — dual emit old + v2 (2.3: failure must emit, 3.1: span_id)
             conversation = _messages_to_conversation(current_messages)
             _llm_model = getattr(llm, "_model", "")
             _llm_provider = getattr(llm, "_provider", "")
+            # Create span_id for this LLM call (3.1)
+            _llm_span_id = uuid4().hex[:16]
+            if span_ctx is not None:
+                span_ctx.push(_llm_span_id)
             if semantic_emit is not None:
                 await semantic_emit(LLMCallStarted(
                     model=_llm_model,
                     provider=_llm_provider,
+                    span_id=_llm_span_id,
                 ))
             try:
                 directive, usage = await llm.generate(
@@ -498,7 +568,10 @@ async def _run_loop_body(
                         provider=_llm_provider,
                         error_code="LLM_ERROR",
                         error_message=str(exc),
+                        span_id=_llm_span_id,
                     ))
+                if span_ctx is not None:
+                    span_ctx.pop()
                 raise
             total_usage = _merge_usage(total_usage, usage)
             if semantic_emit is not None:
@@ -510,7 +583,10 @@ async def _run_loop_body(
                     cache_write_tokens=getattr(usage, "cache_write_tokens", 0) if usage else 0,
                     cache_read_tokens=getattr(usage, "cache_read_tokens", 0) if usage else 0,
                     estimated_cost=float(getattr(usage, "estimated_cost", 0) or 0) if usage else 0.0,
+                    span_id=_llm_span_id,
                 ))
+            if span_ctx is not None:
+                span_ctx.pop()
 
             if isinstance(directive, FinalDirective):
                 # No tool calls — emit message events and finish
@@ -551,12 +627,17 @@ async def _run_loop_body(
                     source_type=source_type,
                     source_ref=source_ref,
                 ))
+                # Create span_id for this tool call (3.1)
+                _tool_span_id = uuid4().hex[:16]
+                if span_ctx is not None:
+                    span_ctx.push(_tool_span_id)
                 if semantic_emit is not None:
                     await semantic_emit(ToolCallStarted(
                         tool_name=directive.tool_name,
                         arguments=dict(directive.arguments),
                         source_type=source_type,
                         source_ref=source_ref,
+                        span_id=_tool_span_id,
                     ))
 
                 # Execute tool (2.4: distinguish business error vs runtime failure)
@@ -571,7 +652,7 @@ async def _run_loop_body(
                         emit=emit,
                     )
                 except Exception as exc:
-                    # Tool invocation itself failed — emit ToolCallFailed
+                    # Tool invocation itself failed — emit ToolCallFailed (2.4, 3.1)
                     _tool_duration_ms = int((_time.monotonic() - _tool_start) * 1000)
                     await emit(ToolExecutionEndEvent(
                         tool_call_id=tool_call_id,
@@ -584,7 +665,10 @@ async def _run_loop_body(
                             tool_name=directive.tool_name,
                             error_code="TOOL_EXECUTION_ERROR",
                             error_message=str(exc),
+                            span_id=_tool_span_id,
                         ))
+                    if span_ctx is not None:
+                        span_ctx.pop()
                     raise
                 _tool_duration_ms = int((_time.monotonic() - _tool_start) * 1000)
 
@@ -600,7 +684,10 @@ async def _run_loop_body(
                         result=result_text[:500] if result_text else "",
                         duration_ms=_tool_duration_ms,
                         is_error=is_error,
+                        span_id=_tool_span_id,
                     ))
+                if span_ctx is not None:
+                    span_ctx.pop()
 
                 tool_call_records.append(ToolCallRecord(
                     tool_call_id=tool_call_id,
