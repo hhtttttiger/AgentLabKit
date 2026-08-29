@@ -70,6 +70,12 @@ from ..events import (
     TurnEndEvent,
     TurnStartEvent,
 )
+from ..events_v2 import (
+    RunCancelled,
+    RunCompleted,
+    RunFailed,
+    RunStarted,
+)
 from ..guardrails import (
     GuardsPipeline,
     GuardVerdict,
@@ -674,11 +680,20 @@ class AgentRuntime:
         request: AgentTurnRequest,
         *,
         cancel_token: CancelToken | None = None,
+        execution_context: ExecutionContext | None = None,
     ) -> AsyncIterator[AgentTurnStreamEvent]:
         """Execute a single agent turn in streaming mode.
 
         This method directly calls the gateway for streaming (no pydantic-ai).
         It delegates preparation, guards, and session management to the split modules.
+
+        Args:
+            request: The turn request.
+            cancel_token: Optional cancellation token.
+            execution_context: Optional execution context. When provided, v2
+                semantic events (RunStarted/RunCompleted/etc.) are emitted with
+                the context's identity. When omitted, the streaming path creates
+                its own trace_id but does not emit v2 run lifecycle events.
         """
         await self._ensure_active_global_guardrails_snapshot_loaded()
         prepared = await self._turn_prep.prepare_turn(request)
@@ -698,8 +713,46 @@ class AgentRuntime:
         resolved_request = guard_result.resolved_request
         input_global_alert_match = guard_result.input_global_alert_match
 
-        # ── Observability (tracer preferred, bridge factory fallback) ────
-        _trace_id = getattr(resolved_request, "trace_id", None) or str(uuid4())
+        # ── Identity: use ExecutionContext if provided ──────────────────
+        _run_id = execution_context.run_id if execution_context else ""
+        _trace_id = (
+            execution_context.trace_id
+            if execution_context
+            else getattr(resolved_request, "trace_id", None) or str(uuid4())
+        )
+        _run_started = False
+        _terminal_emitted = False
+
+        async def _emit_run_terminal(*, status: str = "completed", **kwargs) -> None:
+            """Emit the terminal v2 event for the run (exactly once)."""
+            nonlocal _terminal_emitted
+            if _terminal_emitted or not _run_started:
+                return
+            _terminal_emitted = True
+            if status == "completed":
+                await self._event_bus.emit(RunCompleted(
+                    run_id=_run_id, trace_id=_trace_id, **kwargs,
+                ))
+            elif status == "failed":
+                await self._event_bus.emit(RunFailed(
+                    run_id=_run_id, trace_id=_trace_id, **kwargs,
+                ))
+            elif status == "cancelled":
+                await self._event_bus.emit(RunCancelled(
+                    run_id=_run_id, trace_id=_trace_id, **kwargs,
+                ))
+
+        # Emit RunStarted if we have an execution context
+        if execution_context:
+            await self._event_bus.emit(RunStarted(
+                run_id=_run_id,
+                trace_id=_trace_id,
+                agent_key=resolved_request.agent_key or "",
+                agent_version=definition.version_number if definition else "",
+                input_text=resolved_request.user_message,
+                session_id=resolved_request.session_id,
+            ))
+            _run_started = True
         _span_mgr: _TracerSpanManager | None = None
         _obs_bridge = None
         if self._tracer is not None:
@@ -715,7 +768,12 @@ class AgentRuntime:
             )
             await self._event_bus.emit(TurnStartEvent())
 
-        async def _finalize_obs() -> None:
+        async def _finalize_obs(
+            *,
+            terminal_status: str | None = None,
+            **terminal_kwargs: Any,
+        ) -> None:
+            """Finalize observability and emit v2 terminal event if applicable."""
             if _span_mgr is not None:
                 try:
                     _span_mgr.end()
@@ -727,6 +785,9 @@ class AgentRuntime:
                     await _obs_bridge.finalize()
                 except Exception:
                     logger.exception("observability.finalize_failed trace_id=%s", resolved_request.trace_id)
+            # Emit v2 terminal event for the run
+            if terminal_status is not None:
+                await _emit_run_terminal(status=terminal_status, **terminal_kwargs)
 
         # ── Session management (delegates to SessionManager) ─────────────
         restored_snapshot = await self._session_mgr.load_session_snapshot(
@@ -1036,7 +1097,7 @@ class AgentRuntime:
                                 ),
                                 snapshot=restored_snapshot, settings=effective_settings,
                             )
-                            await _finalize_obs()
+                            await _finalize_obs(terminal_status="completed")
                             yield handoff_event
                             return
 
@@ -1071,7 +1132,7 @@ class AgentRuntime:
                             ),
                             snapshot=restored_snapshot, settings=effective_settings,
                         )
-                        await _finalize_obs()
+                        await _finalize_obs(terminal_status="completed")
                         yield handoff_event
                         return
 
@@ -1106,7 +1167,7 @@ class AgentRuntime:
                     ),
                     snapshot=restored_snapshot, settings=effective_settings,
                 )
-                await _finalize_obs()
+                await _finalize_obs(terminal_status="completed")
                 yield handoff_event
                 return
 
@@ -1211,7 +1272,7 @@ class AgentRuntime:
                             ),
                             snapshot=restored_snapshot, settings=effective_settings,
                         )
-                        await _finalize_obs()
+                        await _finalize_obs(terminal_status="completed")
                         yield handoff_event
                         return
 
@@ -1249,7 +1310,7 @@ class AgentRuntime:
                         ),
                         snapshot=restored_snapshot, settings=effective_settings,
                     )
-                    await _finalize_obs()
+                    await _finalize_obs(terminal_status="completed")
                     yield handoff_event
                     return
 
@@ -1322,7 +1383,7 @@ class AgentRuntime:
                             ),
                             snapshot=restored_snapshot, settings=effective_settings,
                         )
-                        await _finalize_obs()
+                        await _finalize_obs(terminal_status="completed")
                         yield handoff_event
                         return
                     else:
@@ -1396,7 +1457,7 @@ class AgentRuntime:
                     ),
                     snapshot=restored_snapshot, settings=effective_settings,
                 )
-                await _finalize_obs()
+                await _finalize_obs(terminal_status="completed")
                 yield handoff_event
                 return
             for delta in deltas_to_emit:
@@ -1440,6 +1501,7 @@ class AgentRuntime:
 
             await _finalize_obs()
             yield reply_event
+            await _emit_run_terminal(status="completed", output_text=final_reply_text)
             return
 
         if _span_mgr:
@@ -1447,6 +1509,11 @@ class AgentRuntime:
         elif _obs_bridge:
             _obs_bridge.set_error("Streaming agent exceeded the maximum tool-call rounds.")
         await _finalize_obs()
+        await _emit_run_terminal(
+            status="failed",
+            error_code="RUNTIME_ERROR",
+            error_message="Streaming agent exceeded the maximum tool-call rounds.",
+        )
         raise AgentError(
             AgentErrorCode.RUNTIME_ERROR,
             "Streaming agent exceeded the maximum tool-call rounds.",
