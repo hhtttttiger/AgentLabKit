@@ -1,6 +1,20 @@
 """Evaluation framework for AgentLabKit."""
 
 from .contracts import EvalCase, EvalMetricResult, EvalRunConfig, EvalRunResult, TargetExecutor
+from .contracts_v2 import (
+    DatasetExample,
+    AgentRunSummary,
+    SpanSummary,
+    EvaluationContext,
+    MetricScore,
+    EvaluationResult,
+    EvaluationRunStatus,
+    EvaluationRun,
+    Evaluator,
+    eval_case_to_dataset_example,
+    eval_run_result_to_evaluation_result,
+)
+from .evaluators import RagasEvaluator
 from .judge import Judge, JUDGE_SYSTEM_PROMPT
 from .metrics.base import Metric, MetricResult
 from .providers import EvalMetric, EvalProvider, ProviderRegistry
@@ -23,4 +37,17 @@ __all__ = [
     "EvalRunConfig",
     "EvalRunResult",
     "TargetExecutor",
+    # v2
+    "DatasetExample",
+    "AgentRunSummary",
+    "SpanSummary",
+    "EvaluationContext",
+    "MetricScore",
+    "EvaluationResult",
+    "EvaluationRunStatus",
+    "EvaluationRun",
+    "Evaluator",
+    "RagasEvaluator",
+    "eval_case_to_dataset_example",
+    "eval_run_result_to_evaluation_result",
 ]

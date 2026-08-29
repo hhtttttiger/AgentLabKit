@@ -9,7 +9,7 @@
 | Phase 2: AgentRun | ✅ 完成 | 2026-08-29 | AgentRun 模型 + Runtime.run() API, 30 tests |
 | Phase 3: Observability Projection | ✅ 完成 | 2026-08-29 | TraceProjector: 语义事件→Trace, 23 tests |
 | Phase 4: Cost Projection | ✅ 完成 | 2026-08-29 | CostProjector: LLMCallCompleted→CostRecord, 11 tests |
-| Phase 5: Evaluation Core v2 | ⬜ 待开始 | | |
+| Phase 5: Evaluation Core v2 | ✅ 完成 | 2026-08-29 | DatasetExample/Evaluator/EvaluationResult 契约, RagasEvaluator 适配器, 16 tests |
 | Phase 6: Agent Native Evaluators | ⬜ 待开始 | | |
 | Phase 7: Dataset Regression | ⬜ 待开始 | | |
 | Phase 8: Compare | ⬜ 待开始 | | |
