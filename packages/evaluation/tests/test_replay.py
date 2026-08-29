@@ -47,7 +47,7 @@ class MockEvaluator:
     async def evaluate(self, context):
         return EvaluationResult(
             example_id=context.example.example_id,
-            overall_score=self.score,
+            score=self.score,
             metric_results=[MetricResult(metric_name="mock", score=self.score)],
         )
 

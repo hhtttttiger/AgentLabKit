@@ -43,7 +43,7 @@ class ToolCalledEvaluator:
                 passed=called,
                 details={"tool_name": self.tool_name, "called": called},
             )],
-            overall_score=1.0 if called else 0.0,
+            score=1.0 if called else 0.0,
             duration_ms=int((time.monotonic() - start) * 1000),
         )
 
@@ -81,7 +81,7 @@ class ToolNotCalledEvaluator:
                 passed=not_called,
                 details={"tool_name": self.tool_name, "called": called},
             )],
-            overall_score=1.0 if not_called else 0.0,
+            score=1.0 if not_called else 0.0,
             duration_ms=int((time.monotonic() - start) * 1000),
         )
 
@@ -122,7 +122,7 @@ class ToolArgsEvaluator:
                 passed=matched,
                 details=details,
             )],
-            overall_score=1.0 if matched else 0.0,
+            score=1.0 if matched else 0.0,
             duration_ms=int((time.monotonic() - start) * 1000),
         )
 
@@ -167,7 +167,7 @@ class MaxStepsEvaluator:
                 passed=within_limit,
                 details={"max_steps": self.max_steps, "actual_steps": actual_steps},
             )],
-            overall_score=1.0 if within_limit else 0.0,
+            score=1.0 if within_limit else 0.0,
             duration_ms=int((time.monotonic() - start) * 1000),
         )
 
@@ -201,7 +201,7 @@ class LatencyEvaluator:
                 passed=within_limit,
                 details={"max_ms": self.max_duration_ms, "actual_ms": actual_ms},
             )],
-            overall_score=1.0 if within_limit else 0.0,
+            score=1.0 if within_limit else 0.0,
             duration_ms=int((time.monotonic() - start) * 1000),
         )
 
@@ -235,7 +235,7 @@ class CostEvaluator:
                 passed=within_budget,
                 details={"max_cost_usd": self.max_cost_usd, "actual_cost_usd": actual_cost},
             )],
-            overall_score=1.0 if within_budget else 0.0,
+            score=1.0 if within_budget else 0.0,
             duration_ms=int((time.monotonic() - start) * 1000),
         )
 
@@ -270,7 +270,7 @@ class NoErrorEvaluator:
                 passed=no_error,
                 details={"has_error": has_error},
             )],
-            overall_score=1.0 if no_error else 0.0,
+            score=1.0 if no_error else 0.0,
             duration_ms=int((time.monotonic() - start) * 1000),
         )
 
@@ -319,7 +319,7 @@ class TrajectoryEvaluator:
                     "actual": actual_trajectory,
                 },
             )],
-            overall_score=1.0 if matched else 0.0,
+            score=1.0 if matched else 0.0,
             duration_ms=int((time.monotonic() - start) * 1000),
         )
 

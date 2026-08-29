@@ -84,8 +84,8 @@ class RagasEvaluator:
                 example_id=context.example.example_id,
                 run_id=context.run.run_id if context.run else None,
                 metric_results=metric_results,
-                overall_score=result.overall_score,
-                error_message=result.error_message,
+                score=result.overall_score,
+                message=result.error_message,
                 duration_ms=int((time.monotonic() - start) * 1000),
             )
 
@@ -93,7 +93,7 @@ class RagasEvaluator:
             logger.exception("ragas_evaluator.evaluate_failed example_id=%s", context.example.example_id)
             return EvaluationResult(
                 example_id=context.example.example_id,
-                error_message=str(e),
+                message=str(e),
                 duration_ms=int((time.monotonic() - start) * 1000),
             )
 

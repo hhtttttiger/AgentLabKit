@@ -34,7 +34,7 @@ def _make_run(
         agent_key="test-agent",
         status=EvaluationRunStatus.COMPLETED if failed_examples == 0 else EvaluationRunStatus.FAILED,
         results=[
-            EvaluationResult(example_id=str(i), overall_score=overall_score)
+            EvaluationResult(example_id=str(i), score=overall_score)
             for i in range(total_examples)
         ],
         total_examples=total_examples,

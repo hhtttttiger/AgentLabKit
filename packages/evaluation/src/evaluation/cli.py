@@ -200,8 +200,8 @@ async def compare_with_baseline(
             results=[
                 EvaluationResult(
                     example_id=r["example_id"],
-                    overall_score=r.get("overall_score", 0.0),
-                    error_message=r.get("error_message"),
+                    score=r.get("overall_score", 0.0),
+                    message=r.get("error_message"),
                 )
                 for r in baseline_data.get("results", [])
             ],

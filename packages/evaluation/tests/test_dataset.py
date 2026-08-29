@@ -45,11 +45,11 @@ class MockEvaluator:
         if self.error:
             return EvaluationResult(
                 example_id=context.example.example_id,
-                error_message="mock error",
+                message="mock error",
             )
         return EvaluationResult(
             example_id=context.example.example_id,
-            overall_score=self.score,
+            score=self.score,
             metric_results=[MetricResult(metric_name="mock", score=self.score, passed=self.score > 0.5)],
         )
 
@@ -288,11 +288,11 @@ class TestDatasetEvaluationRunner:
                 if MixedEvaluator._call_count == 1:
                     return EvaluationResult(
                         example_id=context.example.example_id,
-                        overall_score=0.8,
+                        score=0.8,
                     )
                 return EvaluationResult(
                     example_id=context.example.example_id,
-                    error_message="failed",
+                    message="failed",
                 )
 
             async def evaluate_batch(self, contexts):

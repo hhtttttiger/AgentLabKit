@@ -140,7 +140,7 @@ class TestEvaluationResult:
             example_id="1",
             run_id="run-123",
             metric_results=metrics,
-            overall_score=0.85,
+            score=0.85,
         )
         assert len(result.metric_results) == 2
         assert result.overall_score == 0.85
@@ -149,7 +149,7 @@ class TestEvaluationResult:
     def test_with_error(self):
         result = EvaluationResult(
             example_id="1",
-            error_message="evaluation failed",
+            message="evaluation failed",
             duration_ms=100,
         )
         assert result.error_message == "evaluation failed"

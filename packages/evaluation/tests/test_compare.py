@@ -35,8 +35,8 @@ def _make_run(run_id: str, results: list[EvaluationResult]) -> EvaluationRun:
 def _make_result(example_id: str, score: float, error: str | None = None) -> EvaluationResult:
     return EvaluationResult(
         example_id=example_id,
-        overall_score=score,
-        error_message=error,
+        score=score,
+        message=error,
         metric_results=[MetricResult(metric_name="test", score=score)],
     )
 
