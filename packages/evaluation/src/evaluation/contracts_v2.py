@@ -79,7 +79,7 @@ class RunView(Protocol):
     def status(self) -> RunStatus: ...
 
     @property
-    def started_at(self) -> datetime: ...
+    def started_at(self) -> datetime | None: ...
 
     @property
     def finished_at(self) -> datetime | None: ...
@@ -93,6 +93,9 @@ class AgentRunSummary:
     """AgentRun 的摘要，用于评估上下文。
 
     实现 RunView 协议。保留向后兼容。
+
+    ``started_at`` / ``finished_at``: 真实时间戳，来自 Runtime。
+    历史数据如果没有这些字段，使用 None（禁止 datetime.now() 补假数据）。
     """
     run_id: str
     trace_id: str = ""
@@ -105,6 +108,8 @@ class AgentRunSummary:
     total_output_tokens: int = 0
     tool_call_count: int = 0
     tool_names: list[str] = field(default_factory=list)
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
 
     # RunView protocol properties
     @property
@@ -114,14 +119,6 @@ class AgentRunSummary:
     @property
     def output(self) -> str | None:
         return self.output_text
-
-    @property
-    def started_at(self) -> datetime:
-        return datetime.now()  # placeholder
-
-    @property
-    def finished_at(self) -> datetime | None:
-        return None  # placeholder
 
 
 # ── 数据集 ─────────────────────────────────────────────────────────
