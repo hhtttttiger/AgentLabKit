@@ -248,7 +248,7 @@ class DatasetEvaluationRunner:
                 logger.exception("dataset_eval.error example_id=%s", example.example_id)
                 results.append(EvaluationResult(
                     example_id=example.example_id,
-                    error_message=str(e),
+                    message=str(e),
                 ))
                 failed += 1
 

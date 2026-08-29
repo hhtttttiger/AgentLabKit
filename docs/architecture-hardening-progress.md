@@ -11,9 +11,9 @@ Branch: `refactor/execution-model-v2`
 | 3 | Span Identity → Runtime Ownership | — | ✅ done |
 | 4 | TraceProjector Rewrite | — | ✅ done |
 | 5 | CostProjector Contract Fix | — | ✅ done |
-| 6 | Strengthen contracts_v2.py | — | ⏳ pending |
-| 7 | Simplify Evaluator Protocol | — | ⏳ pending |
-| 8 | Evaluation v2 Main Path | — | ⏳ pending |
+| 6 | Strengthen contracts_v2.py | — | ✅ done |
+| 7 | Simplify Evaluator Protocol | — | ✅ done |
+| 8 | Evaluation v2 Main Path | — | ✅ done |
 | 9 | Dataset Regression | — | ⏳ pending |
 | 10 | Replay Ownership Rewrite | — | ⏳ pending |
 | 11 | Replay→Compare Identity Fix | — | ⏳ pending |
