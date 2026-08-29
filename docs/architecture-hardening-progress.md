@@ -21,10 +21,10 @@ Branch: `refactor/execution-model-v2`
 | 13 | Event Coverage Matrix | — | ✅ done |
 | 14 | Dual Emit Hardening | — | ✅ done |
 | 15 | Architecture Invariant Tests | — | ✅ done |
-| 16 | Legacy Migration | — | ⏳ pending |
-| 17 | Code Cleanup | — | ⏳ pending |
-| 18 | Acceptance Demo | — | ⏳ pending |
-| 19 | Final Architecture Validation | — | ⏳ pending |
+| 16 | Legacy Migration | — | ✅ done |
+| 17 | Code Cleanup | — | ✅ done |
+| 18 | Acceptance Demo | — | ✅ done |
+| 19 | Final Architecture Validation | — | ✅ done |
 
 ## Legend
 - ⏳ pending
