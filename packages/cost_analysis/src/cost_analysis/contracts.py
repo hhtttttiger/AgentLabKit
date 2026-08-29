@@ -87,3 +87,30 @@ class CostAlertInfo:
     threshold_usd: float
     triggered_at_utc: datetime
     acknowledged_at_utc: datetime | None
+
+
+# ── RuntimeEvent v2 成本记录 ──────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class CostRecord:
+    """单次 LLM 调用的成本记录。
+
+    由 CostProjector 从 LLMCallCompleted 事件生成。
+    关联到 run_id / trace_id 以支持 cost per run / agent / workflow。
+    """
+    run_id: str
+    trace_id: str
+    span_id: str
+    agent_key: str
+    model: str
+    provider: str
+    input_tokens: int
+    output_tokens: int
+    cache_write_tokens: int
+    cache_read_tokens: int
+    estimated_cost: float
+    started_at_utc: datetime
+    completed_at_utc: datetime
+    error_code: str | None = None
+    error_message: str | None = None
