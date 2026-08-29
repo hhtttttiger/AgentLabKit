@@ -54,6 +54,7 @@ from ..contracts.models import (
     HandoffTarget,
     ToolExecutionRecord,
 )
+from ..contracts.run import AgentRun, RunStatus, RunTarget, RunUsage
 from ..definition.loader import AgentDefinitionLoader
 from ..definition.models import (
     AgentDefinitionSnapshot,
@@ -555,6 +556,86 @@ class AgentRuntime:
             settings=effective_settings,
         )
         return output.result
+
+    async def run(
+        self,
+        request: AgentTurnRequest,
+        *,
+        cancel_token: CancelToken | None = None,
+    ) -> AgentRun:
+        """Execute a single agent turn and return an AgentRun.
+
+        This is the v2 API that returns a unified AgentRun object instead
+        of a scattered AgentTurnResult. The underlying execution is identical
+        to run_turn — this method wraps it and builds the AgentRun.
+
+        Returns:
+            An :class:`AgentRun` with status, usage, tool info, etc.
+        """
+        run = AgentRun(
+            input_text=request.user_message,
+            session_id=request.session_id or "",
+            agent_key=getattr(request, "agent_key", None),
+            trace_id=getattr(request, "trace_id", None),
+            target=RunTarget(
+                type="agent",
+                agent_key=getattr(request, "agent_key", None),
+                agent_version=str(getattr(request, "agent_version", "")) if getattr(request, "agent_version", None) else None,
+            ),
+        )
+
+        try:
+            result = await self.run_turn(request, cancel_token=cancel_token)
+
+            # Build RunUsage from the turn result
+            usage = None
+            if result.usage:
+                usage = RunUsage(
+                    input_tokens=getattr(result.usage, "input_tokens", 0) or 0,
+                    output_tokens=getattr(result.usage, "output_tokens", 0) or 0,
+                    total_tokens=getattr(result.usage, "total_tokens", 0) or 0,
+                    cache_write_tokens=getattr(result.usage, "cache_write_tokens", 0) or 0,
+                    cache_read_tokens=getattr(result.usage, "cache_read_tokens", 0) or 0,
+                    estimated_cost=float(getattr(result.usage, "estimated_cost", 0) or 0),
+                    tool_call_count=len(result.tool_events),
+                )
+
+            run.trace_id = result.trace_id
+            run.output_text = result.reply_text
+            run.action = result.action.value if hasattr(result.action, "value") else str(result.action)
+            run.handoff_target_agent = getattr(result.handoff_target, "target_agent_key", None)
+            run.orchestration_chain = result.orchestration_chain or []
+            run.tool_names = [te.tool_name for te in result.tool_events]
+            run.tool_call_count = len(result.tool_events)
+            run.applied_skills = [s.skill_key for s in result.applied_skills]
+            run.agent_version = str(result.agent_version) if result.agent_version else None
+
+            if result.error:
+                run.mark_failed(
+                    error_code=result.error.code,
+                    error_message=result.error.message,
+                    provider=result.error.provider,
+                    model=result.error.model,
+                )
+            else:
+                run.mark_completed(output_text=result.reply_text, usage=usage)
+
+            return run
+
+        except AgentError as exc:
+            run.mark_failed(
+                error_code=exc.code.value if hasattr(exc.code, "value") else str(exc.code),
+                error_message=exc.message or str(exc),
+                model=getattr(exc, "model", None),
+            )
+            return run
+
+        except Exception as exc:
+            run.mark_failed(
+                error_code="RUNTIME_ERROR",
+                error_message=str(exc),
+            )
+            return run
 
     async def stream_turn(
         self,
