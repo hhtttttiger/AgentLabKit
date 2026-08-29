@@ -72,6 +72,11 @@ class ExecutionContext:
     Runtime 是 run_id / trace_id 的唯一创建者。
     所有下层组件（Agent Loop、LLM、Tool、Guardrail、Handoff）
     只能传递已有 identity，禁止重新生成。
+
+    ``root_span_id`` 是 Run 级 span 的 id，由 loop 用于构建 span 层级。
+    ``target`` 描述执行目标（agent/workflow/eval_target）。
+    ``started_at`` 记录执行开始的真实时间（UTC）。
+    ``metadata`` 携带附加执行上下文（如 replay_of_run_id）。
     """
 
     run_id: str = field(default_factory=lambda: uuid4().hex)
@@ -79,6 +84,10 @@ class ExecutionContext:
     session_id: str = ""
     agent_key: str | None = None
     agent_version: str | None = None
+    root_span_id: str = field(default_factory=lambda: uuid4().hex[:16])
+    target: RunTarget = field(default_factory=RunTarget)
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

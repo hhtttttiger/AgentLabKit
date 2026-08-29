@@ -382,16 +382,28 @@ class AgentRuntime:
         request: AgentTurnRequest,
         *,
         cancel_token: CancelToken | None = None,
+        execution_context: ExecutionContext | None = None,
     ) -> AgentTurnResult:
         """Execute a single agent turn in blocking mode.
 
         Uses the self-built agent loop (no pydantic-ai). Delegates preparation,
         guards, and session management to the extracted helper modules.
+
+        Args:
+            request: The turn request.
+            cancel_token: Optional cancellation token.
+            execution_context: Optional execution context providing run_id/trace_id.
+                When provided (e.g. from ``run()``), the loop uses these identities
+                so that ``RuntimeEvent.run_id == AgentRun.run_id``. When omitted,
+                ``run_turn`` creates its own identities (legacy path).
         """
-        # ── Observability (tracer preferred, bridge factory fallback) ────
-        # Runtime creates both run_id and trace_id independently (Phase 1.2)
-        _run_id = str(uuid4())
-        _trace_id = getattr(request, "trace_id", None) or str(uuid4())
+        # ── Identity: use ExecutionContext if provided, else create ─────
+        if execution_context is not None:
+            _run_id = execution_context.run_id
+            _trace_id = execution_context.trace_id
+        else:
+            _run_id = str(uuid4())
+            _trace_id = getattr(request, "trace_id", None) or str(uuid4())
         _span_mgr: _TracerSpanManager | None = None
         _obs_bridge = None
         if self._tracer is not None:
@@ -579,10 +591,17 @@ class AgentRuntime:
             An :class:`AgentRun` with status, usage, tool info, etc.
         """
         # ── Runtime creates identity (1.2) ────────────────────────────
-        ctx = ExecutionContext(
-            session_id=request.session_id or "",
+        # Build RunTarget first so ExecutionContext carries it.
+        _target = RunTarget(
+            type="agent",
             agent_key=getattr(request, "agent_key", None),
             agent_version=str(getattr(request, "agent_version", "")) if getattr(request, "agent_version", None) else None,
+        )
+        ctx = ExecutionContext(
+            session_id=request.session_id or "",
+            agent_key=_target.agent_key,
+            agent_version=_target.agent_version,
+            target=_target,
         )
 
         run = AgentRun(
@@ -590,15 +609,16 @@ class AgentRuntime:
             trace_id=ctx.trace_id,
             input=request.user_message,
             session_id=ctx.session_id,
-            target=RunTarget(
-                type="agent",
-                agent_key=ctx.agent_key,
-                agent_version=ctx.agent_version,
-            ),
+            target=_target,
+            started_at=ctx.started_at,
         )
 
         try:
-            result = await self.run_turn(request, cancel_token=cancel_token)
+            result = await self.run_turn(
+                request,
+                cancel_token=cancel_token,
+                execution_context=ctx,
+            )
 
             # Build RunUsage from the turn result
             usage = None
@@ -613,8 +633,7 @@ class AgentRuntime:
                     tool_call_count=len(result.tool_events),
                 )
 
-            # trace_id from Runtime (may be updated by run_turn if request had one)
-            run.trace_id = result.trace_id or ctx.trace_id
+            # Identity comes from ExecutionContext — no post-hoc override needed.
             run.output = result.reply_text
             run.action = result.action.value if hasattr(result.action, "value") else str(result.action)
             run.handoff_target_agent = getattr(result.handoff_target, "target_agent_key", None)
@@ -622,7 +641,6 @@ class AgentRuntime:
             run.tool_names = [te.tool_name for te in result.tool_events]
             run.tool_call_count = len(result.tool_events)
             run.applied_skills = [s.skill_key for s in result.applied_skills]
-            # agent_version already set via target — no need to set again
 
             if result.error:
                 run.mark_failed(

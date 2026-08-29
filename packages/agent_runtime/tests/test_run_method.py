@@ -143,8 +143,8 @@ class TestAgentRuntimeRun:
         assert "timeout" in agent_run.error.message.lower()
 
     @pytest.mark.asyncio
-    async def test_run_sets_trace_id(self) -> None:
-        """AgentRun.trace_id 应该从结果中获取。"""
+    async def test_run_creates_own_trace_id(self) -> None:
+        """AgentRun.trace_id 由 Runtime 通过 ExecutionContext 创建，不从 request 继承。"""
         gateway = FakeGatewayService([_make_response("ok")])
         runtime = _make_runtime(gateway)
 
@@ -154,7 +154,10 @@ class TestAgentRuntimeRun:
             trace_id="my-trace",
         ))
 
-        assert agent_run.trace_id == "my-trace"
+        # Runtime is the sole creator of identity — request.trace_id is ignored
+        assert agent_run.trace_id is not None
+        assert agent_run.trace_id != "my-trace"
+        assert len(agent_run.trace_id) == 32  # uuid4().hex
 
     @pytest.mark.asyncio
     async def test_run_sets_session_id(self) -> None:
@@ -178,19 +181,64 @@ class TestAgentRuntimeRun:
         ])
         runtime = _make_runtime(gateway)
 
-        # run_turn
+        # run_turn (legacy path — creates its own identity)
         result = await runtime.run_turn(AgentTurnRequest(
             user_message="q",
             session_id="s1",
-            trace_id="t1",
         ))
 
-        # run
+        # run (v2 path — creates ExecutionContext)
         agent_run = await runtime.run(AgentTurnRequest(
             user_message="q",
             session_id="s1",
-            trace_id="t2",
         ))
 
         assert agent_run.output_text == result.reply_text
         assert agent_run.action == result.action.value
+
+    @pytest.mark.asyncio
+    async def test_run_identity_consistency(self) -> None:
+        """AgentRun.run_id/trace_id 与 loop 产生的 RuntimeEvent 一致。
+
+        这是最重要的架构验收测试：证明 run() 创建的 ExecutionContext
+        贯穿整条链路，AgentRun.run_id == RuntimeEvent.run_id。
+        """
+        from agent_runtime.event_bus import EventBus
+        from agent_runtime.events_v2 import RunStarted, RunCompleted
+
+        gateway = FakeGatewayService([_make_response("hello")])
+        runtime = _make_runtime(gateway)
+
+        # Collect v2 semantic events
+        collected_events: list = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        agent_run = await runtime.run(AgentTurnRequest(
+            user_message="hi",
+            session_id="s1",
+        ))
+
+        # Extract RunStarted and RunCompleted events
+        run_started = [e for e in collected_events if isinstance(e, RunStarted)]
+        run_completed = [e for e in collected_events if isinstance(e, RunCompleted)]
+
+        assert len(run_started) == 1, f"Expected 1 RunStarted, got {len(run_started)}"
+        assert len(run_completed) == 1, f"Expected 1 RunCompleted, got {len(run_completed)}"
+
+        # Core invariant: AgentRun.run_id == RuntimeEvent.run_id
+        assert agent_run.run_id == run_started[0].run_id, \
+            "AgentRun.run_id must equal RunStarted.run_id"
+        assert agent_run.run_id == run_completed[0].run_id, \
+            "AgentRun.run_id must equal RunCompleted.run_id"
+
+        # Core invariant: AgentRun.trace_id == RuntimeEvent.trace_id
+        assert agent_run.trace_id == run_started[0].trace_id, \
+            "AgentRun.trace_id must equal RunStarted.trace_id"
+        assert agent_run.trace_id == run_completed[0].trace_id, \
+            "AgentRun.trace_id must equal RunCompleted.trace_id"
