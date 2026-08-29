@@ -9,7 +9,7 @@ Branch: `refactor/execution-model-v2`
 | 1 | Unified Execution Identity | — | ✅ done |
 | 2 | Runtime Lifecycle Fixes | — | ✅ done |
 | 3 | Span Identity → Runtime Ownership | — | ✅ done |
-| 4 | TraceProjector Rewrite | — | ⏳ pending |
+| 4 | TraceProjector Rewrite | — | ✅ done |
 | 5 | CostProjector Contract Fix | — | ⏳ pending |
 | 6 | Strengthen contracts_v2.py | — | ⏳ pending |
 | 7 | Simplify Evaluator Protocol | — | ⏳ pending |
