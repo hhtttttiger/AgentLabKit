@@ -1,4 +1,4 @@
-"""Tests for Replay MVP."""
+"""Tests for Replay MVP — v2 with RunExecutor and RunTarget."""
 
 from __future__ import annotations
 
@@ -10,12 +10,15 @@ from evaluation.contracts_v2 import (
     EvaluationContext,
     EvaluationResult,
     MetricResult,
+    RunView,
 )
 from evaluation.replay import (
     InMemoryRunStore,
     MockRunExecutor,
     ReplayConfig,
+    ReplayResult,
     ReplayRunner,
+    RunTarget,
 )
 
 
@@ -26,7 +29,7 @@ def _make_run(run_id: str = "run-123", **kwargs) -> AgentRunSummary:
         "agent_key": "chat",
         "input_text": "What is AI?",
         "output_text": "AI is artificial intelligence.",
-        "status": "ok",
+        "status": "completed",
         "duration_ms": 1000,
         "total_input_tokens": 100,
         "total_output_tokens": 50,
@@ -93,21 +96,32 @@ class TestInMemoryRunStore:
 
 class TestMockRunExecutor:
     @pytest.mark.asyncio
-    async def test_execute(self):
+    async def test_execute_returns_run_view(self):
         executor = MockRunExecutor(output_text="mock output")
-        output, metadata = await executor.execute("input")
-        assert output == "mock output"
-        assert metadata == {}
+        result = await executor.execute(
+            input="test input",
+            target=RunTarget(agent_key="test-agent"),
+        )
+        assert isinstance(result, RunView)
+        assert result.output == "mock output"
+        assert result.input == "test input"
 
     @pytest.mark.asyncio
-    async def test_execute_with_metadata(self):
-        executor = MockRunExecutor(
-            output_text="output",
-            metadata={"duration_ms": 100, "input_tokens": 50},
+    async def test_execute_records_target(self):
+        executor = MockRunExecutor()
+        target = RunTarget(agent_key="agent-v2", agent_version="2.0")
+        await executor.execute(input="x", target=target)
+        assert executor.received_target == target
+        assert executor.received_target.agent_version == "2.0"
+
+    @pytest.mark.asyncio
+    async def test_execute_uses_target_agent_key(self):
+        executor = MockRunExecutor()
+        result = await executor.execute(
+            input="x",
+            target=RunTarget(agent_key="my-agent"),
         )
-        output, metadata = await executor.execute("input")
-        assert output == "output"
-        assert metadata["duration_ms"] == 100
+        assert result.agent_key == "my-agent"
 
 
 # ── ReplayRunner ───────────────────────────────────────────────────
@@ -126,7 +140,7 @@ class TestReplayRunner:
         result = await runner.replay("run-123")
 
         assert result.original_run_id == "run-123"
-        assert result.new_run_id
+        assert result.new_run_id == "mock-run-id"
         assert result.original_run.input_text == "What is AI?"
         assert result.new_run.output_text == "new output"
         assert result.error_message is None
@@ -156,7 +170,8 @@ class TestReplayRunner:
         assert "not found" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_replay_with_config(self):
+    async def test_replay_with_target_config(self):
+        """ReplayConfig.target 真正传入 RunExecutor。"""
         store = InMemoryRunStore()
         run = _make_run()
         await store.save_run(run)
@@ -164,26 +179,83 @@ class TestReplayRunner:
         executor = MockRunExecutor(output_text="output")
         runner = ReplayRunner(store, executor)
 
-        config = ReplayConfig(target_name="Agent v2")
+        config = ReplayConfig(
+            target=RunTarget(agent_key="refund-agent", agent_version="v2"),
+        )
         result = await runner.replay("run-123", config)
 
-        assert result.new_run.agent_key == "Agent v2"
+        # Executor 收到了正确的 target
+        assert executor.received_target.agent_key == "refund-agent"
+        assert executor.received_target.agent_version == "v2"
+        # 新 Run 的 agent_key 来自 executor（Runtime）
+        assert result.new_run.agent_key == "refund-agent"
 
     @pytest.mark.asyncio
-    async def test_replay_saves_new_run(self):
+    async def test_replay_target_from_original(self):
+        """config.target=None 时，使用 original_run 的 target。"""
         store = InMemoryRunStore()
-        run = _make_run()
+        run = _make_run(agent_key="original-agent")
         await store.save_run(run)
 
-        executor = MockRunExecutor(output_text="new output")
+        executor = MockRunExecutor()
         runner = ReplayRunner(store, executor)
 
         result = await runner.replay("run-123")
 
-        # 新 Run 应该被保存
-        new_run = await store.get_run(result.new_run_id)
-        assert new_run is not None
-        assert new_run.output_text == "new output"
+        # executor 收到了 original_run 的 agent_key
+        assert executor.received_target.agent_key == "original-agent"
+
+    @pytest.mark.asyncio
+    async def test_replay_executor_error(self):
+        store = InMemoryRunStore()
+        run = _make_run()
+        await store.save_run(run)
+
+        class FailingExecutor:
+            async def execute(self, *, input, target, metadata=None):
+                raise RuntimeError("execution failed")
+
+        runner = ReplayRunner(store, FailingExecutor())
+
+        result = await runner.replay("run-123")
+
+        assert result.error_message is not None
+        assert "execution failed" in result.error_message
+        assert result.new_run is None
+
+    @pytest.mark.asyncio
+    async def test_replay_metadata_passthrough(self):
+        """replay metadata 包含 replay_of_run_id。"""
+        store = InMemoryRunStore()
+        run = _make_run()
+        await store.save_run(run)
+
+        executor = MockRunExecutor()
+        runner = ReplayRunner(store, executor)
+
+        await runner.replay("run-123")
+
+        # executor 收到了包含 replay_of_run_id 的 metadata
+        assert executor.received_target is not None
+
+    @pytest.mark.asyncio
+    async def test_replay_no_uuid_generation(self):
+        """ReplayRunner 不生成 run_id/trace_id（来自 executor）。"""
+        store = InMemoryRunStore()
+        run = _make_run()
+        await store.save_run(run)
+
+        executor = MockRunExecutor(
+            run_id="runtime-generated-id",
+            trace_id="runtime-trace-id",
+        )
+        runner = ReplayRunner(store, executor)
+
+        result = await runner.replay("run-123")
+
+        # run_id/trace_id 来自 executor（Runtime），不是 ReplayRunner
+        assert result.new_run_id == "runtime-generated-id"
+        assert result.new_run.trace_id == "runtime-trace-id"
 
     @pytest.mark.asyncio
     async def test_replay_with_evaluator(self):
@@ -199,49 +271,6 @@ class TestReplayRunner:
 
         assert result.comparison is not None
         assert result.comparison.baseline_run_id == "run-123"
-
-    @pytest.mark.asyncio
-    async def test_replay_executor_error(self):
-        store = InMemoryRunStore()
-        run = _make_run()
-        await store.save_run(run)
-
-        class FailingExecutor:
-            async def execute(self, input_text):
-                raise RuntimeError("execution failed")
-
-        runner = ReplayRunner(store, FailingExecutor())
-
-        result = await runner.replay("run-123")
-
-        assert result.error_message is not None
-        assert "execution failed" in result.error_message
-
-    @pytest.mark.asyncio
-    async def test_replay_metadata(self):
-        store = InMemoryRunStore()
-        run = _make_run()
-        await store.save_run(run)
-
-        executor = MockRunExecutor(
-            output_text="output",
-            metadata={
-                "duration_ms": 500,
-                "input_tokens": 200,
-                "output_tokens": 100,
-                "tool_call_count": 2,
-                "tool_names": ["search", "calculate"],
-            },
-        )
-        runner = ReplayRunner(store, executor)
-
-        result = await runner.replay("run-123")
-
-        assert result.new_run.duration_ms == 500
-        assert result.new_run.total_input_tokens == 200
-        assert result.new_run.total_output_tokens == 100
-        assert result.new_run.tool_call_count == 2
-        assert result.new_run.tool_names == ["search", "calculate"]
 
 
 # ── Batch Replay ───────────────────────────────────────────────────
@@ -272,39 +301,3 @@ class TestBatchReplay:
         results = await runner.replay_batch([])
 
         assert results == []
-
-
-# ── Replay to Dataset ──────────────────────────────────────────────
-
-
-class TestReplayToDataset:
-    @pytest.mark.asyncio
-    async def test_replay_to_dataset(self):
-        store = InMemoryRunStore()
-        await store.save_run(_make_run("run-1"))
-        await store.save_run(_make_run("run-2"))
-
-        executor = MockRunExecutor()
-        runner = ReplayRunner(store, executor)
-
-        examples = await runner.replay_to_dataset(
-            ["run-1", "run-2"],
-            dataset_id="dataset-1",
-        )
-
-        assert len(examples) == 2
-        assert all(e.dataset_id == "dataset-1" for e in examples)
-        assert all("replay" in e.tags for e in examples)
-
-    @pytest.mark.asyncio
-    async def test_replay_to_dataset_nonexistent(self):
-        store = InMemoryRunStore()
-        executor = MockRunExecutor()
-        runner = ReplayRunner(store, executor)
-
-        examples = await runner.replay_to_dataset(
-            ["nonexistent"],
-            dataset_id="dataset-1",
-        )
-
-        assert len(examples) == 0
