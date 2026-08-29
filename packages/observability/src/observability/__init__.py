@@ -12,6 +12,7 @@ from .contracts import (
     TraceStats,
 )
 from .module import ObservabilityModule, create_observability_module
+from .projector import TraceProjector
 from .publisher import AsyncTracePublisher
 from .trace_store import PostgresTraceStore, TraceStore
 
@@ -36,6 +37,7 @@ __all__ = [
     "TraceBufferSpanProcessor",
     "TraceEnvelope",
     "TracePage",
+    "TraceProjector",
     "TraceRecord",
     "TraceStats",
     "TraceStore",
