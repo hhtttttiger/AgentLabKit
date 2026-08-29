@@ -5,7 +5,7 @@
 | Phase | 状态 | 完成日期 | 备注 |
 |-------|------|----------|------|
 | Phase 0: 冻结现状 | ✅ 完成 | 2026-08-29 | EventBus 15 tests, Trace 构建 14 tests, Evaluation Runner 10 tests, Cost contracts 14 tests |
-| Phase 1: Runtime Event v2 | ⬜ 待开始 | | |
+| Phase 1: Runtime Event v2 | ✅ 完成 | 2026-08-29 | 23 事件类型, 70 tests, Dual Emit in run_agent_loop |
 | Phase 2: AgentRun | ⬜ 待开始 | | |
 | Phase 3: Observability Projection | ⬜ 待开始 | | |
 | Phase 4: Cost Projection | ⬜ 待开始 | | |
@@ -1465,7 +1465,9 @@ Evaluation 可以依赖 runtime contracts。
 
 ---
 
-### Phase 1：Runtime Event v2
+### Phase 1：Runtime Event v2 ✅
+
+> **状态：已完成** (2026-08-29)
 
 新增：
 
@@ -1496,6 +1498,13 @@ Dual Emit。
 ```text
 一次 Agent Run 能产生完整 semantic event stream。
 ```
+
+完成情况：
+
+- `packages/agent_runtime/src/agent_runtime/events_v2.py` — 23 个语义事件类型：RunStarted/Completed/Failed/Cancelled, AgentStarted/Completed/AgentTurnStarted/Completed, LLMCallStarted/Completed/Failed, ToolCallStarted/Completed/Failed, RetrievalStarted/Completed/Failed, GuardrailEvaluated/Blocked, HandoffStarted/Completed, DelegationStarted/Completed
+- `packages/agent_runtime/tests/test_events_v2.py` — 70 tests: 构造、默认值、event_type 唯一性、枚举、序列化
+- `packages/agent_runtime/tests/test_dual_emit.py` — 6 tests: v2 run/llm/tool 事件发射、run_id/trace_id 传递、旧事件兼容
+- `packages/agent_runtime/src/agent_runtime/runtime/loop.py` — Dual Emit 集成：run_agent_loop 同时发射旧事件和 v2 语义事件
 
 ---
 

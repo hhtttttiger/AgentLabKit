@@ -475,6 +475,8 @@ class AgentRuntime:
                 llm=llm,
                 event_bus=self._event_bus,
                 cancel=cancel_token,
+                run_id=_trace_id,  # Phase 2 will introduce proper AgentRun
+                trace_id=_trace_id,
             )
         except AgentError:
             if _span_mgr:

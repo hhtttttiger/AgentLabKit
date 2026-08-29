@@ -42,6 +42,20 @@ from ..events import (
     TurnEndEvent,
     TurnStartEvent,
 )
+from ..events_v2 import (
+    AgentCompleted,
+    AgentStarted,
+    AgentTurnStarted,
+    AgentTurnCompleted,
+    LLMCallStarted,
+    LLMCallCompleted,
+    LLMCallFailed,
+    RunStarted,
+    RunCompleted,
+    RuntimeEvent,
+    ToolCallStarted,
+    ToolCallCompleted,
+)
 from .cancel import CancelToken
 from .llm_adapter import (
     Directive,
@@ -53,6 +67,25 @@ from .llm_adapter import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Type alias for semantic event callbacks
+SemanticEventSink = Callable[[RuntimeEvent], Awaitable[None] | None]
+
+
+def _make_semantic_emit(
+    event_bus: EventBus | None,
+    run_id: str,
+    trace_id: str,
+) -> SemanticEventSink:
+    """Create a callback that emits v2 semantic events with run_id/trace_id filled in."""
+
+    async def _semantic_emit(event: RuntimeEvent) -> None:
+        event.run_id = run_id
+        event.trace_id = trace_id
+        if event_bus is not None:
+            await event_bus.emit(event)
+
+    return _semantic_emit
 
 # ── Queue types ───────────────────────────────────────────────────────────────
 
@@ -170,6 +203,9 @@ async def run_agent_loop(
     llm: LlmAdapter,
     event_bus: EventBus | None = None,
     cancel: CancelToken | None = None,
+    *,
+    run_id: str = "",
+    trace_id: str = "",
 ) -> LoopResult:
     """Run the agent loop in **blocking** mode.
 
@@ -182,6 +218,8 @@ async def run_agent_loop(
         llm: LLM adapter for making gateway calls.
         event_bus: Optional event bus for lifecycle events.
         cancel: Optional cancellation token.
+        run_id: Optional run ID for semantic v2 events.
+        trace_id: Optional trace ID for semantic v2 events.
 
     Returns:
         A :class:`LoopResult` with all produced messages and the final directive.
@@ -190,12 +228,18 @@ async def run_agent_loop(
         if event_bus is not None:
             await event_bus.emit(event)
 
+    _sem = _make_semantic_emit(event_bus, run_id, trace_id)
+
     cancel = cancel or CancelToken()
     new_messages: list[AgentMessage] = list(prompts)
     current_messages = list(context.messages) + list(prompts)
 
+    # ── Dual emit: old + v2 ────────────────────────────────────────
     await _emit(AgentStartEvent())
+    await _sem(RunStarted(input_text=prompts[0].content if prompts else ""))
+    await _sem(AgentStarted())
     await _emit(TurnStartEvent())
+    await _sem(AgentTurnStarted(turn_index=0))
 
     for prompt in prompts:
         await _emit(MessageStartEvent(message=prompt))
@@ -209,9 +253,15 @@ async def run_agent_loop(
         llm=llm,
         emit=_emit,
         cancel=cancel,
+        semantic_emit=_sem,
     )
 
+    # ── Dual emit: completion ──────────────────────────────────────
+    final_text = result.final_directive.reply_text if result.final_directive else ""
     await _emit(AgentEndEvent(messages=result.messages))
+    await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text))
+    await _sem(AgentCompleted())
+    await _sem(RunCompleted(output_text=final_text))
     return result
 
 
@@ -222,6 +272,9 @@ async def stream_agent_loop(
     llm: LlmAdapter,
     event_bus: EventBus | None = None,
     cancel: CancelToken | None = None,
+    *,
+    run_id: str = "",
+    trace_id: str = "",
 ) -> AsyncIterator[AgentEvent]:
     """Run the agent loop in **streaming** mode.
 
@@ -231,12 +284,18 @@ async def stream_agent_loop(
     This is the Python equivalent of pi's ``agentLoop()`` which returns an
     ``EventStream``.
     """
+    _sem = _make_semantic_emit(event_bus, run_id, trace_id)
+
     cancel = cancel or CancelToken()
     new_messages: list[AgentMessage] = list(prompts)
     current_messages = list(context.messages) + list(prompts)
 
+    # ── Dual emit: old (yielded) + v2 (event_bus) ──────────────────
     yield AgentStartEvent()
+    await _sem(RunStarted(input_text=prompts[0].content if prompts else ""))
+    await _sem(AgentStarted())
     yield TurnStartEvent()
+    await _sem(AgentTurnStarted(turn_index=0))
 
     for prompt in prompts:
         yield MessageStartEvent(message=prompt)
@@ -271,6 +330,7 @@ async def stream_agent_loop(
                 llm=llm,
                 emit=_emit_to_queue,
                 cancel=cancel,
+                semantic_emit=_sem,
             )
             result_holder.append(result)
         finally:
@@ -294,7 +354,11 @@ async def stream_agent_loop(
 
     if result_holder:
         result = result_holder[0]
+        final_text = result.final_directive.reply_text if result.final_directive else ""
         yield AgentEndEvent(messages=result.messages)
+        await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text))
+        await _sem(AgentCompleted())
+        await _sem(RunCompleted(output_text=final_text))
 
 
 # ── Core loop body ───────────────────────────────────────────────────────────
@@ -324,6 +388,7 @@ async def _run_loop_body(
     llm: LlmAdapter,
     emit: EventSink,
     cancel: CancelToken,
+    semantic_emit: SemanticEventSink | None = None,
 ) -> LoopResult:
     """Core loop logic shared by blocking and streaming modes.
 
@@ -372,14 +437,29 @@ async def _run_loop_body(
 
             cancel.check()
 
-            # Call LLM
+            # Call LLM — dual emit old + v2
             conversation = _messages_to_conversation(current_messages)
+            if semantic_emit is not None:
+                await semantic_emit(LLMCallStarted(
+                    model=getattr(llm, "_model", ""),
+                    provider=getattr(llm, "_provider", ""),
+                ))
             directive, usage = await llm.generate(
                 system_prompt=context.system_prompt,
                 conversation=conversation,
                 tools=context.tools,
             )
             total_usage = _merge_usage(total_usage, usage)
+            if semantic_emit is not None:
+                await semantic_emit(LLMCallCompleted(
+                    model=getattr(llm, "_model", ""),
+                    provider=getattr(llm, "_provider", ""),
+                    input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
+                    output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
+                    cache_write_tokens=getattr(usage, "cache_write_tokens", 0) if usage else 0,
+                    cache_read_tokens=getattr(usage, "cache_read_tokens", 0) if usage else 0,
+                    estimated_cost=float(getattr(usage, "estimated_cost", 0) or 0) if usage else 0.0,
+                ))
 
             if isinstance(directive, FinalDirective):
                 # No tool calls — emit message events and finish
@@ -408,7 +488,7 @@ async def _run_loop_body(
 
                 break  # No more tool calls, exit inner loop
 
-            # Tool directive — execute tool(s)
+            # Tool directive — execute tool(s) — dual emit old + v2
             if isinstance(directive, ToolDirective):
                 tool_call_id = str(uuid4())
                 tool_tags = _tool_tags_lookup.get(directive.tool_name, [])
@@ -420,8 +500,17 @@ async def _run_loop_body(
                     source_type=source_type,
                     source_ref=source_ref,
                 ))
+                if semantic_emit is not None:
+                    await semantic_emit(ToolCallStarted(
+                        tool_name=directive.tool_name,
+                        arguments=dict(directive.arguments),
+                        source_type=source_type,
+                        source_ref=source_ref,
+                    ))
 
                 # Execute tool
+                import time as _time
+                _tool_start = _time.monotonic()
                 result_text, is_error = await _execute_tool(
                     tool_name=directive.tool_name,
                     arguments=directive.arguments,
@@ -429,6 +518,7 @@ async def _run_loop_body(
                     config=config,
                     emit=emit,
                 )
+                _tool_duration_ms = int((_time.monotonic() - _tool_start) * 1000)
 
                 await emit(ToolExecutionEndEvent(
                     tool_call_id=tool_call_id,
@@ -436,6 +526,13 @@ async def _run_loop_body(
                     result=result_text,
                     is_error=is_error,
                 ))
+                if semantic_emit is not None:
+                    await semantic_emit(ToolCallCompleted(
+                        tool_name=directive.tool_name,
+                        result=result_text[:500] if result_text else "",
+                        duration_ms=_tool_duration_ms,
+                        is_error=is_error,
+                    ))
 
                 tool_call_records.append(ToolCallRecord(
                     tool_call_id=tool_call_id,
