@@ -8,6 +8,7 @@ from evaluation.compare import (
     ChangeType,
     ComparisonResult,
     ExampleDiff,
+    IncompatibleEvaluationRuns,
     compare_runs,
     format_comparison_report,
 )
@@ -318,3 +319,90 @@ class TestExampleDiff:
         assert ChangeType.UNCHANGED == "unchanged"
         assert ChangeType.NEW == "new"
         assert ChangeType.REMOVED == "removed"
+
+
+# ── Comparability Validation ───────────────────────────────────────
+
+
+class TestComparabilityValidation:
+    def test_different_dataset_id_raises(self):
+        """dataset_id 不一致时抛出 IncompatibleEvaluationRuns。"""
+        baseline = _make_run("baseline", [
+            _make_result("1", 0.5),
+        ])
+        # 修改 dataset_id
+        current = EvaluationRun(
+            run_id="current",
+            dataset_id="different-dataset",
+            agent_key="chat",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[_make_result("1", 0.8)],
+            total_examples=1,
+            completed_examples=1,
+        )
+
+        with pytest.raises(IncompatibleEvaluationRuns) as exc_info:
+            compare_runs(baseline, current)
+
+        assert "dataset_id" in str(exc_info.value)
+
+    def test_same_dataset_id_passes(self):
+        """dataset_id 一致时正常比较。"""
+        baseline = _make_run("baseline", [_make_result("1", 0.5)])
+        current = _make_run("current", [_make_result("1", 0.8)])
+
+        result = compare_runs(baseline, current)
+        assert len(result.improved) == 1
+
+    @pytest.mark.asyncio
+    async def test_replay_compare_uses_same_example_id(self):
+        """Replay 比较时 baseline/candidate 使用同一个 example_id。
+
+        这是验收测试 I 的核心：Example #42 baseline Run A 和 candidate Run B
+        必须使用同一个 example_id，compare 不会把它们识别成 removed/new。
+        """
+        from evaluation.replay import InMemoryRunStore, MockRunExecutor, ReplayRunner
+        from evaluation.contracts_v2 import AgentRunSummary
+
+        # 创建一个评估器，检查 example_id 一致性
+        captured_ids: list[str] = []
+
+        class ExampleIdCapturingEvaluator:
+            name = "capturing"
+
+            async def evaluate(self, context):
+                captured_ids.append(context.example.example_id)
+                return EvaluationResult(
+                    example_id=context.example.example_id,
+                    score=0.8,
+                )
+
+        store = InMemoryRunStore()
+        original = AgentRunSummary(
+            run_id="example-42",
+            trace_id="trace-1",
+            agent_key="refund-agent",
+            input_text="refund order 123",
+            output_text="refunded",
+            status="completed",
+        )
+        await store.save_run(original)
+
+        executor = MockRunExecutor(
+            output_text="refunded v2",
+            run_id="run-B",
+            trace_id="trace-B",
+        )
+        evaluator = ExampleIdCapturingEvaluator()
+        runner = ReplayRunner(store, executor, evaluator)
+
+        result = await runner.replay("example-42")
+
+        # 比较成功（没有 removed/new）
+        assert result.comparison is not None
+        assert len(result.comparison.removed_examples) == 0
+        assert len(result.comparison.new_examples) == 0
+
+        # baseline 和 candidate 使用同一个 example_id
+        assert len(captured_ids) == 2
+        assert captured_ids[0] == captured_ids[1]

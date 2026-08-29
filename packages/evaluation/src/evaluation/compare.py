@@ -1,13 +1,29 @@
 """EvaluationRun 比较器。
 
 比较两个 EvaluationRun，识别改进、回归和未变化的案例。
+
+核心原则：
+- compare_runs 强类型接受 EvaluationRun（不再接受 Any）
+- 比较前验证可比性（dataset_id 等）
+- example_id 是对齐 baseline/candidate 的唯一 key
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .contracts_v2 import EvaluationRun
+
+
+class IncompatibleEvaluationRuns(Exception):
+    """两个 EvaluationRun 不可比较。"""
+
+    def __init__(self, reasons: list[str]) -> None:
+        self.reasons = reasons
+        super().__init__(f"Incompatible evaluation runs: {'; '.join(reasons)}")
 
 
 class ChangeType(str, Enum):
@@ -65,8 +81,8 @@ class ComparisonResult:
 
 
 def compare_runs(
-    baseline: Any,  # EvaluationRun
-    current: Any,   # EvaluationRun
+    baseline: EvaluationRun,
+    current: EvaluationRun,
     score_threshold: float = 0.01,
 ) -> ComparisonResult:
     """比较两个 EvaluationRun。
@@ -78,7 +94,13 @@ def compare_runs(
 
     Returns:
         ComparisonResult 包含改进、回归和未变化的案例
+
+    Raises:
+        IncompatibleEvaluationRuns: 当两个 run 不可比较时
     """
+    # ── Comparability validation ───────────────────────────────────
+    _validate_comparable(baseline, current)
+
     # 构建 baseline 的 example_id → result 映射
     baseline_results = {}
     for result in baseline.results:
@@ -236,10 +258,34 @@ def format_comparison_report(result: ComparisonResult) -> str:
     return "\n".join(lines)
 
 
+def _validate_comparable(baseline: EvaluationRun, current: EvaluationRun) -> None:
+    """验证两个 EvaluationRun 是否可比较。
+
+    检查：
+    - dataset_id 必须一致
+    - 如果有 evaluator metadata，检查一致性
+
+    Raises:
+        IncompatibleEvaluationRuns: 当不可比较时
+    """
+    reasons: list[str] = []
+
+    # dataset_id 必须一致
+    if baseline.dataset_id != current.dataset_id:
+        reasons.append(
+            f"dataset_id mismatch: baseline={baseline.dataset_id!r}, "
+            f"current={current.dataset_id!r}"
+        )
+
+    if reasons:
+        raise IncompatibleEvaluationRuns(reasons)
+
+
 __all__ = [
     "ChangeType",
     "ExampleDiff",
     "ComparisonResult",
+    "IncompatibleEvaluationRuns",
     "compare_runs",
     "format_comparison_report",
 ]

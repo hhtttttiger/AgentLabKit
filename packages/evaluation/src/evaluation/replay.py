@@ -240,11 +240,17 @@ class ReplayRunner:
         original: RunView,
         new: RunView,
     ) -> ComparisonResult:
-        """比较原始 Run 和新 Run。"""
-        # 对两个 Run 运行评估器
+        """比较原始 Run 和新 Run。
+
+        baseline 和 candidate 使用同一个 example_id（original.run_id），
+        这样 compare_runs 可以正确对齐。
+        """
+        # 使用 original.run_id 作为共享的 example_id
+        shared_example_id = original.run_id
+
         original_context = EvaluationContext(
             example=DatasetExample(
-                example_id=original.run_id,
+                example_id=shared_example_id,
                 dataset_id="replay",
                 input_text=str(original.input),
                 expected_output=str(original.output) if original.output else None,
@@ -254,7 +260,7 @@ class ReplayRunner:
 
         new_context = EvaluationContext(
             example=DatasetExample(
-                example_id=new.run_id,
+                example_id=shared_example_id,
                 dataset_id="replay",
                 input_text=str(new.input),
                 expected_output=str(new.output) if new.output else None,
@@ -265,7 +271,7 @@ class ReplayRunner:
         original_result = await self._evaluator.evaluate(original_context)
         new_result = await self._evaluator.evaluate(new_context)
 
-        # 构建 EvaluationRun 用于比较
+        # 构建 EvaluationRun 用于比较（同一个 dataset_id）
         original_eval_run = EvaluationRun(
             run_id=original.run_id,
             dataset_id="replay",

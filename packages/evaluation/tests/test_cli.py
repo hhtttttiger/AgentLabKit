@@ -216,7 +216,7 @@ class TestCompareWithBaseline:
         baseline_path = tmp_path / "baseline.json"
         baseline_path.write_text(json.dumps({
             "run_id": "baseline",
-            "dataset_id": "test",
+            "dataset_id": "test-dataset",
             "agent_key": "test",
             "status": "completed",
             "overall_score": 0.8,
@@ -237,7 +237,7 @@ class TestCompareWithBaseline:
         baseline_path = tmp_path / "baseline.json"
         baseline_path.write_text(json.dumps({
             "run_id": "baseline",
-            "dataset_id": "test",
+            "dataset_id": "test-dataset",
             "agent_key": "test",
             "status": "completed",
             "overall_score": 0.9,
