@@ -14,7 +14,7 @@
 | Phase 7: Dataset Regression | ✅ 完成 | 2026-08-29 | DatasetManager, Run→DatasetExample, DatasetEvaluationRunner, 14 tests |
 | Phase 8: Compare | ✅ 完成 | 2026-08-29 | compare_runs, improved/regressed/unchanged diff, 18 tests |
 | Phase 9: Replay MVP | ✅ 完成 | 2026-08-29 | ReplayRunner, Run→Replay→Compare, 17 tests |
-| Phase 10: CLI + CI | ⬜ 待开始 | | |
+| Phase 10: CLI + CI | ✅ 完成 | 2026-08-29 | eval CLI, eval.yaml, threshold/exit code/baseline, 20 tests |
 
 ---
 

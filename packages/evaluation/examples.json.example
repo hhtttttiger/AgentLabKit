@@ -1,0 +1,17 @@
+[
+  {
+    "input": "What is artificial intelligence?",
+    "expected_output": "AI is the simulation of human intelligence by machines.",
+    "tags": ["ai", "definition"]
+  },
+  {
+    "input": "Explain machine learning.",
+    "expected_output": "Machine learning is a subset of AI that enables systems to learn from data.",
+    "tags": ["ml", "definition"]
+  },
+  {
+    "input": "What is deep learning?",
+    "expected_output": "Deep learning uses neural networks with multiple layers to learn representations.",
+    "tags": ["dl", "definition"]
+  }
+]

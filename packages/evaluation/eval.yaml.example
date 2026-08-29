@@ -1,0 +1,33 @@
+# AgentLabKit Evaluation 配置文件示例
+#
+# 用法：
+#   agentlab eval -c eval.yaml
+#   python -m evaluation.cli -c eval.yaml
+
+# 数据集配置
+dataset:
+  # JSON 文件路径，包含 input 和可选的 expected_output
+  path: examples.json
+
+# 评估器配置
+metrics:
+  - name: no_error
+  - name: max_steps
+    max_steps: 10
+  - name: tool_called
+    tool_name: search
+
+# Agent 标识
+agent_key: my-agent
+
+# 分数阈值（低于此值评估失败）
+threshold: 0.8
+
+# 是否允许失败的样本
+allow_failures: false
+
+# 基线结果文件（用于回归检测）
+baseline: baseline.json
+
+# 输出结果文件
+output: result.json
