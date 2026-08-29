@@ -13,7 +13,7 @@
 | Phase 6: Agent Native Evaluators | ✅ 完成 | 2026-08-29 | 8 个行为评估器(Tool/Steps/Latency/Cost/Error/Trajectory), 25 tests |
 | Phase 7: Dataset Regression | ✅ 完成 | 2026-08-29 | DatasetManager, Run→DatasetExample, DatasetEvaluationRunner, 14 tests |
 | Phase 8: Compare | ✅ 完成 | 2026-08-29 | compare_runs, improved/regressed/unchanged diff, 18 tests |
-| Phase 9: Replay MVP | ⬜ 待开始 | | |
+| Phase 9: Replay MVP | ✅ 完成 | 2026-08-29 | ReplayRunner, Run→Replay→Compare, 17 tests |
 | Phase 10: CLI + CI | ⬜ 待开始 | | |
 
 ---

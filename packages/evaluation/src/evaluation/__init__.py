@@ -16,6 +16,7 @@ from .contracts_v2 import (
 )
 from .compare import ComparisonResult, ExampleDiff, ChangeType, compare_runs, format_comparison_report
 from .dataset import DatasetManager, DatasetStore, InMemoryDatasetStore, DatasetEvaluationRunner
+from .replay import ReplayConfig, ReplayResult, ReplayRunner, InMemoryRunStore, MockRunExecutor, RunStore, RunExecutor
 from .evaluators import (
     RagasEvaluator,
     ToolCalledEvaluator,
@@ -68,6 +69,13 @@ __all__ = [
     "ChangeType",
     "compare_runs",
     "format_comparison_report",
+    "RunStore",
+    "RunExecutor",
+    "ReplayConfig",
+    "ReplayResult",
+    "ReplayRunner",
+    "InMemoryRunStore",
+    "MockRunExecutor",
     "RagasEvaluator",
     "ToolCalledEvaluator",
     "ToolNotCalledEvaluator",
