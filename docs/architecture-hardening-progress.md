@@ -7,7 +7,7 @@ Branch: `refactor/execution-model-v2`
 | # | Phase | Commit | Status |
 |---|-------|--------|--------|
 | 1 | Unified Execution Identity | — | ✅ done |
-| 2 | Runtime Lifecycle Fixes | — | ⏳ pending |
+| 2 | Runtime Lifecycle Fixes | — | ✅ done |
 | 3 | Span Identity → Runtime Ownership | — | ⏳ pending |
 | 4 | TraceProjector Rewrite | — | ⏳ pending |
 | 5 | CostProjector Contract Fix | — | ⏳ pending |

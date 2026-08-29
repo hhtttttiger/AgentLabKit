@@ -50,11 +50,14 @@ from ..events_v2 import (
     LLMCallStarted,
     LLMCallCompleted,
     LLMCallFailed,
-    RunStarted,
+    RunCancelled,
     RunCompleted,
+    RunFailed,
+    RunStarted,
     RuntimeEvent,
-    ToolCallStarted,
     ToolCallCompleted,
+    ToolCallFailed,
+    ToolCallStarted,
 )
 from .cancel import CancelToken
 from .llm_adapter import (
@@ -245,24 +248,36 @@ async def run_agent_loop(
         await _emit(MessageStartEvent(message=prompt))
         await _emit(MessageEndEvent(message=prompt))
 
-    result = await _run_loop_body(
-        current_messages=current_messages,
-        new_messages=new_messages,
-        context=context,
-        config=config,
-        llm=llm,
-        emit=_emit,
-        cancel=cancel,
-        semantic_emit=_sem,
-    )
-
-    # ── Dual emit: completion ──────────────────────────────────────
-    final_text = result.final_directive.reply_text if result.final_directive else ""
-    await _emit(AgentEndEvent(messages=result.messages))
-    await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text))
-    await _sem(AgentCompleted())
-    await _sem(RunCompleted(output_text=final_text))
-    return result
+    try:
+        result = await _run_loop_body(
+            current_messages=current_messages,
+            new_messages=new_messages,
+            context=context,
+            config=config,
+            llm=llm,
+            emit=_emit,
+            cancel=cancel,
+            semantic_emit=_sem,
+        )
+    except asyncio.CancelledError:
+        # ── Cancellation as first-class status (2.5) ──────────────
+        await _sem(RunCancelled(reason="cancelled"))
+        raise
+    except Exception as exc:
+        # ── Run terminal invariant: failure path (2.1) ────────────
+        await _sem(RunFailed(
+            error_code="RUNTIME_ERROR",
+            error_message=str(exc),
+        ))
+        raise
+    else:
+        # ── Run terminal invariant: success path (2.1) ────────────
+        final_text = result.final_directive.reply_text if result.final_directive else ""
+        await _emit(AgentEndEvent(messages=result.messages))
+        await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text))
+        await _sem(AgentCompleted())
+        await _sem(RunCompleted(output_text=final_text))
+        return result
 
 
 async def stream_agent_loop(
@@ -344,6 +359,24 @@ async def stream_agent_loop(
             if event is None:
                 break
             yield event
+    except asyncio.CancelledError:
+        # ── Cancellation as first-class status (2.5) ──────────────
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+        await _sem(RunCancelled(reason="stream_cancelled"))
+        raise
+    except Exception:
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+        raise
     finally:
         if not task.done():
             task.cancel()
@@ -359,6 +392,12 @@ async def stream_agent_loop(
         await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text))
         await _sem(AgentCompleted())
         await _sem(RunCompleted(output_text=final_text))
+    else:
+        # Task failed without producing results — emit RunFailed
+        await _sem(RunFailed(
+            error_code="RUNTIME_ERROR",
+            error_message="streaming loop exited without result",
+        ))
 
 
 # ── Core loop body ───────────────────────────────────────────────────────────
@@ -437,23 +476,35 @@ async def _run_loop_body(
 
             cancel.check()
 
-            # Call LLM — dual emit old + v2
+            # Call LLM — dual emit old + v2 (2.3: failure must emit)
             conversation = _messages_to_conversation(current_messages)
+            _llm_model = getattr(llm, "_model", "")
+            _llm_provider = getattr(llm, "_provider", "")
             if semantic_emit is not None:
                 await semantic_emit(LLMCallStarted(
-                    model=getattr(llm, "_model", ""),
-                    provider=getattr(llm, "_provider", ""),
+                    model=_llm_model,
+                    provider=_llm_provider,
                 ))
-            directive, usage = await llm.generate(
-                system_prompt=context.system_prompt,
-                conversation=conversation,
-                tools=context.tools,
-            )
+            try:
+                directive, usage = await llm.generate(
+                    system_prompt=context.system_prompt,
+                    conversation=conversation,
+                    tools=context.tools,
+                )
+            except Exception as exc:
+                if semantic_emit is not None:
+                    await semantic_emit(LLMCallFailed(
+                        model=_llm_model,
+                        provider=_llm_provider,
+                        error_code="LLM_ERROR",
+                        error_message=str(exc),
+                    ))
+                raise
             total_usage = _merge_usage(total_usage, usage)
             if semantic_emit is not None:
                 await semantic_emit(LLMCallCompleted(
-                    model=getattr(llm, "_model", ""),
-                    provider=getattr(llm, "_provider", ""),
+                    model=_llm_model,
+                    provider=_llm_provider,
                     input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
                     output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
                     cache_write_tokens=getattr(usage, "cache_write_tokens", 0) if usage else 0,
@@ -508,16 +559,33 @@ async def _run_loop_body(
                         source_ref=source_ref,
                     ))
 
-                # Execute tool
+                # Execute tool (2.4: distinguish business error vs runtime failure)
                 import time as _time
                 _tool_start = _time.monotonic()
-                result_text, is_error = await _execute_tool(
-                    tool_name=directive.tool_name,
-                    arguments=directive.arguments,
-                    tool_call_id=tool_call_id,
-                    config=config,
-                    emit=emit,
-                )
+                try:
+                    result_text, is_error = await _execute_tool(
+                        tool_name=directive.tool_name,
+                        arguments=directive.arguments,
+                        tool_call_id=tool_call_id,
+                        config=config,
+                        emit=emit,
+                    )
+                except Exception as exc:
+                    # Tool invocation itself failed — emit ToolCallFailed
+                    _tool_duration_ms = int((_time.monotonic() - _tool_start) * 1000)
+                    await emit(ToolExecutionEndEvent(
+                        tool_call_id=tool_call_id,
+                        tool_name=directive.tool_name,
+                        result=str(exc),
+                        is_error=True,
+                    ))
+                    if semantic_emit is not None:
+                        await semantic_emit(ToolCallFailed(
+                            tool_name=directive.tool_name,
+                            error_code="TOOL_EXECUTION_ERROR",
+                            error_message=str(exc),
+                        ))
+                    raise
                 _tool_duration_ms = int((_time.monotonic() - _tool_start) * 1000)
 
                 await emit(ToolExecutionEndEvent(
