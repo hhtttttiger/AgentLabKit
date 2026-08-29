@@ -66,6 +66,22 @@ class RunError:
 
 
 @dataclass
+class ExecutionContext:
+    """执行上下文 — 在执行边界创建，贯穿整条执行链路。
+
+    Runtime 是 run_id / trace_id 的唯一创建者。
+    所有下层组件（Agent Loop、LLM、Tool、Guardrail、Handoff）
+    只能传递已有 identity，禁止重新生成。
+    """
+
+    run_id: str = field(default_factory=lambda: uuid4().hex)
+    trace_id: str = field(default_factory=lambda: uuid4().hex)
+    session_id: str = ""
+    agent_key: str | None = None
+    agent_version: str | None = None
+
+
+@dataclass
 class AgentRun:
     """一次 Agent 执行的完整结果。
 
@@ -73,18 +89,19 @@ class AgentRun:
     - Run 是业务执行边界
     - Run 通过 trace_id 关联 Trace，不内嵌 Span
     - Run 携带足够的元数据供 Cost/Eval/Replay 消费
+    - run_id / trace_id 由 Runtime 通过 ExecutionContext 注入
+    - agent_key / agent_version 唯一来源是 target 字段
     """
 
-    run_id: str = field(default_factory=lambda: uuid4().hex)
+    run_id: str = ""
+    trace_id: str | None = None
 
-    input_text: str = ""
-    output_text: str = ""
+    input: Any = ""
+    output: Any | None = None
 
     status: RunStatus = RunStatus.RUNNING
 
     target: RunTarget = field(default_factory=RunTarget)
-
-    trace_id: str | None = None
 
     usage: RunUsage | None = None
 
@@ -94,8 +111,6 @@ class AgentRun:
     finished_at: datetime | None = None
 
     session_id: str = ""
-    agent_key: str | None = None
-    agent_version: str | None = None
 
     # Orchestration
     action: str = "reply"  # "reply", "handoff_human", "handoff_agent"
@@ -111,15 +126,48 @@ class AgentRun:
 
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    # ── Backward-compat properties ────────────────────────────────────
+
+    @property
+    def input_text(self) -> str:
+        """Backward compat — returns str(input)."""
+        return str(self.input) if self.input is not None else ""
+
+    @input_text.setter
+    def input_text(self, value: str) -> None:
+        self.input = value
+
+    @property
+    def output_text(self) -> str:
+        """Backward compat — returns str(output)."""
+        return str(self.output) if self.output is not None else ""
+
+    @output_text.setter
+    def output_text(self, value: str) -> None:
+        self.output = value
+
+    @property
+    def agent_key(self) -> str | None:
+        """唯一来源：target.agent_key。"""
+        return self.target.agent_key
+
+    @property
+    def agent_version(self) -> str | None:
+        """唯一来源：target.agent_version。"""
+        return self.target.agent_version
+
+    # ── Lifecycle methods ─────────────────────────────────────────────
+
     def mark_completed(
         self,
         *,
-        output_text: str = "",
+        output: Any = None,
         usage: RunUsage | None = None,
     ) -> None:
         """标记 Run 为完成状态。"""
         self.status = RunStatus.COMPLETED
-        self.output_text = output_text
+        if output is not None:
+            self.output = output
         self.usage = usage
         self.finished_at = datetime.now(timezone.utc)
 
@@ -181,6 +229,7 @@ class AgentRun:
 
 __all__ = [
     "AgentRun",
+    "ExecutionContext",
     "RunStatus",
     "RunTarget",
     "RunUsage",

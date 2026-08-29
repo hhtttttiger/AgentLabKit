@@ -54,7 +54,7 @@ from ..contracts.models import (
     HandoffTarget,
     ToolExecutionRecord,
 )
-from ..contracts.run import AgentRun, RunStatus, RunTarget, RunUsage
+from ..contracts.run import AgentRun, ExecutionContext, RunStatus, RunTarget, RunUsage
 from ..definition.loader import AgentDefinitionLoader
 from ..definition.models import (
     AgentDefinitionSnapshot,
@@ -389,6 +389,8 @@ class AgentRuntime:
         guards, and session management to the extracted helper modules.
         """
         # ── Observability (tracer preferred, bridge factory fallback) ────
+        # Runtime creates both run_id and trace_id independently (Phase 1.2)
+        _run_id = str(uuid4())
         _trace_id = getattr(request, "trace_id", None) or str(uuid4())
         _span_mgr: _TracerSpanManager | None = None
         _obs_bridge = None
@@ -476,7 +478,7 @@ class AgentRuntime:
                 llm=llm,
                 event_bus=self._event_bus,
                 cancel=cancel_token,
-                run_id=_trace_id,  # Phase 2 will introduce proper AgentRun
+                run_id=_run_id,
                 trace_id=_trace_id,
             )
         except AgentError:
@@ -569,18 +571,29 @@ class AgentRuntime:
         of a scattered AgentTurnResult. The underlying execution is identical
         to run_turn — this method wraps it and builds the AgentRun.
 
+        Runtime is the sole creator of run_id and trace_id (via ExecutionContext).
+        All downstream components receive identity from the context — they must
+        never generate their own.
+
         Returns:
             An :class:`AgentRun` with status, usage, tool info, etc.
         """
-        run = AgentRun(
-            input_text=request.user_message,
+        # ── Runtime creates identity (1.2) ────────────────────────────
+        ctx = ExecutionContext(
             session_id=request.session_id or "",
             agent_key=getattr(request, "agent_key", None),
-            trace_id=getattr(request, "trace_id", None),
+            agent_version=str(getattr(request, "agent_version", "")) if getattr(request, "agent_version", None) else None,
+        )
+
+        run = AgentRun(
+            run_id=ctx.run_id,
+            trace_id=ctx.trace_id,
+            input=request.user_message,
+            session_id=ctx.session_id,
             target=RunTarget(
                 type="agent",
-                agent_key=getattr(request, "agent_key", None),
-                agent_version=str(getattr(request, "agent_version", "")) if getattr(request, "agent_version", None) else None,
+                agent_key=ctx.agent_key,
+                agent_version=ctx.agent_version,
             ),
         )
 
@@ -600,15 +613,16 @@ class AgentRuntime:
                     tool_call_count=len(result.tool_events),
                 )
 
-            run.trace_id = result.trace_id
-            run.output_text = result.reply_text
+            # trace_id from Runtime (may be updated by run_turn if request had one)
+            run.trace_id = result.trace_id or ctx.trace_id
+            run.output = result.reply_text
             run.action = result.action.value if hasattr(result.action, "value") else str(result.action)
             run.handoff_target_agent = getattr(result.handoff_target, "target_agent_key", None)
             run.orchestration_chain = result.orchestration_chain or []
             run.tool_names = [te.tool_name for te in result.tool_events]
             run.tool_call_count = len(result.tool_events)
             run.applied_skills = [s.skill_key for s in result.applied_skills]
-            run.agent_version = str(result.agent_version) if result.agent_version else None
+            # agent_version already set via target — no need to set again
 
             if result.error:
                 run.mark_failed(
@@ -618,7 +632,7 @@ class AgentRuntime:
                     model=result.error.model,
                 )
             else:
-                run.mark_completed(output_text=result.reply_text, usage=usage)
+                run.mark_completed(output=result.reply_text, usage=usage)
 
             return run
 
