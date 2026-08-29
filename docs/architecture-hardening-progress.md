@@ -14,7 +14,7 @@ Branch: `refactor/execution-model-v2`
 | 6 | Strengthen contracts_v2.py | — | ✅ done |
 | 7 | Simplify Evaluator Protocol | — | ✅ done |
 | 8 | Evaluation v2 Main Path | — | ✅ done |
-| 9 | Dataset Regression | — | ⏳ pending |
+| 9 | Dataset Regression | — | ✅ done |
 | 10 | Replay Ownership Rewrite | — | ⏳ pending |
 | 11 | Replay→Compare Identity Fix | — | ⏳ pending |
 | 12 | Compare Contract | — | ⏳ pending |

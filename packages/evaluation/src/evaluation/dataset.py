@@ -117,15 +117,15 @@ class DatasetManager:
             dataset_id=dataset_id,
             input_text=run.input_text,
             expected_output=run.output_text,
-            context=[],  # 可以后续从 spans 中提取
+            context=[],
             tags=tags or ["from_run", f"agent:{run.agent_key}"],
             metadata={
-                "run_id": run.run_id,
-                "trace_id": run.trace_id,
                 "status": run.status,
                 "duration_ms": str(run.duration_ms),
                 **(metadata or {}),
             },
+            source_run_id=run.run_id,
+            source_trace_id=run.trace_id,
         )
         await self._store.add_example(example)
         return example
@@ -158,13 +158,13 @@ class DatasetManager:
             context=context_parts,
             tags=tags or ["from_run", f"agent:{run.agent_key}"],
             metadata={
-                "run_id": run.run_id,
-                "trace_id": run.trace_id,
                 "status": run.status,
                 "duration_ms": str(run.duration_ms),
                 "span_count": str(len(spans)),
                 **(metadata or {}),
             },
+            source_run_id=run.run_id,
+            source_trace_id=run.trace_id,
         )
         await self._store.add_example(example)
         return example

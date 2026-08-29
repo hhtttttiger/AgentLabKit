@@ -165,7 +165,7 @@ class TestDatasetManager:
         assert example.input_text == "What is AI?"
         assert example.expected_output == "AI is artificial intelligence."
         assert "from_run" in example.tags
-        assert example.metadata["run_id"] == "run-123"
+        assert example.source_run_id == "run-123"
 
     @pytest.mark.asyncio
     async def test_run_to_example_with_custom_tags(self):
