@@ -4,6 +4,13 @@
 - 创建和管理数据集
 - 将 Run 转换为 DatasetExample（用于回归测试）
 - 批量添加 DatasetExamples
+
+DatasetEvaluationRunner — 通过 RunExecutor 真实执行数据集中的每个 Example。
+
+核心原则：
+- DatasetEvaluationRunner 通过 RunExecutor 执行，不自行构造 Run
+- EvaluationContext.run 包含真实的 RunView（来自 RunExecutor）
+- run_factory: Any 已删除，替换为强类型 RunExecutor
 """
 
 from __future__ import annotations
@@ -21,8 +28,10 @@ from .contracts_v2 import (
     EvaluationRun,
     EvaluationRunStatus,
     Evaluator,
+    Expectation,
     SpanSummary,
 )
+from .replay import RunExecutor, RunTarget
 
 logger = logging.getLogger(__name__)
 
@@ -97,13 +106,47 @@ class DatasetManager:
         for example in examples:
             await self._store.add_example(example)
 
+    async def add_run(
+        self,
+        run: Any,
+        dataset_id: str,
+        *,
+        expectations: list[Expectation] | None = None,
+        expected_output: Any | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> DatasetExample:
+        """将 Run 添加为 DatasetExample。
+
+        Args:
+            run: RunView or AgentRun
+            dataset_id: 目标数据集 ID
+            expectations: Agent 行为期望（tool called, trajectory 等）
+            expected_output: 期望输出（None 表示使用 run.output）
+            tags: 标签
+            metadata: 附加 metadata
+
+        Returns:
+            创建的 DatasetExample
+        """
+        example = run_to_example(
+            run,
+            dataset_id=dataset_id,
+            expectations=expectations,
+            expected_output=expected_output,
+            tags=tags,
+            metadata=metadata,
+        )
+        await self._store.add_example(example)
+        return example
+
     async def get_examples(self, dataset_id: str) -> list[DatasetExample]:
         """获取数据集中的所有样本。"""
         return await self._store.get_examples(dataset_id)
 
     async def run_to_example(
         self,
-        run: AgentRunSummary,
+        run: Any,
         dataset_id: str,
         tags: list[str] | None = None,
         metadata: dict[str, str] | None = None,
@@ -112,27 +155,18 @@ class DatasetManager:
 
         用于将失败的 Run 变成永久 regression case。
         """
-        example = DatasetExample(
-            example_id=uuid4().hex,
+        example = run_to_example(
+            run,
             dataset_id=dataset_id,
-            input_text=run.input_text,
-            expected_output=run.output_text,
-            context=[],
-            tags=tags or ["from_run", f"agent:{run.agent_key}"],
-            metadata={
-                "status": run.status,
-                "duration_ms": str(run.duration_ms),
-                **(metadata or {}),
-            },
-            source_run_id=run.run_id,
-            source_trace_id=run.trace_id,
+            tags=tags,
+            metadata=metadata,
         )
         await self._store.add_example(example)
         return example
 
     async def run_to_example_with_context(
         self,
-        run: AgentRunSummary,
+        run: Any,
         spans: list[SpanSummary],
         dataset_id: str,
         tags: list[str] | None = None,
@@ -150,52 +184,116 @@ class DatasetManager:
                 if tool_name:
                     context_parts.append(f"Tool used: {tool_name}")
 
+        agent_key = getattr(run, "agent_key", "")
+        run_id = getattr(run, "run_id", "")
+        trace_id = getattr(run, "trace_id", "")
+        input_text = getattr(run, "input_text", None) or str(getattr(run, "input", ""))
+        output_text = getattr(run, "output_text", None) or str(getattr(run, "output", ""))
+        status = getattr(run, "status", "completed")
+        duration_ms = getattr(run, "duration_ms", 0)
+
         example = DatasetExample(
             example_id=uuid4().hex,
             dataset_id=dataset_id,
-            input_text=run.input_text,
-            expected_output=run.output_text,
+            input_text=input_text,
+            expected_output=output_text,
             context=context_parts,
-            tags=tags or ["from_run", f"agent:{run.agent_key}"],
+            tags=tags or ["from_run", f"agent:{agent_key}"],
             metadata={
-                "status": run.status,
-                "duration_ms": str(run.duration_ms),
+                "status": str(status),
+                "duration_ms": str(duration_ms),
                 "span_count": str(len(spans)),
                 **(metadata or {}),
             },
-            source_run_id=run.run_id,
-            source_trace_id=run.trace_id,
+            source_run_id=run_id,
+            source_trace_id=trace_id,
         )
         await self._store.add_example(example)
         return example
 
 
+def run_to_example(
+    run: Any,
+    dataset_id: str,
+    *,
+    expectations: list[Expectation] | None = None,
+    expected_output: Any | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> DatasetExample:
+    """将 Run 转换为 DatasetExample（纯函数，不写 store）。
+
+    Args:
+        run: RunView or AgentRun
+        dataset_id: 目标数据集 ID
+        expectations: Agent 行为期望
+        expected_output: 期望输出（None 使用 run.output）
+        tags: 标签
+        metadata: 附加 metadata
+
+    Returns:
+        DatasetExample（不写入 store）
+    """
+    agent_key = getattr(run, "agent_key", "")
+    run_id = getattr(run, "run_id", "")
+    trace_id = getattr(run, "trace_id", "")
+    input_text = getattr(run, "input_text", None) or str(getattr(run, "input", ""))
+    output_text = getattr(run, "output_text", None) or str(getattr(run, "output", ""))
+
+    return DatasetExample(
+        example_id=uuid4().hex,
+        dataset_id=dataset_id,
+        input_text=input_text,
+        expected_output=expected_output if expected_output is not None else output_text,
+        context=[],
+        tags=tags or ["from_run", f"agent:{agent_key}"],
+        metadata=metadata or {},
+        expectations=expectations or [],
+        source_run_id=run_id,
+        source_trace_id=trace_id if trace_id else None,
+    )
+
+
 class DatasetEvaluationRunner:
     """数据集评估运行器。
 
-    对一个数据集运行评估，生成 EvaluationRun。
+    通过 RunExecutor 真实执行数据集中的每个 Example，
+    然后用 Evaluator 评估结果。
+
+    数据流：
+        DatasetExample → RunExecutor → AgentRun → EvaluationContext → Evaluator
+
+    核心原则：
+    - run_factory: Any 已删除，替换为 RunExecutor
+    - EvaluationContext.run 包含真实 RunView
+    - Agent-native evaluator 可以看到真实 trace/span
     """
 
     def __init__(
         self,
         evaluator: Evaluator,
         store: DatasetStore,
+        run_executor: RunExecutor | None = None,
+        target: RunTarget | None = None,
     ) -> None:
         self._evaluator = evaluator
         self._store = store
+        self._run_executor = run_executor
+        self._target = target or RunTarget()
 
     async def run(
         self,
         dataset_id: str,
         agent_key: str,
-        run_factory: Any | None = None,
     ) -> EvaluationRun:
         """对数据集运行评估。
 
         Args:
             dataset_id: 数据集 ID
             agent_key: Agent 标识
-            run_factory: 可选的运行工厂，用于生成 AgentRunSummary
+
+        Returns:
+            EvaluationRun 包含所有 example 的评估结果
         """
         import time
         start = time.monotonic()
@@ -229,10 +327,18 @@ class DatasetEvaluationRunner:
         # 逐个评估
         for example in examples:
             try:
-                # 构建评估上下文
+                # 如果有 RunExecutor，真实执行
+                run_view = None
+                if self._run_executor is not None:
+                    run_view = await self._run_executor.execute(
+                        input=example.input_text,
+                        target=self._target,
+                    )
+
+                # 构建评估上下文（包含真实 Run）
                 context = EvaluationContext(
                     example=example,
-                    # 如果有 run_factory，可以生成 AgentRunSummary
+                    run=run_view,
                 )
 
                 # 运行评估
@@ -279,4 +385,5 @@ __all__ = [
     "InMemoryDatasetStore",
     "DatasetManager",
     "DatasetEvaluationRunner",
+    "run_to_example",
 ]

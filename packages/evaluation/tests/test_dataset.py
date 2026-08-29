@@ -1,4 +1,4 @@
-"""Tests for DatasetManager and DatasetEvaluationRunner."""
+"""Tests for DatasetManager and DatasetEvaluationRunner — v2 with RunExecutor."""
 
 from __future__ import annotations
 
@@ -10,9 +10,18 @@ from evaluation.contracts_v2 import (
     EvaluationContext,
     EvaluationResult,
     EvaluationRunStatus,
+    Expectation,
+    ExpectationType,
     MetricResult,
+    RunView,
 )
-from evaluation.dataset import DatasetEvaluationRunner, DatasetManager, InMemoryDatasetStore
+from evaluation.dataset import (
+    DatasetEvaluationRunner,
+    DatasetManager,
+    InMemoryDatasetStore,
+    run_to_example,
+)
+from evaluation.replay import MockRunExecutor, RunTarget
 
 
 def _make_run(**kwargs) -> AgentRunSummary:
@@ -22,7 +31,7 @@ def _make_run(**kwargs) -> AgentRunSummary:
         "agent_key": "chat",
         "input_text": "What is AI?",
         "output_text": "AI is artificial intelligence.",
-        "status": "ok",
+        "status": "completed",
         "duration_ms": 1000,
         "total_input_tokens": 100,
         "total_output_tokens": 50,
@@ -40,8 +49,10 @@ class MockEvaluator:
         self.name = "mock"
         self.score = score
         self.error = error
+        self.last_context: EvaluationContext | None = None
 
     async def evaluate(self, context):
+        self.last_context = context
         if self.error:
             return EvaluationResult(
                 example_id=context.example.example_id,
@@ -207,6 +218,55 @@ class TestDatasetManager:
         assert len(example.context) == 1
         assert "Tool used: search" in example.context
 
+    @pytest.mark.asyncio
+    async def test_add_run_with_expectations(self):
+        """add_run 支持 expectations 参数。"""
+        store = InMemoryDatasetStore()
+        manager = DatasetManager(store)
+        dataset_id = await manager.create_dataset("test")
+
+        run = _make_run()
+        expectations = [
+            Expectation(type=ExpectationType.TOOL_CALLED, value="search"),
+        ]
+        example = await manager.add_run(
+            run, dataset_id,
+            expectations=expectations,
+        )
+
+        assert len(example.expectations) == 1
+        assert example.expectations[0].type == ExpectationType.TOOL_CALLED
+        assert example.source_run_id == "run-123"
+
+
+# ── run_to_example (pure function) ─────────────────────────────────
+
+
+class TestRunToExample:
+    def test_basic_conversion(self):
+        run = _make_run()
+        example = run_to_example(run, "dataset-1")
+
+        assert example.dataset_id == "dataset-1"
+        assert example.input_text == "What is AI?"
+        assert example.source_run_id == "run-123"
+
+    def test_with_expectations(self):
+        run = _make_run()
+        expectations = [
+            Expectation(type=ExpectationType.TOOL_CALLED, value="search"),
+            Expectation(type=ExpectationType.MAX_STEPS, value=5),
+        ]
+        example = run_to_example(run, "d1", expectations=expectations)
+
+        assert len(example.expectations) == 2
+
+    def test_with_custom_expected_output(self):
+        run = _make_run()
+        example = run_to_example(run, "d1", expected_output="custom expected")
+
+        assert example.expected_output == "custom expected"
+
 
 # ── DatasetEvaluationRunner ────────────────────────────────────────
 
@@ -305,3 +365,47 @@ class TestDatasetEvaluationRunner:
         assert result.completed_examples == 1
         assert result.failed_examples == 1
         assert result.overall_score == 0.8  # 只计算成功的
+
+    @pytest.mark.asyncio
+    async def test_run_with_executor_populates_context_run(self):
+        """RunExecutor 真实执行，EvaluationContext.run 包含真实 RunView。"""
+        store = InMemoryDatasetStore()
+        dataset_id = await store.create_dataset("test")
+        await store.add_example(DatasetExample(
+            example_id="1", dataset_id=dataset_id, input_text="What is AI?",
+        ))
+
+        evaluator = MockEvaluator(score=0.9)
+        executor = MockRunExecutor(
+            output_text="AI is artificial intelligence.",
+            run_id="exec-run-1",
+            trace_id="exec-trace-1",
+        )
+        target = RunTarget(agent_key="test-agent")
+        runner = DatasetEvaluationRunner(evaluator, store, run_executor=executor, target=target)
+
+        result = await runner.run(dataset_id, "test-agent")
+
+        assert result.status == EvaluationRunStatus.COMPLETED
+        # Evaluator 收到了包含真实 Run 的 context
+        assert evaluator.last_context is not None
+        assert evaluator.last_context.run is not None
+        assert evaluator.last_context.run.run_id == "exec-run-1"
+
+    @pytest.mark.asyncio
+    async def test_run_without_executor_context_run_is_none(self):
+        """没有 RunExecutor 时，EvaluationContext.run 为 None。"""
+        store = InMemoryDatasetStore()
+        dataset_id = await store.create_dataset("test")
+        await store.add_example(DatasetExample(
+            example_id="1", dataset_id=dataset_id, input_text="A",
+        ))
+
+        evaluator = MockEvaluator(score=0.9)
+        runner = DatasetEvaluationRunner(evaluator, store)
+
+        result = await runner.run(dataset_id, "chat")
+
+        assert result.status == EvaluationRunStatus.COMPLETED
+        assert evaluator.last_context is not None
+        assert evaluator.last_context.run is None
