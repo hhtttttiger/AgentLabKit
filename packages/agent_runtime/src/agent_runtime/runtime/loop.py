@@ -21,6 +21,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable, Awaitable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum  # noqa: F401 — used by QueueMode
 from typing import Any
 from uuid import uuid4
@@ -547,6 +548,7 @@ async def _run_loop_body(
             _llm_provider = getattr(llm, "_provider", "")
             # Create span_id for this LLM call (3.1)
             _llm_span_id = uuid4().hex[:16]
+            _llm_started_at = datetime.now(timezone.utc)
             if span_ctx is not None:
                 span_ctx.push(_llm_span_id)
             if semantic_emit is not None:
@@ -569,11 +571,14 @@ async def _run_loop_body(
                         error_code="LLM_ERROR",
                         error_message=str(exc),
                         span_id=_llm_span_id,
+                        started_at=_llm_started_at,
+                        completed_at=datetime.now(timezone.utc),
                     ))
                 if span_ctx is not None:
                     span_ctx.pop()
                 raise
             total_usage = _merge_usage(total_usage, usage)
+            _llm_completed_at = datetime.now(timezone.utc)
             if semantic_emit is not None:
                 await semantic_emit(LLMCallCompleted(
                     model=_llm_model,
@@ -584,6 +589,8 @@ async def _run_loop_body(
                     cache_read_tokens=getattr(usage, "cache_read_tokens", 0) if usage else 0,
                     estimated_cost=float(getattr(usage, "estimated_cost", 0) or 0) if usage else 0.0,
                     span_id=_llm_span_id,
+                    started_at=_llm_started_at,
+                    completed_at=_llm_completed_at,
                 ))
             if span_ctx is not None:
                 span_ctx.pop()

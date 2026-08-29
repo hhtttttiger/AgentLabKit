@@ -10,7 +10,7 @@ Branch: `refactor/execution-model-v2`
 | 2 | Runtime Lifecycle Fixes | — | ✅ done |
 | 3 | Span Identity → Runtime Ownership | — | ✅ done |
 | 4 | TraceProjector Rewrite | — | ✅ done |
-| 5 | CostProjector Contract Fix | — | ⏳ pending |
+| 5 | CostProjector Contract Fix | — | ✅ done |
 | 6 | Strengthen contracts_v2.py | — | ⏳ pending |
 | 7 | Simplify Evaluator Protocol | — | ⏳ pending |
 | 8 | Evaluation v2 Main Path | — | ⏳ pending |

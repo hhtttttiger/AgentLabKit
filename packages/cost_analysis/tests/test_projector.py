@@ -1,4 +1,7 @@
-"""Tests for CostProjector — RuntimeEvent v2 → CostRecord."""
+"""Tests for CostProjector — RuntimeEvent v2 → CostRecord.
+
+Phase 5: tests use real RuntimeEvent dataclasses where possible.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +14,9 @@ import pytest
 
 from cost_analysis.contracts import CostRecord
 from cost_analysis.projector import CostProjector
+
+# Import real v2 event classes (5.4)
+from agent_runtime.events_v2 import LLMCallCompleted, LLMCallFailed
 
 
 class FakePublisher:
@@ -249,3 +255,74 @@ class TestEdgeCases:
         assert len(projector._publisher.submitted) == 2
         assert projector._publisher.submitted[0].run_id == r1
         assert projector._publisher.submitted[1].run_id == r2
+
+
+# ── Real RuntimeEvent tests (5.4) ─────────────────────────────────
+
+
+class TestRealEventContract:
+    """Tests using real RuntimeEvent dataclasses to prevent contract drift."""
+
+    def test_real_llm_completed_event(self, projector: CostProjector):
+        """CostProjector must work with real LLMCallCompleted (5.4)."""
+        run_id = uuid4().hex
+        trace_id = uuid4().hex
+        span_id = uuid4().hex[:16]
+        event = LLMCallCompleted(
+            run_id=run_id,
+            trace_id=trace_id,
+            span_id=span_id,
+            model="gpt-4o",
+            provider="openai",
+            input_tokens=150,
+            output_tokens=80,
+            cache_write_tokens=10,
+            cache_read_tokens=5,
+            estimated_cost=0.003,
+            latency_ms=1200,
+            finish_reason="stop",
+            agent_key="chat",
+            started_at=_ts(0),
+            completed_at=_ts(1),
+        )
+        import asyncio
+        asyncio.run(projector.handle(event))
+        record = projector._publisher.submitted[0]
+        # Identity comes from event (5.2)
+        assert record.run_id == run_id
+        assert record.trace_id == trace_id
+        assert record.span_id == span_id
+        # Data from event
+        assert record.model == "gpt-4o"
+        assert record.input_tokens == 150
+        assert record.agent_key == "chat"
+        # Time from event, not fabricated (5.3)
+        assert record.started_at_utc == _ts(0)
+        assert record.completed_at_utc == _ts(1)
+
+    def test_real_llm_failed_event(self, projector: CostProjector):
+        """CostProjector must work with real LLMCallFailed (5.4)."""
+        run_id = uuid4().hex
+        trace_id = uuid4().hex
+        span_id = uuid4().hex[:16]
+        event = LLMCallFailed(
+            run_id=run_id,
+            trace_id=trace_id,
+            span_id=span_id,
+            model="gpt-4o",
+            provider="openai",
+            error_code="TIMEOUT",
+            error_message="request timeout",
+            agent_key="chat",
+            started_at=_ts(0),
+            completed_at=_ts(1),
+        )
+        import asyncio
+        asyncio.run(projector.handle(event))
+        record = projector._publisher.submitted[0]
+        assert record.run_id == run_id
+        assert record.trace_id == trace_id
+        assert record.span_id == span_id
+        assert record.error_code == "TIMEOUT"
+        assert record.input_tokens == 0
+        assert record.estimated_cost == 0.0

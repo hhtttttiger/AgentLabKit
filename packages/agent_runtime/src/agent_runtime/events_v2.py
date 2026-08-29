@@ -164,6 +164,10 @@ class LLMCallCompleted(RuntimeEvent):
     estimated_cost: float = 0.0
     latency_ms: int = 0
     finish_reason: str = ""
+    # Cost projector needs these (5.1)
+    agent_key: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 @dataclass
@@ -174,6 +178,10 @@ class LLMCallFailed(RuntimeEvent):
     provider: str = ""
     error_code: str = ""
     error_message: str = ""
+    # Cost projector needs these (5.1)
+    agent_key: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 # ── Tool calls ──────────────────────────────────────────────────────

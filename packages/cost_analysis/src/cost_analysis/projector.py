@@ -74,12 +74,16 @@ class CostProjector:
         cache_read_tokens = getattr(event, "cache_read_tokens", 0) or 0
         estimated_cost = getattr(event, "estimated_cost", Decimal("0")) or Decimal("0")
 
-        # 构建 CostRecord
+        # 时间戳：优先使用 completed_at，回退到 timestamp (5.3)
+        started_at = getattr(event, "started_at", None)
+        completed_at = getattr(event, "completed_at", None) or getattr(event, "timestamp", None)
+
+        # 构建 CostRecord — identity 来自 event (5.2)
         record = CostRecord(
             run_id=run_id,
             trace_id=getattr(event, "trace_id", ""),
             span_id=getattr(event, "span_id", ""),
-            agent_key=getattr(event, "agent_key", ""),
+            agent_key=getattr(event, "agent_key", "") or "",
             model=getattr(event, "model", ""),
             provider=getattr(event, "provider", ""),
             input_tokens=input_tokens,
@@ -87,8 +91,8 @@ class CostProjector:
             cache_write_tokens=cache_write_tokens,
             cache_read_tokens=cache_read_tokens,
             estimated_cost=float(estimated_cost),
-            started_at_utc=_to_utc(getattr(event, "started_at", None)),
-            completed_at_utc=_to_utc(getattr(event, "timestamp", None)),
+            started_at_utc=_to_utc(started_at),
+            completed_at_utc=_to_utc(completed_at),
         )
 
         try:
@@ -105,11 +109,14 @@ class CostProjector:
         if not run_id:
             return
 
+        started_at = getattr(event, "started_at", None)
+        completed_at = getattr(event, "completed_at", None) or getattr(event, "timestamp", None)
+
         record = CostRecord(
             run_id=run_id,
             trace_id=getattr(event, "trace_id", ""),
             span_id=getattr(event, "span_id", ""),
-            agent_key=getattr(event, "agent_key", ""),
+            agent_key=getattr(event, "agent_key", "") or "",
             model=getattr(event, "model", ""),
             provider=getattr(event, "provider", ""),
             input_tokens=0,
@@ -119,8 +126,8 @@ class CostProjector:
             estimated_cost=0.0,
             error_code=getattr(event, "error_code", None),
             error_message=getattr(event, "error_message", None),
-            started_at_utc=_to_utc(getattr(event, "started_at", None)),
-            completed_at_utc=_to_utc(getattr(event, "timestamp", None)),
+            started_at_utc=_to_utc(started_at),
+            completed_at_utc=_to_utc(completed_at),
         )
 
         try:
