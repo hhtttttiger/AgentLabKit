@@ -1034,14 +1034,16 @@ class TestAcceptanceReplayExampleIdFlow:
     """ReplayConfig.example_id → ReplayResult.example_id 全链路传递。"""
 
     def test_config_example_id_flows_to_result(self):
-        from evaluation.replay import ReplayResult, ComparisonResult
+        from evaluation.replay import ReplayResult
+        from evaluation.compare import ComparisonResult
 
+        comparison = ComparisonResult(baseline_run_id="orig", current_run_id="new")
         result = ReplayResult(
             original_run_id="orig",
             new_run_id="new",
-            comparison=ComparisonResult(
-                improved=[], degraded=[], unchanged=[], regressions=[]
-            ),
+            original_run=None,
+            new_run=None,
+            comparison=comparison,
             example_id="dataset-42",
         )
         assert result.example_id == "dataset-42"
@@ -1049,18 +1051,20 @@ class TestAcceptanceReplayExampleIdFlow:
     def test_config_example_id_none_by_default(self):
         from evaluation.replay import ReplayConfig
 
-        config = ReplayConfig(target="agent", user_message="hi")
+        config = ReplayConfig(target=None)
         assert config.example_id is None
 
     def test_result_example_id_none_by_default(self):
-        from evaluation.replay import ReplayResult, ComparisonResult
+        from evaluation.replay import ReplayResult
+        from evaluation.compare import ComparisonResult
 
+        comparison = ComparisonResult(baseline_run_id="orig", current_run_id="new")
         result = ReplayResult(
             original_run_id="orig",
             new_run_id="new",
-            comparison=ComparisonResult(
-                improved=[], degraded=[], unchanged=[], regressions=[]
-            ),
+            original_run=None,
+            new_run=None,
+            comparison=comparison,
         )
         assert result.example_id is None
 
