@@ -343,17 +343,24 @@ class DatasetEvaluationRunner:
                 spans: list[SpanSummary] = []
                 if self._trace_provider is not None and run_view is not None:
                     try:
-                        fetched = await self._trace_provider.get_spans(run_view.run_id)
-                        if fetched is not None:
-                            spans = fetched
+                        # Trace storage is keyed by trace identity, not the
+                        # business Run id. A missing trace remains an empty
+                        # context so trace-aware evaluators can skip explicitly.
+                        if run_view.trace_id:
+                            fetched = await self._trace_provider.get_spans(run_view.trace_id)
+                            if fetched is not None:
+                                spans = fetched
                     except Exception:
-                        logger.exception("trace_provider.get_spans_failed run_id=%s", run_view.run_id)
+                        logger.exception("trace_provider.get_spans_failed trace_id=%s", run_view.trace_id)
 
                 # 构建评估上下文（包含真实 Run + Spans）
                 context = EvaluationContext(
                     example=example,
                     run=run_view,
                     spans=spans,
+                    extra={
+                        "trace_unavailable": run_view is None or not spans,
+                    },
                 )
 
                 # 运行评估

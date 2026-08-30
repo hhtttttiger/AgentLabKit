@@ -24,6 +24,20 @@ from ..contracts_v2 import (
 logger = logging.getLogger(__name__)
 
 
+def _trace_unavailable(context: EvaluationContext) -> EvaluationResult | None:
+    """Return an explicit skip result for trace-dependent evaluators."""
+    if context.extra.get("trace_unavailable"):
+        return EvaluationResult(
+            example_id=context.example.example_id,
+            run_id=context.run.run_id if context.run else None,
+            passed=None,
+            score=None,
+            message="trace unavailable",
+            skip_reason="trace unavailable",
+        )
+    return None
+
+
 class ToolCalledEvaluator:
     """检查指定工具是否被调用。"""
 
@@ -32,6 +46,9 @@ class ToolCalledEvaluator:
         self.name = name
 
     async def evaluate(self, context: EvaluationContext) -> EvaluationResult:
+        skipped = _trace_unavailable(context)
+        if skipped is not None:
+            return skipped
         start = time.monotonic()
         called = self._check(context)
         return EvaluationResult(
@@ -69,6 +86,9 @@ class ToolNotCalledEvaluator:
         self.name = name
 
     async def evaluate(self, context: EvaluationContext) -> EvaluationResult:
+        skipped = _trace_unavailable(context)
+        if skipped is not None:
+            return skipped
         start = time.monotonic()
         called = self._check(context)
         not_called = not called
@@ -111,6 +131,9 @@ class ToolArgsEvaluator:
         self.name = name
 
     async def evaluate(self, context: EvaluationContext) -> EvaluationResult:
+        skipped = _trace_unavailable(context)
+        if skipped is not None:
+            return skipped
         start = time.monotonic()
         matched, details = self._check(context)
         return EvaluationResult(
@@ -305,6 +328,9 @@ class TrajectoryEvaluator:
         self.name = name
 
     async def evaluate(self, context: EvaluationContext) -> EvaluationResult:
+        skipped = _trace_unavailable(context)
+        if skipped is not None:
+            return skipped
         start = time.monotonic()
         actual_trajectory = [s.name for s in context.spans]
         matched = self._match(actual_trajectory)

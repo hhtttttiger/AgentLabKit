@@ -57,6 +57,17 @@ class Expectation:
 
 
 @runtime_checkable
+class RunTargetView(Protocol):
+    """Minimal target contract exposed to evaluation and replay consumers."""
+
+    type: str
+    agent_key: str | None
+    agent_version: str | None
+    workflow_id: str | None
+    workflow_version: str | None
+
+
+@runtime_checkable
 class RunView(Protocol):
     """Run 的评估投影 — Evaluation 只依赖此协议。
 
@@ -85,7 +96,7 @@ class RunView(Protocol):
     def finished_at(self) -> datetime | None: ...
 
     @property
-    def target(self) -> Any | None: ...
+    def target(self) -> RunTargetView | None: ...
 
     # Agent-native evaluators need these (tool/latency/cost evaluators)
     @property
@@ -477,8 +488,8 @@ class TraceProvider(Protocol):
     返回 None 表示 trace 不存在（run 可能太新或已过期）。
     """
 
-    async def get_spans(self, run_id: str) -> list[SpanSummary] | None:
-        """获取指定 run 的 span 列表。"""
+    async def get_spans(self, trace_id: str) -> list[SpanSummary] | None:
+        """获取指定 trace 的 span 列表。"""
         ...
 
 
@@ -562,6 +573,7 @@ def eval_run_result_to_evaluation_result(
 __all__ = [
     # Enums
     "RunStatus",
+    "RunTargetView",
     "EvaluationRunStatus",
     "ExpectationType",
     "MetricScore",

@@ -454,24 +454,31 @@ class AgentRuntime:
             prepared.resolved_request, definition, applied_skills, mode="blocking",
         )
         if guard_result.blocked_result is not None:
-            # Guardrail blocked — emit lifecycle events (blocked ≠ runtime crash)
-            # Note: RunCompleted is emitted by run() after run_turn() returns,
-            # so we don't emit a terminal event here — that would be a double terminal.
+            # A guardrail block is a completed business outcome, not a
+            # runtime failure. This early return owns the terminal boundary.
             if _run_lifecycle_started:
+                guardrail_span_id = uuid4().hex[:16]
                 await self._event_bus.emit(GuardrailEvaluated(
-                    run_id=_run_id,
-                    trace_id=_trace_id,
-                    guardrail_name="input_guard",
-                    guardrail_type="input",
-                    passed=False,
+                    run_id=_run_id, trace_id=_trace_id, span_id=guardrail_span_id,
+                    parent_span_id=execution_context.root_span_id,
+                    guardrail_name="input_guard", guardrail_type="input", passed=False,
                 ))
                 await self._event_bus.emit(GuardrailBlocked(
-                    run_id=_run_id,
-                    trace_id=_trace_id,
-                    guardrail_name="input_guard",
-                    guardrail_type="input",
-                    action="block",
+                    run_id=_run_id, trace_id=_trace_id, span_id=guardrail_span_id,
+                    parent_span_id=execution_context.root_span_id,
+                    guardrail_name="input_guard", guardrail_type="input", action="block",
                 ))
+                await self._event_bus.emit(RunCompleted(
+                    run_id=_run_id, trace_id=_trace_id,
+                    span_id=execution_context.root_span_id,
+                    output_text=guard_result.blocked_result.reply_text or "",
+                    attributes={"outcome": "blocked", "blocked": True},
+                ))
+                execution_context.metadata["terminal_emitted"] = True
+                if _span_mgr:
+                    _span_mgr.end()
+                elif _obs_bridge:
+                    await _obs_bridge.finalize()
             return guard_result.blocked_result
         resolved_request = guard_result.resolved_request
         input_global_alert_match = guard_result.input_global_alert_match
@@ -537,17 +544,31 @@ class AgentRuntime:
                 skip_run_lifecycle=_run_lifecycle_started,
                 root_span_id=execution_context.root_span_id if execution_context else None,
             )
-        except AgentError:
+        except AgentError as exc:
             if _span_mgr:
                 _span_mgr.set_error("AgentError")
             elif _obs_bridge:
                 _obs_bridge.set_error("AgentError")
+            if _run_lifecycle_started:
+                await self._event_bus.emit(RunFailed(
+                    run_id=_run_id, trace_id=_trace_id,
+                    span_id=execution_context.root_span_id,
+                    error_code="AGENT_ERROR", error_message=exc.message,
+                ))
+                execution_context.metadata["terminal_emitted"] = True
             raise
         except Exception as exc:
             if _span_mgr:
                 _span_mgr.set_error(str(exc))
             elif _obs_bridge:
                 _obs_bridge.set_error(str(exc))
+            if _run_lifecycle_started:
+                await self._event_bus.emit(RunFailed(
+                    run_id=_run_id, trace_id=_trace_id,
+                    span_id=execution_context.root_span_id,
+                    error_code=type(exc).__name__, error_message=str(exc),
+                ))
+                execution_context.metadata["terminal_emitted"] = True
             raise AgentError(
                 AgentErrorCode.RUNTIME_ERROR,
                 str(exc),
@@ -667,17 +688,28 @@ class AgentRuntime:
                 cancel_token=cancel_token,
                 execution_context=ctx,
             )
+        except asyncio.CancelledError as exc:
+            # Cancellation is a first-class terminal state, never a failure.
+            await self._event_bus.emit(RunCancelled(
+                run_id=ctx.run_id,
+                trace_id=ctx.trace_id,
+                span_id=ctx.root_span_id,
+                reason="run_cancelled",
+            ))
+            run.mark_cancelled("run_cancelled")
+            return run
         except Exception as exc:
             # Emit RunFailed (P0: terminal invariant — exactly one terminal)
             error_code = "AGENT_ERROR" if isinstance(exc, AgentError) else type(exc).__name__
             error_message = exc.message if isinstance(exc, AgentError) else str(exc)
-            await self._event_bus.emit(RunFailed(
-                run_id=ctx.run_id,
-                trace_id=ctx.trace_id,
-                span_id=ctx.root_span_id,
-                error_code=error_code,
-                error_message=error_message,
-            ))
+            if not ctx.metadata.pop("terminal_emitted", False):
+                await self._event_bus.emit(RunFailed(
+                    run_id=ctx.run_id,
+                    trace_id=ctx.trace_id,
+                    span_id=ctx.root_span_id,
+                    error_code=error_code,
+                    error_message=error_message,
+                ))
             run.status = RunStatus.FAILED
             run.error = RunError(
                 code=error_code,
@@ -686,13 +718,15 @@ class AgentRuntime:
             run.finished_at = datetime.now(timezone.utc)
             return run
 
-        # Emit RunCompleted on success (P0: terminal invariant — exactly one terminal)
-        await self._event_bus.emit(RunCompleted(
-            run_id=ctx.run_id,
-            trace_id=ctx.trace_id,
-            span_id=ctx.root_span_id,
-            output_text=result.reply_text or "",
-        ))
+        # run_turn owns the terminal for an early guardrail completion;
+        # normal turns are completed here after the result is produced.
+        if not ctx.metadata.pop("terminal_emitted", False):
+            await self._event_bus.emit(RunCompleted(
+                run_id=ctx.run_id,
+                trace_id=ctx.trace_id,
+                span_id=ctx.root_span_id,
+                output_text=result.reply_text or "",
+            ))
 
         # Build RunUsage from the turn result
         usage = None
@@ -785,6 +819,21 @@ class AgentRuntime:
                     run_id=_run_id, trace_id=_trace_id, **kwargs,
                 ))
 
+        # Create observability before RunStarted so the root event is not lost.
+        _span_mgr: _TracerSpanManager | None = None
+        _obs_bridge = None
+        if self._tracer is not None:
+            _span_mgr = _TracerSpanManager(
+                self._tracer, _trace_id, getattr(prepared.resolved_request, "agent_key", None),
+            )
+            _span_mgr.start()
+        elif self._observability_bridge_factory is not None:
+            _obs_bridge = self._observability_bridge_factory(
+                trace_id=_trace_id,
+                agent_key=getattr(prepared.resolved_request, "agent_key", None),
+                event_bus=self._event_bus,
+            )
+
         # ── Emit RunStarted BEFORE guardrails (P0: run boundary) ────────
         if execution_context:
             await self._event_bus.emit(RunStarted(
@@ -798,66 +847,48 @@ class AgentRuntime:
             ))
             _run_started = True
 
+        async def _finalize_obs(*, terminal_status: str | None = None, **terminal_kwargs: Any) -> None:
+            # The terminal event must precede the bridge flush so the projector
+            # can close the root span and publish a complete TraceEnvelope.
+            if terminal_status is not None:
+                await _emit_run_terminal(status=terminal_status, **terminal_kwargs)
+            if _span_mgr is not None:
+                try:
+                    _span_mgr.end()
+                except Exception:
+                    logger.exception("observability.span_end_failed trace_id=%s", _trace_id)
+            elif _obs_bridge is not None:
+                # TurnStartEvent is emitted only after input guards pass;
+                # guardrail-only runs intentionally contain no fake Agent span.
+                await self._event_bus.emit(TurnEndEvent())
+                try:
+                    await _obs_bridge.finalize()
+                except Exception:
+                    logger.exception("observability.finalize_failed trace_id=%s", _trace_id)
+
         # ── Input Guards (delegates to TurnGuards) ──────────────────────
         guard_result = await self._turn_guards.run_input_guards(
             prepared.resolved_request, definition, applied_skills, mode="streaming",
         )
         if guard_result.stream_blocked_event is not None:
             yield guard_result.stream_blocked_event
-            # Guardrail blocked — emit lifecycle events (blocked ≠ runtime crash)
+            guardrail_span_id = uuid4().hex[:16]
             await self._event_bus.emit(GuardrailEvaluated(
-                run_id=_run_id,
-                trace_id=_trace_id,
-                guardrail_name="input_guard",
-                guardrail_type="input",
-                passed=False,
+                run_id=_run_id, trace_id=_trace_id, span_id=guardrail_span_id,
+                parent_span_id=execution_context.root_span_id if execution_context else None,
+                guardrail_name="input_guard", guardrail_type="input", passed=False,
             ))
             await self._event_bus.emit(GuardrailBlocked(
-                run_id=_run_id,
-                trace_id=_trace_id,
-                guardrail_name="input_guard",
-                guardrail_type="input",
-                action="block",
+                run_id=_run_id, trace_id=_trace_id, span_id=guardrail_span_id,
+                parent_span_id=execution_context.root_span_id if execution_context else None,
+                guardrail_name="input_guard", guardrail_type="input", action="block",
             ))
-            await _emit_run_terminal(status="completed")
+            await _finalize_obs(terminal_status="completed", output_text="")
             return
         resolved_request = guard_result.resolved_request
         input_global_alert_match = guard_result.input_global_alert_match
-        _span_mgr: _TracerSpanManager | None = None
-        _obs_bridge = None
-        if self._tracer is not None:
-            _span_mgr = _TracerSpanManager(
-                self._tracer, _trace_id, getattr(resolved_request, "agent_key", None),
-            )
-            _span_mgr.start()
-        elif self._observability_bridge_factory is not None:
-            _obs_bridge = self._observability_bridge_factory(
-                trace_id=_trace_id,
-                agent_key=getattr(resolved_request, "agent_key", None),
-                event_bus=self._event_bus,
-            )
+        if _obs_bridge is not None:
             await self._event_bus.emit(TurnStartEvent())
-
-        async def _finalize_obs(
-            *,
-            terminal_status: str | None = None,
-            **terminal_kwargs: Any,
-        ) -> None:
-            """Finalize observability and emit v2 terminal event if applicable."""
-            if _span_mgr is not None:
-                try:
-                    _span_mgr.end()
-                except Exception:
-                    logger.exception("observability.span_end_failed trace_id=%s", resolved_request.trace_id)
-            elif _obs_bridge is not None:
-                await self._event_bus.emit(TurnEndEvent())
-                try:
-                    await _obs_bridge.finalize()
-                except Exception:
-                    logger.exception("observability.finalize_failed trace_id=%s", resolved_request.trace_id)
-            # Emit v2 terminal event for the run
-            if terminal_status is not None:
-                await _emit_run_terminal(status=terminal_status, **terminal_kwargs)
 
         # ── Session management (delegates to SessionManager) ─────────────
         restored_snapshot = await self._session_mgr.load_session_snapshot(
@@ -1570,27 +1601,23 @@ class AgentRuntime:
                             messages=raw_messages,
                         ))
 
-                await _finalize_obs()
+                await _finalize_obs(terminal_status="completed", output_text=final_reply_text)
                 yield reply_event
-                await _emit_run_terminal(status="completed", output_text=final_reply_text)
                 return
 
         except asyncio.CancelledError:
-            await _finalize_obs(terminal_status="cancelled")
-            await _emit_run_terminal(status="cancelled", reason="stream_cancelled")
+            await _finalize_obs(terminal_status="cancelled", reason="stream_cancelled")
             raise
         except Exception as _stream_exc:
             await _finalize_obs(terminal_status="failed", error_code="RUNTIME_ERROR", error_message=str(_stream_exc))
-            await _emit_run_terminal(status="failed", error_code="RUNTIME_ERROR", error_message=str(_stream_exc))
             raise
         else:
             if _span_mgr:
                 _span_mgr.set_error("Streaming agent exceeded the maximum tool-call rounds.")
             elif _obs_bridge:
                 _obs_bridge.set_error("Streaming agent exceeded the maximum tool-call rounds.")
-            await _finalize_obs()
-            await _emit_run_terminal(
-                status="failed",
+            await _finalize_obs(
+                terminal_status="failed",
                 error_code="RUNTIME_ERROR",
                 error_message="Streaming agent exceeded the maximum tool-call rounds.",
             )
