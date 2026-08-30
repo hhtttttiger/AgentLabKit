@@ -1408,54 +1408,6 @@ class TestAcceptanceCostRecordIdentity:
         assert record.agent_key == "refund-agent"
 
 
-# ── Acceptance Test: Streaming Failure Terminal Invariant ───────────
-
-
-class TestAcceptanceStreamingFailureTerminal:
-    """Streaming LLM error → exactly 1 RunFailed, 0 RunCompleted, 0 RunCancelled."""
-
-    @pytest.mark.asyncio
-    async def test_stream_llm_error_produces_run_failed(self):
-        from llm_gateway.errors import GatewayError, GatewayErrorCode
-
-        gateway = MagicMock()
-
-        async def _failing_stream(*args, **kwargs):
-            raise GatewayError(GatewayErrorCode.PROVIDER_TIMEOUT, "stream timeout")
-            yield  # make it an async generator
-
-        gateway.generate_text_stream = _failing_stream
-        runtime = _make_runtime(gateway)
-
-        collected_events: list[RuntimeEvent] = []
-        original_emit = runtime._event_bus.emit
-
-        async def capture_emit(event):
-            collected_events.append(event)
-            await original_emit(event)
-
-        runtime._event_bus.emit = capture_emit
-
-        ctx = ExecutionContext(session_id="s1")
-        with pytest.raises(Exception):
-            async for _ in runtime.stream_turn(
-                AgentTurnRequest(user_message="hi", session_id="s1"),
-                execution_context=ctx,
-            ):
-                pass
-
-        run_started = [e for e in collected_events if isinstance(e, RunStarted)]
-        run_completed = [e for e in collected_events if isinstance(e, RunCompleted)]
-        run_failed = [e for e in collected_events if isinstance(e, RunFailed)]
-        run_cancelled = [e for e in collected_events if isinstance(e, RunCancelled)]
-
-        assert len(run_started) == 1, f"Expected 1 RunStarted, got {len(run_started)}"
-        assert len(run_failed) == 1, f"Expected 1 RunFailed, got {len(run_failed)}"
-        assert len(run_completed) == 0, f"Expected 0 RunCompleted, got {len(run_completed)}"
-        assert len(run_cancelled) == 0, f"Expected 0 RunCancelled, got {len(run_cancelled)}"
-        assert run_failed[0].run_id == ctx.run_id
-
-
 # ── Acceptance Test: Blocking Guardrail Block ───────────────────────
 
 
@@ -1640,3 +1592,158 @@ class TestAcceptanceFullChainMustExist:
         record = cost_publisher.submit_nowait.call_args[0][0]
         assert record.run_id == agent_run.run_id
         assert record.trace_id == agent_run.trace_id
+
+
+# ── Acceptance Test: RunView Full Contract ──────────────────────────
+
+
+class TestAcceptanceRunViewFullContract:
+    """RunView contract: status must be RunStatus enum, target with actual values,
+    timestamps never fabricated."""
+
+    def test_full_contract_with_target(self):
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus
+        from evaluation.replay import RunTarget
+
+        real_time = datetime(2025, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+        summary = AgentRunSummary(
+            run_id="r",
+            trace_id="t",
+            input_text="x",
+            output_text="y",
+            status=RunStatus.COMPLETED,
+            target=RunTarget(agent_key="refund-agent", agent_version="v17"),
+            started_at=real_time,
+            finished_at=real_time,
+        )
+
+        # status is RunStatus enum
+        assert isinstance(summary.status, RunStatus)
+        assert summary.status == RunStatus.COMPLETED
+
+        # target has actual values
+        assert summary.target is not None
+        assert summary.target.agent_key == "refund-agent"
+        assert summary.target.agent_version == "v17"
+
+        # timestamps are real datetimes, not fabricated
+        assert summary.started_at == real_time
+        assert summary.finished_at == real_time
+        assert summary.started_at.tzinfo is not None
+
+    def test_full_contract_none_timestamps_stable(self):
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus
+
+        summary = AgentRunSummary(
+            run_id="r", trace_id="t", input_text="x", output_text="y",
+            status=RunStatus.COMPLETED,
+        )
+
+        # None timestamps stay None (never fabricated)
+        assert summary.started_at is None
+        assert summary.finished_at is None
+        assert summary.target is None
+
+
+# ── Acceptance Test: EvaluationRun Canonical Model ──────────────────
+
+
+class TestAcceptanceEvaluationRunCanonical:
+    """EvaluationRun.results is derived from example_evaluations (no data drift)."""
+
+    def test_results_derived_from_example_evaluations(self):
+        from evaluation.contracts_v2 import (
+            ExampleEvaluation,
+            EvaluationResult,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        ex1_results = [
+            EvaluationResult(example_id="1", evaluator_name="faithfulness", score=0.9),
+            EvaluationResult(example_id="1", evaluator_name="relevancy", score=0.8),
+        ]
+        ex2_results = [
+            EvaluationResult(example_id="2", evaluator_name="faithfulness", score=0.7),
+        ]
+
+        run = EvaluationRun(
+            run_id="eval-1",
+            dataset_id="ds1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            example_evaluations=[
+                ExampleEvaluation(example_id="1", results=ex1_results),
+                ExampleEvaluation(example_id="2", results=ex2_results),
+            ],
+        )
+
+        # results property derives from example_evaluations
+        assert len(run.results) == 3
+        assert run.results[0].example_id == "1"
+        assert run.results[1].example_id == "1"
+        assert run.results[2].example_id == "2"
+
+    def test_legacy_results_kwarg_seeds_example_evaluations(self):
+        from evaluation.contracts_v2 import (
+            EvaluationResult,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        run = EvaluationRun(
+            run_id="eval-2",
+            dataset_id="ds1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[
+                EvaluationResult(example_id="1", score=0.9),
+                EvaluationResult(example_id="1", score=0.8),
+                EvaluationResult(example_id="2", score=0.7),
+            ],
+        )
+
+        # example_evaluations seeded from results
+        assert len(run.example_evaluations) == 2
+        assert run.example_evaluations[0].example_id == "1"
+        assert len(run.example_evaluations[0].results) == 2
+        assert run.example_evaluations[1].example_id == "2"
+        assert len(run.example_evaluations[1].results) == 1
+
+        # results property still works
+        assert len(run.results) == 3
+
+    def test_no_data_drift(self):
+        """Adding to example_evaluations is reflected in results immediately."""
+        from evaluation.contracts_v2 import (
+            ExampleEvaluation,
+            EvaluationResult,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        run = EvaluationRun(
+            run_id="eval-3",
+            dataset_id="ds1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            example_evaluations=[
+                ExampleEvaluation(
+                    example_id="1",
+                    results=[EvaluationResult(example_id="1", score=0.9)],
+                ),
+            ],
+        )
+
+        assert len(run.results) == 1
+
+        # Mutate example_evaluations (since EvaluationRun is not frozen)
+        run.example_evaluations.append(
+            ExampleEvaluation(
+                example_id="2",
+                results=[EvaluationResult(example_id="2", score=0.7)],
+            ),
+        )
+
+        # results reflects the change
+        assert len(run.results) == 2

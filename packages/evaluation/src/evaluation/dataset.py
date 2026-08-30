@@ -397,7 +397,6 @@ class DatasetEvaluationRunner:
             dataset_id=dataset_id,
             agent_key=agent_key,
             status=status,
-            results=results,
             example_evaluations=example_evaluations,
             total_examples=len(examples),
             completed_examples=completed,
