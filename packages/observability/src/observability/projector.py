@@ -389,24 +389,36 @@ class TraceProjector:
     # ── Guardrails (4.7) ────────────────────────────────────────────
 
     def _handle_guardrail_evaluated(self, event: Any, run_id: str) -> None:
+        allowed = getattr(event, "allowed", getattr(event, "passed", True))
         self._open_span(run_id, event, name=f"guardrail.{getattr(event, 'guardrail_name', 'unknown')}", attributes={
             "guardrail.name": getattr(event, "guardrail_name", ""),
             "guardrail.type": getattr(event, "guardrail_type", ""),
-            "guardrail.passed": getattr(event, "passed", True),
+            "guardrail.allowed": allowed,
+            "guardrail.passed": getattr(event, "passed", allowed),
             "guardrail.reason": getattr(event, "reason", ""),
         })
         # GuardrailEvaluated is a point event — close immediately
         self._close_span_by_id(run_id, event)
 
     def _handle_guardrail_blocked(self, event: Any, run_id: str) -> None:
-        name = getattr(event, "guardrail_name", "unknown")
-        self._open_span(run_id, event, name=f"guardrail.{name}", status="error", attributes={
-            "guardrail.name": name,
-            "guardrail.type": getattr(event, "guardrail_type", ""),
-            "guardrail.action": getattr(event, "action", ""),
-            "guardrail.reason": getattr(event, "reason", ""),
-        })
-        self._close_span_by_id(run_id, event, error=True)
+        """Enrich the evaluation span; blocking is not a second operation.
+
+        A blocked guardrail emits both ``guardrail.evaluated`` and
+        ``guardrail.blocked`` with the same span identity.  The latter is a
+        semantic event about the already completed evaluation, not another
+        span lifecycle.  In particular, a block is an expected guardrail
+        outcome and must not be represented as a span error.
+        """
+        self._update_completed_span(
+            run_id,
+            getattr(event, "span_id", None),
+            attributes={
+                "guardrail.allowed": False,
+                "guardrail.blocked": True,
+                "guardrail.action": getattr(event, "action", ""),
+                "guardrail.reason": getattr(event, "reason", ""),
+            },
+        )
 
     # ── Multi-agent ─────────────────────────────────────────────────
 
@@ -481,6 +493,49 @@ class TraceProjector:
         if open_spans is not None:
             open_spans[span_id] = span
         return span
+
+    def _update_completed_span(
+        self,
+        run_id: str,
+        span_id: str | None,
+        *,
+        attributes: dict[str, Any] | None = None,
+        status: TraceStatus | None = None,
+    ) -> SpanEnvelope | None:
+        """Update an existing completed span without appending another one."""
+        if span_id is None:
+            self._malformed_event_count += 1
+            return None
+
+        spans = self._spans.get(run_id, [])
+        for index, span in enumerate(spans):
+            if span.span_id != span_id:
+                continue
+            merged_attributes = dict(span.attributes)
+            merged_attributes.update(attributes or {})
+            updated = SpanEnvelope(
+                span_id=span.span_id,
+                trace_id=span.trace_id,
+                parent_span_id=span.parent_span_id,
+                name=span.name,
+                kind=span.kind,
+                status=status or span.status,
+                instrumentation_scope=span.instrumentation_scope,
+                started_at_utc=span.started_at_utc,
+                completed_at_utc=span.completed_at_utc,
+                duration_ms=span.duration_ms,
+                attributes=bounded_attributes(
+                    merged_attributes,
+                    max_bytes=self._settings.max_attribute_bytes,
+                ),
+                events=span.events,
+                links=span.links,
+                error_code=span.error_code,
+                error_message=span.error_message,
+            )
+            spans[index] = updated
+            return updated
+        return None
 
     def _close_span_by_id(
         self,

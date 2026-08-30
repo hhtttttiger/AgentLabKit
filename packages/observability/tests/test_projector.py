@@ -441,29 +441,36 @@ class TestGuardrails:
         assert len(gr_spans) == 1
         assert gr_spans[0].attributes["guardrail.passed"] is True
 
-    def test_guardrail_blocked_creates_error_span(self, projector: TraceProjector, run_ids):
+    def test_guardrail_blocked_enriches_evaluation_span(self, projector: TraceProjector, run_ids):
         run_id, trace_id, root_span_id = run_ids
         gr_span_id = uuid4().hex[:16]
-        started = _make_event(
-            "run.started", run_id=run_id, trace_id=trace_id,
-            span_id=root_span_id, timestamp=_ts(0),
-        )
-        gr = _make_event(
-            "guardrail.blocked", run_id=run_id, trace_id=trace_id,
-            span_id=gr_span_id, parent_span_id=root_span_id, timestamp=_ts(0),
-            guardrail_name="toxicity", guardrail_type="output",
-            action="block", reason="toxic content detected",
-        )
-        completed = _make_event(
-            "run.completed", run_id=run_id, trace_id=trace_id,
-            span_id=root_span_id, timestamp=_ts(1),
-        )
+        events = [
+            _make_event("run.started", run_id=run_id, trace_id=trace_id,
+                        span_id=root_span_id, timestamp=_ts(0)),
+            _make_event("guardrail.evaluated", run_id=run_id, trace_id=trace_id,
+                        span_id=gr_span_id, parent_span_id=root_span_id,
+                        timestamp=_ts(0), guardrail_name="toxicity",
+                        guardrail_type="output", passed=False),
+            _make_event("guardrail.blocked", run_id=run_id, trace_id=trace_id,
+                        span_id=gr_span_id, parent_span_id=root_span_id,
+                        timestamp=_ts(0), guardrail_name="toxicity",
+                        guardrail_type="output", action="block",
+                        reason="policy"),
+            _make_event("run.completed", run_id=run_id, trace_id=trace_id,
+                        span_id=root_span_id, timestamp=_ts(1)),
+        ]
         import asyncio
-        for e in [started, gr, completed]:
-            asyncio.run(projector.handle(e))
+        for event in events:
+            asyncio.run(projector.handle(event))
         env = projector._publisher.submitted[0]
-        gr_spans = [s for s in env.spans if "guardrail" in s.name]
-        assert gr_spans[0].status == "error"
+        guardrail_spans = [s for s in env.spans if s.kind == "GUARDRAIL"]
+        assert len(guardrail_spans) == 1
+        assert guardrail_spans[0].span_id == gr_span_id
+        assert guardrail_spans[0].status == "ok"
+        assert guardrail_spans[0].attributes["guardrail.blocked"] is True
+        assert guardrail_spans[0].attributes["guardrail.reason"] == "policy"
+        span_ids = [span.span_id for span in env.spans]
+        assert len(span_ids) == len(set(span_ids))
 
 
 # ── Multi-agent ────────────────────────────────────────────────────
