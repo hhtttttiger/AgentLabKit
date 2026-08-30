@@ -21,7 +21,14 @@ from .contracts_v2 import (
 )
 from .cli import load_config, run_evaluation, check_threshold, compare_with_baseline, main, save_result
 from .compare import ComparisonResult, ExampleDiff, ChangeType, IncompatibleEvaluationRuns, compare_runs, format_comparison_report
-from .dataset import DatasetManager, DatasetStore, InMemoryDatasetStore, DatasetEvaluationRunner
+from .dataset import (
+    DatasetManager,
+    DatasetStore,
+    InMemoryDatasetStore,
+    DatasetEvaluationRunner,
+    build_example_from_run,
+    run_to_example,
+)
 from .replay import ReplayConfig, ReplayResult, ReplayRunner, InMemoryRunStore, MockRunExecutor, RunStore, RunExecutor, RunTarget
 from .evaluators import (
     RagasEvaluator,
@@ -75,6 +82,8 @@ __all__ = [
     "DatasetStore",
     "InMemoryDatasetStore",
     "DatasetEvaluationRunner",
+    "build_example_from_run",
+    "run_to_example",
     "ComparisonResult",
     "ExampleDiff",
     "ChangeType",

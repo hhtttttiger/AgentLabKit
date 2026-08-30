@@ -16,6 +16,7 @@ DatasetEvaluationRunner — 通过 RunExecutor 真实执行数据集中的每个
 from __future__ import annotations
 
 import logging
+import warnings
 from datetime import datetime, timezone
 from typing import Any, Protocol, runtime_checkable
 from uuid import uuid4
@@ -131,7 +132,7 @@ class DatasetManager:
         Returns:
             创建的 DatasetExample
         """
-        example = run_to_example(
+        example = build_example_from_run(
             run,
             dataset_id=dataset_id,
             expectations=expectations,
@@ -153,11 +154,18 @@ class DatasetManager:
         tags: list[str] | None = None,
         metadata: dict[str, str] | None = None,
     ) -> DatasetExample:
-        """将 Run 转换为 DatasetExample。
+        """将 Run 转换为 DatasetExample（兼容 API）。
 
-        用于将失败的 Run 变成永久 regression case。
+        Deprecated: use :meth:`add_run` when persisting a run, or
+        :func:`build_example_from_run` for pure conversion.
         """
-        example = run_to_example(
+        warnings.warn(
+            "DatasetManager.run_to_example() is deprecated; use add_run() "
+            "or build_example_from_run().",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        example = build_example_from_run(
             run,
             dataset_id=dataset_id,
             tags=tags,
@@ -214,7 +222,7 @@ class DatasetManager:
         return example
 
 
-def run_to_example(
+def build_example_from_run(
     run: Any,
     dataset_id: str,
     *,
@@ -367,10 +375,10 @@ class DatasetEvaluationRunner:
                 result = await self._evaluator.evaluate(context)
                 results.append(result)
 
-                if result.error_message:
-                    failed += 1
-                else:
-                    completed += 1
+                # Returning an EvaluationResult means the evaluator ran to
+                # completion.  Its message/skip_reason/passed value describes
+                # the evaluated example, not runner orchestration failure.
+                completed += 1
 
             except Exception as e:
                 logger.exception("dataset_eval.error example_id=%s", example.example_id)
@@ -381,7 +389,9 @@ class DatasetEvaluationRunner:
                 failed += 1
 
         # 计算总体分数
-        scores = [r.overall_score for r in results if r.error_message is None]
+        # Include scores from PASS and rule FAIL results.  Results without a
+        # score (for example SKIPPED) do not contribute to the average.
+        scores = [r.overall_score for r in results if r.score is not None or r.metric_results]
         overall_score = sum(scores) / len(scores) if scores else 0.0
 
         # 更新运行状态
@@ -414,10 +424,36 @@ class DatasetEvaluationRunner:
         )
 
 
+def run_to_example(
+    run: Any,
+    dataset_id: str,
+    *,
+    expectations: list[Expectation] | None = None,
+    expected_output: Any | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> DatasetExample:
+    """Deprecated compatibility alias for :func:`build_example_from_run`."""
+    warnings.warn(
+        "run_to_example() is deprecated; use build_example_from_run().",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return build_example_from_run(
+        run,
+        dataset_id,
+        expectations=expectations,
+        expected_output=expected_output,
+        tags=tags,
+        metadata=metadata,
+    )
+
+
 __all__ = [
     "DatasetStore",
     "InMemoryDatasetStore",
     "DatasetManager",
     "DatasetEvaluationRunner",
+    "build_example_from_run",
     "run_to_example",
 ]

@@ -309,11 +309,36 @@ class TestDatasetEvaluationRunner:
 
         result = await runner.run(dataset_id, "chat")
 
-        assert result.status == EvaluationRunStatus.FAILED
+        # A returned result with a message is still a completed evaluator
+        # outcome (for example SKIPPED); only exceptions fail orchestration.
+        assert result.status == EvaluationRunStatus.COMPLETED
         assert result.total_examples == 1
+        assert result.completed_examples == 1
+        assert result.failed_examples == 0
+        assert result.results[0].error_message == "mock error"
+
+    @pytest.mark.asyncio
+    async def test_evaluator_exception_fails_orchestration(self):
+        store = InMemoryDatasetStore()
+        dataset_id = await store.create_dataset("test")
+        await store.add_example(DatasetExample(
+            example_id="1", dataset_id=dataset_id, input_text="A",
+        ))
+
+        class BrokenEvaluator:
+            name = "broken"
+
+            async def evaluate(self, context):
+                raise RuntimeError("boom")
+
+        result = await DatasetEvaluationRunner(BrokenEvaluator(), store).run(
+            dataset_id, "chat"
+        )
+
+        assert result.status == EvaluationRunStatus.FAILED
         assert result.completed_examples == 0
         assert result.failed_examples == 1
-        assert result.results[0].error_message == "mock error"
+        assert "boom" in result.results[0].error_message
 
     @pytest.mark.asyncio
     async def test_run_empty_dataset(self):
@@ -339,7 +364,7 @@ class TestDatasetEvaluationRunner:
             example_id="2", dataset_id=dataset_id, input_text="B",
         ))
 
-        # 第一个成功，第二个失败
+        # 第一个成功，第二个返回一个非通过结果
         class MixedEvaluator:
             name = "mixed"
             _call_count = 0
@@ -362,10 +387,10 @@ class TestDatasetEvaluationRunner:
         runner = DatasetEvaluationRunner(MixedEvaluator(), store)
         result = await runner.run(dataset_id, "chat")
 
-        assert result.status == EvaluationRunStatus.FAILED
-        assert result.completed_examples == 1
-        assert result.failed_examples == 1
-        assert result.overall_score == 0.8  # 只计算成功的
+        assert result.status == EvaluationRunStatus.COMPLETED
+        assert result.completed_examples == 2
+        assert result.failed_examples == 0
+        assert result.overall_score == 0.8  # 无 score 的结果不参与平均
 
     @pytest.mark.asyncio
     async def test_run_with_executor_populates_context_run(self):
