@@ -313,6 +313,10 @@ class TestRunViewProtocol:
                 return None
 
             @property
+            def target(self) -> Any | None:
+                return None
+
+            @property
             def tool_names(self) -> list[str]:
                 return []
 
