@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import json
 import logging
 from typing import TYPE_CHECKING, Any, cast
@@ -54,7 +55,7 @@ from ..contracts.models import (
     HandoffTarget,
     ToolExecutionRecord,
 )
-from ..contracts.run import AgentRun, ExecutionContext, RunStatus, RunTarget, RunUsage
+from ..contracts.run import AgentRun, ExecutionContext, RunError, RunStatus, RunTarget, RunUsage
 from ..definition.loader import AgentDefinitionLoader
 from ..definition.models import (
     AgentDefinitionSnapshot,
@@ -71,6 +72,8 @@ from ..events import (
     TurnStartEvent,
 )
 from ..events_v2 import (
+    GuardrailBlocked,
+    GuardrailEvaluated,
     RunCancelled,
     RunCompleted,
     RunFailed,
@@ -432,11 +435,41 @@ class AgentRuntime:
         auto_tool_names = prepared.auto_tool_names
         applied_skills = prepared.applied_skills
 
+        # ── Emit RunStarted BEFORE guardrails (P0: run boundary) ────────
+        _run_lifecycle_started = False
+        if execution_context is not None:
+            await self._event_bus.emit(RunStarted(
+                run_id=_run_id,
+                trace_id=_trace_id,
+                agent_key=prepared.resolved_request.agent_key or "",
+                agent_version=definition.version_number if definition else "",
+                input_text=prepared.resolved_request.user_message,
+                session_id=prepared.resolved_request.session_id,
+                span_id=execution_context.root_span_id,
+            ))
+            _run_lifecycle_started = True
+
         # ── Input Guards (delegates to TurnGuards) ──────────────────────
         guard_result = await self._turn_guards.run_input_guards(
             prepared.resolved_request, definition, applied_skills, mode="blocking",
         )
         if guard_result.blocked_result is not None:
+            # Guardrail blocked — emit lifecycle events (blocked ≠ runtime crash)
+            if _run_lifecycle_started:
+                await self._event_bus.emit(GuardrailEvaluated(
+                    run_id=_run_id,
+                    trace_id=_trace_id,
+                    guardrail_name="input_guard",
+                    guardrail_type="input",
+                    passed=False,
+                ))
+                await self._event_bus.emit(GuardrailBlocked(
+                    run_id=_run_id,
+                    trace_id=_trace_id,
+                    guardrail_name="input_guard",
+                    guardrail_type="input",
+                    action="block",
+                ))
             return guard_result.blocked_result
         resolved_request = guard_result.resolved_request
         input_global_alert_match = guard_result.input_global_alert_match
@@ -499,6 +532,8 @@ class AgentRuntime:
                 run_id=_run_id,
                 trace_id=_trace_id,
                 agent_key=resolved_request.agent_key or "",
+                skip_run_lifecycle=_run_lifecycle_started,
+                root_span_id=execution_context.root_span_id if execution_context else None,
             )
         except AgentError:
             if _span_mgr:
@@ -620,61 +655,76 @@ class AgentRuntime:
             started_at=ctx.started_at,
         )
 
+        # ── run_turn emits RunStarted before guardrails ──
+        # Terminal events (RunCompleted/RunFailed) are emitted HERE in run()
+        # to guarantee exactly-once emission — the loop skips them when
+        # skip_run_lifecycle=True.
         try:
             result = await self.run_turn(
                 request,
                 cancel_token=cancel_token,
                 execution_context=ctx,
             )
-
-            # Build RunUsage from the turn result
-            usage = None
-            if result.usage:
-                usage = RunUsage(
-                    input_tokens=getattr(result.usage, "input_tokens", 0) or 0,
-                    output_tokens=getattr(result.usage, "output_tokens", 0) or 0,
-                    total_tokens=getattr(result.usage, "total_tokens", 0) or 0,
-                    cache_write_tokens=getattr(result.usage, "cache_write_tokens", 0) or 0,
-                    cache_read_tokens=getattr(result.usage, "cache_read_tokens", 0) or 0,
-                    estimated_cost=float(getattr(result.usage, "estimated_cost", 0) or 0),
-                    tool_call_count=len(result.tool_events),
-                )
-
-            # Identity comes from ExecutionContext — no post-hoc override needed.
-            run.output = result.reply_text
-            run.action = result.action.value if hasattr(result.action, "value") else str(result.action)
-            run.handoff_target_agent = getattr(result.handoff_target, "target_agent_key", None)
-            run.orchestration_chain = result.orchestration_chain or []
-            run.tool_names = [te.tool_name for te in result.tool_events]
-            run.tool_call_count = len(result.tool_events)
-            run.applied_skills = [s.skill_key for s in result.applied_skills]
-
-            if result.error:
-                run.mark_failed(
-                    error_code=result.error.code,
-                    error_message=result.error.message,
-                    provider=result.error.provider,
-                    model=result.error.model,
-                )
-            else:
-                run.mark_completed(output=result.reply_text, usage=usage)
-
-            return run
-
-        except AgentError as exc:
-            run.mark_failed(
-                error_code=exc.code.value if hasattr(exc.code, "value") else str(exc.code),
-                error_message=exc.message or str(exc),
-                model=getattr(exc, "model", None),
-            )
-            return run
-
         except Exception as exc:
-            run.mark_failed(
-                error_code="RUNTIME_ERROR",
-                error_message=str(exc),
+            # Emit RunFailed (P0: terminal invariant — exactly one terminal)
+            error_code = "AGENT_ERROR" if isinstance(exc, AgentError) else type(exc).__name__
+            error_message = exc.message if isinstance(exc, AgentError) else str(exc)
+            await self._event_bus.emit(RunFailed(
+                run_id=ctx.run_id,
+                trace_id=ctx.trace_id,
+                span_id=ctx.root_span_id,
+                error_code=error_code,
+                error_message=error_message,
+            ))
+            run.status = RunStatus.FAILED
+            run.error = RunError(
+                code=error_code,
+                message=error_message,
             )
+            run.finished_at = datetime.now(timezone.utc)
             return run
+
+        # Emit RunCompleted on success (P0: terminal invariant — exactly one terminal)
+        await self._event_bus.emit(RunCompleted(
+            run_id=ctx.run_id,
+            trace_id=ctx.trace_id,
+            span_id=ctx.root_span_id,
+            output_text=result.reply_text or "",
+        ))
+
+        # Build RunUsage from the turn result
+        usage = None
+        if result.usage:
+            usage = RunUsage(
+                input_tokens=getattr(result.usage, "input_tokens", 0) or 0,
+                output_tokens=getattr(result.usage, "output_tokens", 0) or 0,
+                total_tokens=getattr(result.usage, "total_tokens", 0) or 0,
+                cache_write_tokens=getattr(result.usage, "cache_write_tokens", 0) or 0,
+                cache_read_tokens=getattr(result.usage, "cache_read_tokens", 0) or 0,
+                estimated_cost=float(getattr(result.usage, "estimated_cost", 0) or 0),
+                tool_call_count=len(result.tool_events),
+            )
+
+        # Identity comes from ExecutionContext — no post-hoc override needed.
+        run.output = result.reply_text
+        run.action = result.action.value if hasattr(result.action, "value") else str(result.action)
+        run.handoff_target_agent = getattr(result.handoff_target, "target_agent_key", None)
+        run.orchestration_chain = result.orchestration_chain or []
+        run.tool_names = [te.tool_name for te in result.tool_events]
+        run.tool_call_count = len(result.tool_events)
+        run.applied_skills = [s.skill_key for s in result.applied_skills]
+
+        if result.error:
+            run.mark_failed(
+                error_code=result.error.code,
+                error_message=result.error.message,
+                provider=result.error.provider,
+                model=result.error.model,
+            )
+        else:
+            run.mark_completed(output=result.reply_text, usage=usage)
+
+        return run
 
     async def stream_turn(
         self,
@@ -704,22 +754,12 @@ class AgentRuntime:
         auto_tool_names = prepared.auto_tool_names
         applied_skills = prepared.applied_skills
 
-        # ── Input Guards (delegates to TurnGuards) ──────────────────────
-        guard_result = await self._turn_guards.run_input_guards(
-            prepared.resolved_request, definition, applied_skills, mode="streaming",
-        )
-        if guard_result.stream_blocked_event is not None:
-            yield guard_result.stream_blocked_event
-            return
-        resolved_request = guard_result.resolved_request
-        input_global_alert_match = guard_result.input_global_alert_match
-
         # ── Identity: use ExecutionContext if provided ──────────────────
         _run_id = execution_context.run_id if execution_context else ""
         _trace_id = (
             execution_context.trace_id
             if execution_context
-            else getattr(resolved_request, "trace_id", None) or str(uuid4())
+            else getattr(prepared.resolved_request, "trace_id", None) or str(uuid4())
         )
         _run_started = False
         _terminal_emitted = False
@@ -743,18 +783,44 @@ class AgentRuntime:
                     run_id=_run_id, trace_id=_trace_id, **kwargs,
                 ))
 
-        # Emit RunStarted if we have an execution context
+        # ── Emit RunStarted BEFORE guardrails (P0: run boundary) ────────
         if execution_context:
             await self._event_bus.emit(RunStarted(
                 run_id=_run_id,
                 trace_id=_trace_id,
-                agent_key=resolved_request.agent_key or "",
+                agent_key=prepared.resolved_request.agent_key or "",
                 agent_version=definition.version_number if definition else "",
-                input_text=resolved_request.user_message,
-                session_id=resolved_request.session_id,
+                input_text=prepared.resolved_request.user_message,
+                session_id=prepared.resolved_request.session_id,
                 span_id=execution_context.root_span_id,
             ))
             _run_started = True
+
+        # ── Input Guards (delegates to TurnGuards) ──────────────────────
+        guard_result = await self._turn_guards.run_input_guards(
+            prepared.resolved_request, definition, applied_skills, mode="streaming",
+        )
+        if guard_result.stream_blocked_event is not None:
+            yield guard_result.stream_blocked_event
+            # Guardrail blocked — emit lifecycle events (blocked ≠ runtime crash)
+            await self._event_bus.emit(GuardrailEvaluated(
+                run_id=_run_id,
+                trace_id=_trace_id,
+                guardrail_name="input_guard",
+                guardrail_type="input",
+                passed=False,
+            ))
+            await self._event_bus.emit(GuardrailBlocked(
+                run_id=_run_id,
+                trace_id=_trace_id,
+                guardrail_name="input_guard",
+                guardrail_type="input",
+                action="block",
+            ))
+            await _emit_run_terminal(status="completed")
+            return
+        resolved_request = guard_result.resolved_request
+        input_global_alert_match = guard_result.input_global_alert_match
         _span_mgr: _TracerSpanManager | None = None
         _obs_bridge = None
         if self._tracer is not None:

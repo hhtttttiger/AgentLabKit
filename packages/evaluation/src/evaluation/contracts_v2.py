@@ -227,6 +227,9 @@ class EvaluationResult:
 
     message: str | None = None
 
+    # P1: skip reason — 评估跳过时的说明（如无 trace、无 run）
+    skip_reason: str | None = None
+
     details: dict[str, Any] = field(default_factory=dict)
 
     # 向后兼容：metric_results
@@ -396,6 +399,22 @@ class Evaluator(Protocol):
         ...
 
 
+# ── TraceProvider (P1: trace data injection) ─────────────────────
+
+
+@runtime_checkable
+class TraceProvider(Protocol):
+    """Trace 数据提供者 — DatasetEvaluationRunner 通过此协议获取 span 数据。
+
+    实现可以是 TraceStore、ObservabilityClient 等。
+    返回 None 表示 trace 不存在（run 可能太新或已过期）。
+    """
+
+    async def get_spans(self, run_id: str) -> list[SpanSummary] | None:
+        """获取指定 run 的 span 列表。"""
+        ...
+
+
 # ── 适配器：旧 → 新 ───────────────────────────────────────────────
 
 
@@ -492,6 +511,7 @@ __all__ = [
     # Protocol
     "RunView",
     "Evaluator",
+    "TraceProvider",
     # Adapter
     "eval_case_to_dataset_example",
     "eval_run_result_to_evaluation_result",

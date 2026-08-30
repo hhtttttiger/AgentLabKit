@@ -30,6 +30,7 @@ from .contracts_v2 import (
     Evaluator,
     Expectation,
     SpanSummary,
+    TraceProvider,
 )
 from .replay import RunExecutor, RunTarget
 
@@ -275,11 +276,13 @@ class DatasetEvaluationRunner:
         store: DatasetStore,
         run_executor: RunExecutor | None = None,
         target: RunTarget | None = None,
+        trace_provider: TraceProvider | None = None,
     ) -> None:
         self._evaluator = evaluator
         self._store = store
         self._run_executor = run_executor
         self._target = target or RunTarget()
+        self._trace_provider = trace_provider
 
     async def run(
         self,
@@ -335,10 +338,21 @@ class DatasetEvaluationRunner:
                         target=self._target,
                     )
 
-                # 构建评估上下文（包含真实 Run）
+                # Fetch trace spans if TraceProvider is available
+                spans: list[SpanSummary] = []
+                if self._trace_provider is not None and run_view is not None:
+                    try:
+                        fetched = await self._trace_provider.get_spans(run_view.run_id)
+                        if fetched is not None:
+                            spans = fetched
+                    except Exception:
+                        logger.exception("trace_provider.get_spans_failed run_id=%s", run_view.run_id)
+
+                # 构建评估上下文（包含真实 Run + Spans）
                 context = EvaluationContext(
                     example=example,
                     run=run_view,
+                    spans=spans,
                 )
 
                 # 运行评估

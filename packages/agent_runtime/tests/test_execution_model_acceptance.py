@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID
 
 import pytest
@@ -25,6 +25,7 @@ from agent_runtime import (
 from agent_runtime.config import AgentSettings
 from agent_runtime.contracts.run import AgentRun, ExecutionContext, RunStatus, RunTarget
 from agent_runtime.event_bus import EventBus
+from agent_runtime.guardrails.pipeline import GuardsPipeline
 from agent_runtime.events_v2 import (
     LLMCallCompleted,
     LLMCallFailed,
@@ -35,6 +36,7 @@ from agent_runtime.events_v2 import (
     RunStarted,
     RuntimeEvent,
 )
+from agent_runtime.guardrails.pipeline import GuardsPipeline
 from agent_runtime.runtime import AgentRuntime
 from evaluation.contracts_v2 import RunView
 from llm_gateway import ProviderId, TextGenerateResponse, UsageInfo
@@ -871,7 +873,7 @@ class TestAcceptanceFullChainIdentity:
     async def test_full_chain_identity_consistency(self):
         """真实 AgentRuntime.run() 产生的事件喂给 TraceProjector 和 CostProjector，
         三者共享同一个 run_id/trace_id。"""
-        from unittest.mock import MagicMock
+        from unittest.mock import AsyncMock, MagicMock
 
         from cost_analysis.projector import CostProjector
         from observability.config import ObservabilitySettings
@@ -1182,7 +1184,7 @@ class TestAcceptanceCostRecordIdentity:
 
     @pytest.mark.asyncio
     async def test_cost_record_has_span_id_and_agent_key(self):
-        from unittest.mock import MagicMock
+        from unittest.mock import AsyncMock, MagicMock
 
         from cost_analysis.projector import CostProjector
 
@@ -1206,3 +1208,237 @@ class TestAcceptanceCostRecordIdentity:
         assert record.trace_id == "trace-xyz"
         assert record.span_id == "span-001"
         assert record.agent_key == "refund-agent"
+
+
+# ── Acceptance Test: Streaming Failure Terminal Invariant ───────────
+
+
+class TestAcceptanceStreamingFailureTerminal:
+    """Streaming LLM error → exactly 1 RunFailed, 0 RunCompleted, 0 RunCancelled."""
+
+    @pytest.mark.asyncio
+    async def test_stream_llm_error_produces_run_failed(self):
+        from llm_gateway.errors import GatewayError, GatewayErrorCode
+
+        gateway = MagicMock()
+
+        async def _failing_stream(*args, **kwargs):
+            raise GatewayError(GatewayErrorCode.PROVIDER_TIMEOUT, "stream timeout")
+            yield  # make it an async generator
+
+        gateway.generate_text_stream = _failing_stream
+        runtime = _make_runtime(gateway)
+
+        collected_events: list[RuntimeEvent] = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        ctx = ExecutionContext(session_id="s1")
+        with pytest.raises(Exception):
+            async for _ in runtime.stream_turn(
+                AgentTurnRequest(user_message="hi", session_id="s1"),
+                execution_context=ctx,
+            ):
+                pass
+
+        run_started = [e for e in collected_events if isinstance(e, RunStarted)]
+        run_completed = [e for e in collected_events if isinstance(e, RunCompleted)]
+        run_failed = [e for e in collected_events if isinstance(e, RunFailed)]
+        run_cancelled = [e for e in collected_events if isinstance(e, RunCancelled)]
+
+        assert len(run_started) == 1, f"Expected 1 RunStarted, got {len(run_started)}"
+        assert len(run_failed) == 1, f"Expected 1 RunFailed, got {len(run_failed)}"
+        assert len(run_completed) == 0, f"Expected 0 RunCompleted, got {len(run_completed)}"
+        assert len(run_cancelled) == 0, f"Expected 0 RunCancelled, got {len(run_cancelled)}"
+        assert run_failed[0].run_id == ctx.run_id
+
+
+# ── Acceptance Test: Blocking Guardrail Block ───────────────────────
+
+
+class TestAcceptanceBlockingGuardrailBlock:
+    """Blocking guardrail block → RunStarted + GuardrailBlocked + RunCompleted."""
+
+    @pytest.mark.asyncio
+    async def test_guardrail_block_produces_full_run_lifecycle(self):
+        from agent_runtime.guardrails import Guard, GuardContext, GuardResult, GuardVerdict
+
+        class BlockingGuard:
+            name = "test_blocker"
+
+            async def evaluate(self, ctx: GuardContext) -> GuardResult:
+                return GuardResult(
+                    guard_name="test_blocker",
+                    verdict=GuardVerdict.BLOCK,
+                    reason="blocked for test",
+                )
+
+        guards_pipeline = GuardsPipeline(input_guards=[BlockingGuard()])
+        gateway = FakeGatewayService([_make_response("should not reach")])
+        runtime = _make_runtime(gateway, tool_registry=ToolRegistry())
+        runtime.guards_pipeline = guards_pipeline
+        runtime._turn_guards.guards_pipeline = guards_pipeline
+
+        collected_events: list[RuntimeEvent] = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        agent_run = await runtime.run(AgentTurnRequest(
+            user_message="blocked input",
+            session_id="s1",
+        ))
+
+        run_started = [e for e in collected_events if isinstance(e, RunStarted)]
+        run_completed = [e for e in collected_events if isinstance(e, RunCompleted)]
+        run_failed = [e for e in collected_events if isinstance(e, RunFailed)]
+
+        # Must have RunStarted
+        assert len(run_started) == 1, f"Expected 1 RunStarted, got {len(run_started)}"
+        # Must have RunCompleted (blocked ≠ failure)
+        assert len(run_completed) == 1, f"Expected 1 RunCompleted, got {len(run_completed)}"
+        # Must NOT have RunFailed
+        assert len(run_failed) == 0, f"Expected 0 RunFailed, got {len(run_failed)}"
+        # Identity consistency
+        assert run_started[0].run_id == agent_run.run_id
+        assert run_completed[0].run_id == agent_run.run_id
+        # AgentRun exists and has blocked metadata
+        assert agent_run.run_id
+        assert agent_run.status == RunStatus.COMPLETED
+
+
+# ── Acceptance Test: Streaming Guardrail Block ──────────────────────
+
+
+class TestAcceptanceStreamingGuardrailBlock:
+    """Streaming guardrail block → RunStarted + RunCompleted."""
+
+    @pytest.mark.asyncio
+    async def test_stream_guardrail_block_produces_full_run_lifecycle(self):
+        from agent_runtime.guardrails import Guard, GuardContext, GuardResult, GuardVerdict
+
+        class BlockingGuard:
+            name = "test_blocker"
+
+            async def evaluate(self, ctx: GuardContext) -> GuardResult:
+                return GuardResult(
+                    guard_name="test_blocker",
+                    verdict=GuardVerdict.BLOCK,
+                    reason="blocked for test",
+                )
+
+        guards_pipeline = GuardsPipeline(input_guards=[BlockingGuard()])
+        gateway = MagicMock()
+
+        async def _empty_stream(*args, **kwargs):
+            if False:
+                yield  # pragma: no cover
+
+        gateway.generate_text_stream = _empty_stream
+        runtime = _make_runtime(gateway)
+        runtime.guards_pipeline = guards_pipeline
+        runtime._turn_guards.guards_pipeline = guards_pipeline
+
+        collected_events: list[RuntimeEvent] = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        ctx = ExecutionContext(session_id="s1")
+        events = []
+        async for event in runtime.stream_turn(
+            AgentTurnRequest(user_message="blocked", session_id="s1"),
+            execution_context=ctx,
+        ):
+            events.append(event)
+
+        run_started = [e for e in collected_events if isinstance(e, RunStarted)]
+        run_completed = [e for e in collected_events if isinstance(e, RunCompleted)]
+        run_failed = [e for e in collected_events if isinstance(e, RunFailed)]
+
+        assert len(run_started) == 1, f"Expected 1 RunStarted, got {len(run_started)}"
+        assert len(run_completed) == 1, f"Expected 1 RunCompleted, got {len(run_completed)}"
+        assert len(run_failed) == 0, f"Expected 0 RunFailed, got {len(run_failed)}"
+        assert run_started[0].run_id == ctx.run_id
+        assert run_completed[0].run_id == ctx.run_id
+        # Consumer should have received the blocked reply
+        assert len(events) >= 1
+        assert events[0].event_type == "reply_completed"
+
+
+# ── Acceptance Test: Full Chain Must Exist (hardened) ───────────────
+
+
+class TestAcceptanceFullChainMustExist:
+    """Full chain: Trace and Cost projections MUST fire (no conditional assertions)."""
+
+    @pytest.mark.asyncio
+    async def test_full_chain_must_exist(self):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from cost_analysis.projector import CostProjector
+        from observability.config import ObservabilitySettings
+        from observability.projector import TraceProjector
+
+        # 1. Run real AgentRuntime.run()
+        gateway = FakeGatewayService([_make_response("hello")])
+        runtime = _make_runtime(gateway)
+
+        collected_events: list[RuntimeEvent] = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        agent_run = await runtime.run(AgentTurnRequest(
+            user_message="hi",
+            session_id="s1",
+        ))
+
+        # 2. Feed to TraceProjector
+        trace_publisher = MagicMock()
+        trace_settings = ObservabilitySettings()
+        trace_projector = TraceProjector(publisher=trace_publisher, settings=trace_settings)
+
+        for event in collected_events:
+            if hasattr(event, "event_type"):
+                await trace_projector.handle(event)
+
+        # 3. Feed to CostProjector
+        cost_publisher = MagicMock()
+        cost_projector = CostProjector(publisher=cost_publisher)
+
+        for event in collected_events:
+            if hasattr(event, "event_type"):
+                await cost_projector.handle(event)
+
+        # 4. HARD assertions — chain MUST exist
+        assert trace_publisher.submit_nowait.called, \
+            "TraceProjector must submit a TraceEnvelope"
+        assert cost_publisher.submit_nowait.called, \
+            "CostProjector must submit a CostRecord"
+
+        # 5. Identity consistency
+        envelope = trace_publisher.submit_nowait.call_args[0][0]
+        assert UUID(envelope.run_id) == UUID(agent_run.run_id)
+        assert UUID(envelope.trace_id) == UUID(agent_run.trace_id)
+
+        record = cost_publisher.submit_nowait.call_args[0][0]
+        assert record.run_id == agent_run.run_id
+        assert record.trace_id == agent_run.trace_id
