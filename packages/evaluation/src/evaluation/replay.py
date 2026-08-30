@@ -27,6 +27,7 @@ from .contracts_v2 import (
     EvaluationRun,
     EvaluationRunStatus,
     Evaluator,
+    RunStatus,
     RunView,
 )
 
@@ -96,14 +97,12 @@ class ReplayConfig:
     """重放配置。
 
     target: 执行目标。None 表示使用 original_run 的 target。
-    timeout_seconds: 超时时间（秒）。0 表示不超时。
     metadata: 附加 metadata，会与 original metadata 合并。
     example_id: DatasetExample 的 stable identity。用于 replay compare 时
         baseline/candidate 对齐同一个 example。None 时回退到 original.run_id。
     """
 
     target: RunTarget | None = None
-    timeout_seconds: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
     example_id: str | None = None
 
@@ -183,11 +182,22 @@ class ReplayRunner:
             )
 
         # 2. 确定 target：config.target or original_run 的 target
-        target = config.target or RunTarget(
-            type="agent",
-            agent_key=getattr(original_run, "agent_key", None) or "",
-            agent_version=None,
-        )
+        # When no config.target, preserve the original run's target
+        # (including agent_version for faithful replay)
+        original_target = getattr(original_run, "target", None)
+        if config.target:
+            target = config.target
+        elif original_target is not None:
+            target = RunTarget(
+                type=getattr(original_target, "type", "agent") or "agent",
+                agent_key=getattr(original_target, "agent_key", None) or "",
+                agent_version=getattr(original_target, "agent_version", None),
+            )
+        else:
+            target = RunTarget(
+                type="agent",
+                agent_key=getattr(original_run, "agent_key", None) or "",
+            )
 
         # 3. 构造 metadata
         merged_metadata = {
@@ -361,7 +371,7 @@ class MockRunExecutor:
             agent_key=target.agent_key or "",
             input_text=str(input),
             output_text=self.output_text,
-            status="completed",
+            status=RunStatus.COMPLETED,
             duration_ms=self.metadata.get("duration_ms", 0),
             total_input_tokens=self.metadata.get("input_tokens", 0),
             total_output_tokens=self.metadata.get("output_tokens", 0),

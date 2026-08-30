@@ -8,6 +8,7 @@ from evaluation.contracts_v2 import (
     AgentRunSummary,
     DatasetExample,
     EvaluationContext,
+    RunStatus,
     SpanSummary,
 )
 from evaluation.evaluators.agent_native import (
@@ -37,7 +38,7 @@ def _make_run(**kwargs) -> AgentRunSummary:
         "agent_key": "chat",
         "input_text": "What is AI?",
         "output_text": "AI is artificial intelligence.",
-        "status": "ok",
+        "status": RunStatus.COMPLETED,
         "duration_ms": 1000,
         "total_input_tokens": 100,
         "total_output_tokens": 50,
@@ -244,7 +245,7 @@ class TestNoErrorEvaluator:
         evaluator = NoErrorEvaluator()
         context = EvaluationContext(
             example=_make_example(),
-            run=_make_run(status="ok"),
+            run=_make_run(status=RunStatus.COMPLETED),
         )
         result = await evaluator.evaluate(context)
         assert result.overall_score == 1.0
@@ -255,7 +256,7 @@ class TestNoErrorEvaluator:
         evaluator = NoErrorEvaluator()
         context = EvaluationContext(
             example=_make_example(),
-            run=_make_run(status="error"),
+            run=_make_run(status=RunStatus.FAILED),
         )
         result = await evaluator.evaluate(context)
         assert result.overall_score == 0.0

@@ -28,6 +28,7 @@ from .contracts_v2 import (
     EvaluationRun,
     EvaluationRunStatus,
     Evaluator,
+    ExampleEvaluation,
     Expectation,
     SpanSummary,
     TraceProvider,
@@ -379,12 +380,25 @@ class DatasetEvaluationRunner:
         # 更新运行状态
         status = EvaluationRunStatus.COMPLETED if failed == 0 else EvaluationRunStatus.FAILED
 
+        # Build example_evaluations (canonical aggregation by example_id)
+        example_eval_map: dict[str, list[EvaluationResult]] = {}
+        for r in results:
+            example_eval_map.setdefault(r.example_id, []).append(r)
+        example_evaluations = [
+            ExampleEvaluation(
+                example_id=eid,
+                results=eresults,
+            )
+            for eid, eresults in example_eval_map.items()
+        ]
+
         return EvaluationRun(
             run_id=eval_run.run_id,
             dataset_id=dataset_id,
             agent_key=agent_key,
             status=status,
             results=results,
+            example_evaluations=example_evaluations,
             total_examples=len(examples),
             completed_examples=completed,
             failed_examples=failed,

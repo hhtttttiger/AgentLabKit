@@ -278,8 +278,9 @@ class NoErrorEvaluator:
         return [await self.evaluate(ctx) for ctx in contexts]
 
     def _check_error(self, context: EvaluationContext) -> bool:
+        from ..contracts_v2 import RunStatus
         # 检查 run status
-        if context.run and context.run.status not in ("ok", "completed"):
+        if context.run and context.run.status not in (RunStatus.COMPLETED, "ok", "completed"):
             return True
         # 检查是否有 error span
         for span in context.spans:

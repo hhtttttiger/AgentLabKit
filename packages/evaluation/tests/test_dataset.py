@@ -13,6 +13,7 @@ from evaluation.contracts_v2 import (
     Expectation,
     ExpectationType,
     MetricResult,
+    RunStatus,
     RunView,
 )
 from evaluation.dataset import (
@@ -31,7 +32,7 @@ def _make_run(**kwargs) -> AgentRunSummary:
         "agent_key": "chat",
         "input_text": "What is AI?",
         "output_text": "AI is artificial intelligence.",
-        "status": "completed",
+        "status": RunStatus.COMPLETED,
         "duration_ms": 1000,
         "total_input_tokens": 100,
         "total_output_tokens": 50,

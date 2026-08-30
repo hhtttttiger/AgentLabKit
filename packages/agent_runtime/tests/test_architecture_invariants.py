@@ -262,7 +262,7 @@ class TestRunViewProtocol:
 
     def test_agent_run_summary_implements_run_view(self):
         """AgentRunSummary 实现 RunView 协议。"""
-        from evaluation.contracts_v2 import AgentRunSummary, RunView
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus, RunView
 
         summary = AgentRunSummary(
             run_id="r",
@@ -270,7 +270,7 @@ class TestRunViewProtocol:
             agent_key="a",
             input_text="hello",
             output_text="world",
-            status="completed",
+            status=RunStatus.COMPLETED,
         )
         assert isinstance(summary, RunView)
         assert summary.run_id == "r"

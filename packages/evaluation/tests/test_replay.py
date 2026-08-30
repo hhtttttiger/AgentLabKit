@@ -10,6 +10,7 @@ from evaluation.contracts_v2 import (
     EvaluationContext,
     EvaluationResult,
     MetricResult,
+    RunStatus,
     RunView,
 )
 from evaluation.replay import (
@@ -29,7 +30,7 @@ def _make_run(run_id: str = "run-123", **kwargs) -> AgentRunSummary:
         "agent_key": "chat",
         "input_text": "What is AI?",
         "output_text": "AI is artificial intelligence.",
-        "status": "completed",
+        "status": RunStatus.COMPLETED,
         "duration_ms": 1000,
         "total_input_tokens": 100,
         "total_output_tokens": 50,

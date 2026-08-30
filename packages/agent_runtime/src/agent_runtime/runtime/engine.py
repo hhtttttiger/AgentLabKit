@@ -455,6 +455,8 @@ class AgentRuntime:
         )
         if guard_result.blocked_result is not None:
             # Guardrail blocked — emit lifecycle events (blocked ≠ runtime crash)
+            # Note: RunCompleted is emitted by run() after run_turn() returns,
+            # so we don't emit a terminal event here — that would be a double terminal.
             if _run_lifecycle_started:
                 await self._event_bus.emit(GuardrailEvaluated(
                     run_id=_run_id,

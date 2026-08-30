@@ -430,6 +430,107 @@ class TestAcceptanceDatasetEvaluation:
         assert AssertingEvaluator.context_had_run is True
 
 
+# ── Acceptance Test F2: Trace-aware Dataset Evaluation ───────────────
+
+
+class TestAcceptanceTraceAwareDatasetEval:
+    """TraceProvider injects spans into EvaluationContext for agent-native evaluators."""
+
+    @pytest.mark.asyncio
+    async def test_evaluator_sees_real_spans(self):
+        from evaluation.contracts_v2 import (
+            DatasetExample,
+            EvaluationResult,
+            SpanSummary,
+            TraceProvider,
+        )
+        from evaluation.dataset import DatasetEvaluationRunner, InMemoryDatasetStore
+        from evaluation.replay import MockRunExecutor, RunTarget
+
+        # Fake TraceProvider that returns spans
+        class FakeTraceProvider:
+            async def get_spans(self, run_id: str):
+                return [
+                    SpanSummary(
+                        span_id="span-1",
+                        name="tool.search",
+                        kind="TOOL_CALL",
+                        duration_ms=200,
+                        attributes={"tool.name": "search"},
+                    ),
+                ]
+
+        store = InMemoryDatasetStore()
+        dataset_id = await store.create_dataset("test")
+        await store.add_example(DatasetExample(
+            example_id="1", dataset_id=dataset_id, input_text="Search for AI",
+        ))
+
+        class SpanCheckingEvaluator:
+            name = "span_checker"
+            context_had_spans: bool = False
+
+            async def evaluate(self, context):
+                SpanCheckingEvaluator.context_had_spans = len(context.spans) > 0
+                return EvaluationResult(
+                    example_id=context.example.example_id,
+                    passed=len(context.spans) > 0,
+                    score=1.0 if len(context.spans) > 0 else 0.0,
+                )
+
+        executor = MockRunExecutor(
+            output_text="AI results",
+            run_id="trace-run-1",
+            trace_id="trace-trace-1",
+        )
+        evaluator = SpanCheckingEvaluator()
+        runner = DatasetEvaluationRunner(
+            evaluator, store,
+            run_executor=executor,
+            target=RunTarget(agent_key="test-agent"),
+            trace_provider=FakeTraceProvider(),
+        )
+
+        result = await runner.run(dataset_id, "test-agent")
+
+        assert result.status.value == "completed"
+        assert SpanCheckingEvaluator.context_had_spans is True
+        assert result.overall_score == 1.0
+
+    @pytest.mark.asyncio
+    async def test_trace_provider_none_still_works(self):
+        from evaluation.contracts_v2 import DatasetExample, EvaluationResult
+        from evaluation.dataset import DatasetEvaluationRunner, InMemoryDatasetStore
+        from evaluation.replay import MockRunExecutor, RunTarget
+
+        store = InMemoryDatasetStore()
+        dataset_id = await store.create_dataset("test")
+        await store.add_example(DatasetExample(
+            example_id="1", dataset_id=dataset_id, input_text="Hello",
+        ))
+
+        class SimpleEvaluator:
+            name = "simple"
+            async def evaluate(self, context):
+                return EvaluationResult(
+                    example_id=context.example.example_id,
+                    passed=True,
+                    score=1.0,
+                )
+
+        executor = MockRunExecutor(output_text="Hi")
+        runner = DatasetEvaluationRunner(
+            SimpleEvaluator(), store,
+            run_executor=executor,
+            target=RunTarget(agent_key="test-agent"),
+            # No trace_provider
+        )
+
+        result = await runner.run(dataset_id, "test-agent")
+        assert result.status.value == "completed"
+        assert result.overall_score == 1.0
+
+
 # ── Acceptance Test G: Replay Ownership ──────────────────────────────
 
 
@@ -438,7 +539,7 @@ class TestAcceptanceReplayOwnership:
 
     @pytest.mark.asyncio
     async def test_replay_uses_executor_identity(self):
-        from evaluation.contracts_v2 import AgentRunSummary
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus
         from evaluation.replay import InMemoryRunStore, MockRunExecutor, ReplayRunner
 
         store = InMemoryRunStore()
@@ -448,7 +549,7 @@ class TestAcceptanceReplayOwnership:
             agent_key="agent-v1",
             input_text="test input",
             output_text="test output",
-            status="completed",
+            status=RunStatus.COMPLETED,
         ))
 
         executor = MockRunExecutor(
@@ -473,7 +574,7 @@ class TestAcceptanceReplayTarget:
 
     @pytest.mark.asyncio
     async def test_target_passed_to_executor(self):
-        from evaluation.contracts_v2 import AgentRunSummary
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus
         from evaluation.replay import (
             InMemoryRunStore,
             MockRunExecutor,
@@ -489,7 +590,7 @@ class TestAcceptanceReplayTarget:
             agent_key="agent-v1",
             input_text="test",
             output_text="out",
-            status="completed",
+            status=RunStatus.COMPLETED,
         ))
 
         executor = MockRunExecutor(output_text="v2 output")
@@ -503,6 +604,44 @@ class TestAcceptanceReplayTarget:
         # executor 收到了正确的 target
         assert executor.received_target.agent_key == "refund-agent"
         assert executor.received_target.agent_version == "v2"
+
+
+# ── Acceptance Test H2: Replay Same Target ───────────────────────────
+
+
+class TestAcceptanceReplaySameTarget:
+    """ReplayConfig.target=None preserves original target including agent_version."""
+
+    @pytest.mark.asyncio
+    async def test_replay_preserves_original_target_version(self):
+        from evaluation.contracts_v2 import AgentRunSummary
+        from evaluation.replay import (
+            InMemoryRunStore,
+            MockRunExecutor,
+            ReplayRunner,
+            RunTarget,
+        )
+
+        store = InMemoryRunStore()
+        await store.save_run(AgentRunSummary(
+            run_id="orig",
+            trace_id="trace-1",
+            agent_key="refund-agent",
+            input_text="test",
+            output_text="out",
+            status=RunStatus.COMPLETED,
+            target=RunTarget(agent_key="refund-agent", agent_version="v17"),
+        ))
+
+        executor = MockRunExecutor(output_text="replayed")
+        runner = ReplayRunner(store, executor)
+
+        # config.target=None → should use original target
+        await runner.replay("orig")
+
+        assert executor.received_target is not None
+        assert executor.received_target.agent_key == "refund-agent"
+        assert executor.received_target.agent_version == "v17"
 
 
 # ── Acceptance Test I: Replay Compare ────────────────────────────────
@@ -557,14 +696,14 @@ class TestAcceptanceRunSummaryFacts:
     """AgentRunSummary.started_at=None 不会变成 datetime.now()。"""
 
     def test_none_started_at_stays_none(self):
-        from evaluation.contracts_v2 import AgentRunSummary
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus
 
         summary = AgentRunSummary(
             run_id="r",
             trace_id="t",
             input_text="x",
             output_text="y",
-            status="completed",
+            status=RunStatus.COMPLETED,
         )
 
         # started_at 默认为 None，不会每次变成不同的 datetime.now()
@@ -572,7 +711,7 @@ class TestAcceptanceRunSummaryFacts:
         assert summary.started_at is None  # 再读一次，仍然是 None
 
     def test_real_started_at_preserved(self):
-        from evaluation.contracts_v2 import AgentRunSummary
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus
 
         real_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         summary = AgentRunSummary(
@@ -580,7 +719,7 @@ class TestAcceptanceRunSummaryFacts:
             trace_id="t",
             input_text="x",
             output_text="y",
-            status="completed",
+            status=RunStatus.COMPLETED,
             started_at=real_time,
         )
 
@@ -687,6 +826,63 @@ class TestAcceptanceRunViewProtocol:
         assert run.tool_call_count == 1
         assert run.total_input_tokens == 200
         assert run.total_output_tokens == 100
+
+
+# ── Acceptance Test K2: RunView Contract (status/target) ─────────────
+
+
+class TestAcceptanceRunViewContract:
+    """RunView contract: status must be RunStatus enum, target accessible."""
+
+    def test_status_coerced_from_string(self):
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus
+
+        summary = AgentRunSummary(
+            run_id="r", trace_id="t", input_text="x", output_text="y",
+            status="completed",
+        )
+        assert isinstance(summary.status, RunStatus)
+        assert summary.status == RunStatus.COMPLETED
+
+    def test_status_coerced_from_failed_string(self):
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus
+
+        summary = AgentRunSummary(
+            run_id="r", trace_id="t", input_text="x", output_text="y",
+            status=RunStatus.FAILED,
+        )
+        assert isinstance(summary.status, RunStatus)
+        assert summary.status == RunStatus.FAILED
+
+    def test_status_enum_preserved(self):
+        from evaluation.contracts_v2 import AgentRunSummary, RunStatus
+
+        summary = AgentRunSummary(
+            run_id="r", trace_id="t", input_text="x", output_text="y",
+            status=RunStatus.CANCELLED,
+        )
+        assert isinstance(summary.status, RunStatus)
+        assert summary.status == RunStatus.CANCELLED
+
+    def test_target_accessible(self):
+        from evaluation.contracts_v2 import AgentRunSummary
+        from evaluation.replay import RunTarget
+
+        summary = AgentRunSummary(
+            run_id="r", trace_id="t", input_text="x", output_text="y",
+            target=RunTarget(agent_key="a", agent_version="v1"),
+        )
+        assert summary.target is not None
+        assert summary.target.agent_key == "a"
+        assert summary.target.agent_version == "v1"
+
+    def test_target_none_by_default(self):
+        from evaluation.contracts_v2 import AgentRunSummary
+
+        summary = AgentRunSummary(
+            run_id="r", trace_id="t", input_text="x", output_text="y",
+        )
+        assert summary.target is None
 
 
 # ── Acceptance Test L: No Synthetic Facts ────────────────────────────
@@ -930,16 +1126,18 @@ class TestAcceptanceFullChainIdentity:
         # TraceProjector: 验证提交的 TraceEnvelope 使用了正确的 identity
         # TraceEnvelope 的 run_id validator 会转为 UUID 格式（带连字符），
         # 所以用 UUID 归一化比较
-        if trace_publisher.submit_nowait.called:
-            envelope = trace_publisher.submit_nowait.call_args[0][0]
-            assert UUID(envelope.run_id) == UUID(agent_run.run_id)
-            assert UUID(envelope.trace_id) == UUID(agent_run.trace_id)
+        assert trace_publisher.submit_nowait.called, \
+            "TraceProjector must submit a TraceEnvelope"
+        envelope = trace_publisher.submit_nowait.call_args[0][0]
+        assert UUID(envelope.run_id) == UUID(agent_run.run_id)
+        assert UUID(envelope.trace_id) == UUID(agent_run.trace_id)
 
         # CostProjector: 验证提交的 CostRecord 使用了正确的 identity
-        if cost_publisher.submit_nowait.called:
-            record = cost_publisher.submit_nowait.call_args[0][0]
-            assert record.run_id == agent_run.run_id
-            assert record.trace_id == agent_run.trace_id
+        assert cost_publisher.submit_nowait.called, \
+            "CostProjector must submit a CostRecord"
+        record = cost_publisher.submit_nowait.call_args[0][0]
+        assert record.run_id == agent_run.run_id
+        assert record.trace_id == agent_run.trace_id
 
 
 # ── Acceptance Test: LLM agent_key propagation ────────────────────

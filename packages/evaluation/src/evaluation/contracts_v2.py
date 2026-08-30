@@ -84,6 +84,9 @@ class RunView(Protocol):
     @property
     def finished_at(self) -> datetime | None: ...
 
+    @property
+    def target(self) -> Any | None: ...
+
     # Agent-native evaluators need these (tool/latency/cost evaluators)
     @property
     def tool_names(self) -> list[str]: ...
@@ -118,7 +121,7 @@ class AgentRunSummary:
     agent_key: str = ""
     input_text: str = ""
     output_text: str = ""
-    status: str = "completed"
+    status: RunStatus = RunStatus.COMPLETED
     duration_ms: int = 0
     total_input_tokens: int = 0
     total_output_tokens: int = 0
@@ -126,6 +129,12 @@ class AgentRunSummary:
     tool_names: list[str] = field(default_factory=list)
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    target: Any | None = None
+
+    def __post_init__(self) -> None:
+        # Coerce string status to RunStatus enum for backward compat
+        if isinstance(self.status, str):
+            object.__setattr__(self, 'status', RunStatus(self.status))
 
     # RunView protocol properties
     @property
@@ -353,27 +362,85 @@ class EvaluatorSpec:
     version: str | None = None
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(init=False)
 class EvaluationRun:
     """一次完整的评估运行。
 
-    包含多个 DatasetExample 的评估结果。
+    Canonical model: ``example_evaluations`` is the source of truth.
+    ``results`` is a backward-compat read-only property derived from
+    ``example_evaluations`` — no separate mutable list.
+
+    Legacy callers can still pass ``results=[...]`` to the constructor;
+    it seeds ``example_evaluations`` automatically.
     """
     run_id: str
     dataset_id: str
     agent_key: str
-    status: EvaluationRunStatus = EvaluationRunStatus.PENDING
-    results: list[EvaluationResult] = field(default_factory=list)
-    example_evaluations: list[ExampleEvaluation] = field(default_factory=list)
-    total_examples: int = 0
-    completed_examples: int = 0
-    failed_examples: int = 0
-    overall_score: float = 0.0
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-    error_message: str | None = None
-    dataset_version: str | None = None
-    evaluator_specs: list[EvaluatorSpec] = field(default_factory=list)
+    status: EvaluationRunStatus
+    example_evaluations: list[ExampleEvaluation]
+    total_examples: int
+    completed_examples: int
+    failed_examples: int
+    overall_score: float
+    started_at: datetime | None
+    completed_at: datetime | None
+    error_message: str | None
+    dataset_version: str | None
+    evaluator_specs: list[EvaluatorSpec]
+
+    def __init__(
+        self,
+        run_id: str,
+        dataset_id: str,
+        agent_key: str,
+        *,
+        status: EvaluationRunStatus = EvaluationRunStatus.PENDING,
+        results: list[EvaluationResult] | None = None,
+        example_evaluations: list[ExampleEvaluation] | None = None,
+        total_examples: int = 0,
+        completed_examples: int = 0,
+        failed_examples: int = 0,
+        overall_score: float = 0.0,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        error_message: str | None = None,
+        dataset_version: str | None = None,
+        evaluator_specs: list[EvaluatorSpec] | None = None,
+    ) -> None:
+        self.run_id = run_id
+        self.dataset_id = dataset_id
+        self.agent_key = agent_key
+        self.status = status
+        self.total_examples = total_examples
+        self.completed_examples = completed_examples
+        self.failed_examples = failed_examples
+        self.overall_score = overall_score
+        self.started_at = started_at
+        self.completed_at = completed_at
+        self.error_message = error_message
+        self.dataset_version = dataset_version
+        self.evaluator_specs = evaluator_specs or []
+
+        # Canonical: seed example_evaluations from results if only results given
+        if results and not example_evaluations:
+            eval_map: dict[str, list[EvaluationResult]] = {}
+            for r in results:
+                eval_map.setdefault(r.example_id, []).append(r)
+            self.example_evaluations = [
+                ExampleEvaluation(example_id=eid, results=eresults)
+                for eid, eresults in eval_map.items()
+            ]
+        else:
+            self.example_evaluations = example_evaluations or []
+
+    @property
+    def results(self) -> list[EvaluationResult]:
+        """Backward-compat flat list — derived from example_evaluations."""
+        return [
+            result
+            for example in self.example_evaluations
+            for result in example.results
+        ]
 
 
 # ── 评估器协议 ─────────────────────────────────────────────────────
