@@ -305,13 +305,16 @@ class ExampleEvaluation:
         return sum(scores) / len(scores) if scores else 0.0
 
     def to_eval_run_result(self) -> Any:
-        """聚合为统一的 EvalRunResult（向后兼容）。"""
+        """聚合为统一的 EvalRunResult（向后兼容）。
+
+        注意：EvalRunResult 是旧版契约，字段映射有限。
+        started_at/finished_at 在 EvalRunResult 中不存在，不伪造。
+        """
         # Lazy import to avoid circular dependency
-        from .models import EvalRunResult, EvalRunStatus
+        from .contracts import EvalRunResult
         result = EvalRunResult(
-            example_id=self.example_id,
-            run_id=self.run_id or "",
-            status=EvalRunStatus.COMPLETED if self.all_passed else EvalRunStatus.FAILED,
+            run_id=0,
+            case_id=int(self.example_id) if self.example_id.isdigit() else 0,
             metric_results=[
                 MetricResult(
                     metric_name=r.evaluator_name,
@@ -322,13 +325,8 @@ class ExampleEvaluation:
                 )
                 for r in self.results
             ],
-            summary={
-                "avg_score": self.avg_score,
-                "all_passed": self.all_passed,
-            },
-            started_at=None,
-            finished_at=None,
-            errors=[] if not self.any_failed else ["One or more evaluators failed"],
+            overall_score=self.avg_score,
+            error_message=None if not self.any_failed else "One or more evaluators failed",
         )
         return result
 

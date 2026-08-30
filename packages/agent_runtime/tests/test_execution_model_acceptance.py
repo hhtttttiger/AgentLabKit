@@ -12,6 +12,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock
+from uuid import UUID
 
 import pytest
 
@@ -35,6 +36,7 @@ from agent_runtime.events_v2 import (
     RuntimeEvent,
 )
 from agent_runtime.runtime import AgentRuntime
+from evaluation.contracts_v2 import RunView
 from llm_gateway import ProviderId, TextGenerateResponse, UsageInfo
 
 
@@ -536,3 +538,562 @@ class TestAcceptanceExecutionContext:
         ctx = ExecutionContext()
         assert ctx.root_span_id is not None
         assert len(ctx.root_span_id) == 16  # uuid4().hex[:16]
+
+
+# ── Acceptance Test K: RunView Protocol Extended ────────────────────
+
+
+class TestAcceptanceRunViewProtocol:
+    """RunView protocol 包含 evaluator 需要的 tool/token 属性。"""
+
+    def test_agent_run_summary_satisfies_extended_run_view(self):
+        from evaluation.contracts_v2 import AgentRunSummary, RunView
+
+        summary = AgentRunSummary(
+            run_id="r",
+            trace_id="t",
+            tool_names=["search", "refund"],
+            tool_call_count=2,
+            duration_ms=1500,
+            total_input_tokens=100,
+            total_output_tokens=50,
+        )
+        assert isinstance(summary, RunView)
+        assert summary.tool_names == ["search", "refund"]
+        assert summary.tool_call_count == 2
+        assert summary.duration_ms == 1500
+        assert summary.total_input_tokens == 100
+        assert summary.total_output_tokens == 50
+
+    def test_agent_run_satisfies_extended_run_view(self):
+        from agent_runtime.contracts.run import AgentRun, RunStatus, RunUsage
+
+        run = AgentRun(
+            input="test",
+            status=RunStatus.COMPLETED,
+            usage=RunUsage(input_tokens=200, output_tokens=100),
+            tool_names=["verify"],
+            tool_call_count=1,
+        )
+        assert isinstance(run, RunView)
+        assert run.tool_names == ["verify"]
+        assert run.tool_call_count == 1
+        assert run.total_input_tokens == 200
+        assert run.total_output_tokens == 100
+
+
+# ── Acceptance Test L: No Synthetic Facts ────────────────────────────
+
+
+class TestAcceptanceNoSyntheticFacts:
+    """Evaluation 契约不伪造时间戳。"""
+
+    def test_example_eval_to_result_no_datetime_now(self):
+        """to_eval_run_result() 不调用 datetime.now() 制造事实。"""
+        from evaluation.contracts_v2 import ExampleEvaluation
+
+        eval_run = ExampleEvaluation(
+            example_id="42",
+            run_id="run-abc",
+        )
+        result = eval_run.to_eval_run_result()
+
+        # EvalRunResult 没有 started_at/finished_at 字段（旧版契约）
+        # 关键验证：不会抛异常，且结果可用
+        assert result.overall_score == 0.0
+        assert result.error_message is None
+
+    def test_agent_run_summary_none_timestamps_stable(self):
+        """AgentRunSummary 的 None 时间戳不会变成 datetime.now()。"""
+        from evaluation.contracts_v2 import AgentRunSummary
+
+        summary = AgentRunSummary(
+            run_id="r",
+            trace_id="t",
+            input_text="x",
+            output_text="y",
+            status="completed",
+        )
+
+        # started_at 默认为 None，多次读取始终为 None
+        assert summary.started_at is None
+        assert summary.started_at is None
+        assert summary.finished_at is None
+        assert summary.finished_at is None
+
+
+# ── Acceptance Test M: Comparability Validation ──────────────────────
+
+
+class TestAcceptanceComparability:
+    """Compare 有基本 comparability validation。"""
+
+    def test_different_dataset_version_raises(self):
+        from evaluation.compare import IncompatibleEvaluationRuns, compare_runs
+        from evaluation.contracts_v2 import (
+            EvaluationResult,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        baseline = EvaluationRun(
+            run_id="baseline",
+            dataset_id="d",
+            dataset_version="v1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.5)],
+            total_examples=1,
+            completed_examples=1,
+        )
+        current = EvaluationRun(
+            run_id="current",
+            dataset_id="d",
+            dataset_version="v2",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.8)],
+            total_examples=1,
+            completed_examples=1,
+        )
+
+        with pytest.raises(IncompatibleEvaluationRuns) as exc_info:
+            compare_runs(baseline, current)
+        assert "dataset_version" in str(exc_info.value)
+
+    def test_none_version_skips_check(self):
+        """dataset_version=None 不触发 mismatch。"""
+        from evaluation.compare import compare_runs
+        from evaluation.contracts_v2 import (
+            EvaluationResult,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        baseline = EvaluationRun(
+            run_id="baseline",
+            dataset_id="d",
+            dataset_version=None,
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.5)],
+            total_examples=1,
+            completed_examples=1,
+        )
+        current = EvaluationRun(
+            run_id="current",
+            dataset_id="d",
+            dataset_version="v2",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.8)],
+            total_examples=1,
+            completed_examples=1,
+        )
+
+        # Should NOT raise — None means "unknown", skip check
+        result = compare_runs(baseline, current)
+        assert len(result.improved) == 1
+
+    def test_same_version_passes(self):
+        from evaluation.compare import compare_runs
+        from evaluation.contracts_v2 import (
+            EvaluationResult,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        baseline = EvaluationRun(
+            run_id="baseline",
+            dataset_id="d",
+            dataset_version="v1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.5)],
+            total_examples=1,
+            completed_examples=1,
+        )
+        current = EvaluationRun(
+            run_id="current",
+            dataset_id="d",
+            dataset_version="v1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.8)],
+            total_examples=1,
+            completed_examples=1,
+        )
+
+        result = compare_runs(baseline, current)
+        assert len(result.improved) == 1
+
+    def test_evaluator_spec_creation(self):
+        from evaluation.contracts_v2 import EvaluatorSpec
+
+        spec = EvaluatorSpec(name="tool_called", version="1.0")
+        assert spec.name == "tool_called"
+        assert spec.version == "1.0"
+
+    def test_evaluation_run_with_specs(self):
+        from evaluation.contracts_v2 import (
+            EvaluatorSpec,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        specs = [EvaluatorSpec(name="tool_called"), EvaluatorSpec(name="no_error", version="2.0")]
+        run = EvaluationRun(
+            run_id="r",
+            dataset_id="d",
+            dataset_version="v1",
+            agent_key="agent",
+            evaluator_specs=specs,
+            status=EvaluationRunStatus.COMPLETED,
+        )
+        assert len(run.evaluator_specs) == 2
+        assert run.evaluator_specs[0].name == "tool_called"
+        assert run.dataset_version == "v1"
+
+
+# ── Acceptance Test N: Full Chain Identity ───────────────────────────
+
+
+class TestAcceptanceFullChainIdentity:
+    """AgentRuntime.run → RuntimeEvent → TraceProjector → CostProjector
+    全链路 run_id/trace_id 一致。"""
+
+    @pytest.mark.asyncio
+    async def test_full_chain_identity_consistency(self):
+        """真实 AgentRuntime.run() 产生的事件喂给 TraceProjector 和 CostProjector，
+        三者共享同一个 run_id/trace_id。"""
+        from unittest.mock import MagicMock
+
+        from cost_analysis.projector import CostProjector
+        from observability.config import ObservabilitySettings
+        from observability.projector import TraceProjector
+
+        # 1. 运行真实 AgentRuntime.run()
+        gateway = FakeGatewayService([_make_response("hello")])
+        runtime = _make_runtime(gateway)
+
+        collected_events: list[RuntimeEvent] = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        agent_run = await runtime.run(AgentTurnRequest(
+            user_message="hi",
+            session_id="s1",
+        ))
+
+        # 2. 喂给 TraceProjector
+        trace_publisher = MagicMock()
+        trace_settings = ObservabilitySettings()
+        trace_projector = TraceProjector(publisher=trace_publisher, settings=trace_settings)
+
+        for event in collected_events:
+            if hasattr(event, "event_type"):
+                await trace_projector.handle(event)
+
+        # 3. 喂给 CostProjector
+        cost_publisher = MagicMock()
+        cost_projector = CostProjector(publisher=cost_publisher)
+
+        for event in collected_events:
+            if hasattr(event, "event_type"):
+                await cost_projector.handle(event)
+
+        # 4. 验证全链路 identity 一致
+        # AgentRun
+        assert agent_run.run_id
+        assert agent_run.trace_id
+
+        # Events
+        run_events = [e for e in collected_events if hasattr(e, "run_id") and e.run_id]
+        for event in run_events:
+            assert event.run_id == agent_run.run_id, \
+                f"{type(event).__name__}.run_id={event.run_id} != AgentRun.run_id={agent_run.run_id}"
+            assert event.trace_id == agent_run.trace_id, \
+                f"{type(event).__name__}.trace_id={event.trace_id} != AgentRun.trace_id={agent_run.trace_id}"
+
+        # TraceProjector: 验证提交的 TraceEnvelope 使用了正确的 identity
+        # TraceEnvelope 的 run_id validator 会转为 UUID 格式（带连字符），
+        # 所以用 UUID 归一化比较
+        if trace_publisher.submit_nowait.called:
+            envelope = trace_publisher.submit_nowait.call_args[0][0]
+            assert UUID(envelope.run_id) == UUID(agent_run.run_id)
+            assert UUID(envelope.trace_id) == UUID(agent_run.trace_id)
+
+        # CostProjector: 验证提交的 CostRecord 使用了正确的 identity
+        if cost_publisher.submit_nowait.called:
+            record = cost_publisher.submit_nowait.call_args[0][0]
+            assert record.run_id == agent_run.run_id
+            assert record.trace_id == agent_run.trace_id
+
+
+# ── Acceptance Test: LLM agent_key propagation ────────────────────
+
+
+class TestAcceptanceLlmAgentKey:
+    """LLMCallCompleted/Failed 携带 agent_key 供 CostProjector 使用。"""
+
+    @pytest.mark.asyncio
+    async def test_llm_completed_has_agent_key(self):
+        gateway = FakeGatewayService([_make_response("ok")])
+        runtime = _make_runtime(gateway)
+
+        collected_events: list[RuntimeEvent] = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        await runtime.run(AgentTurnRequest(
+            user_message="q",
+            session_id="s1",
+            agent_key="refund-agent",
+        ))
+
+        llm_completed = [e for e in collected_events if isinstance(e, LLMCallCompleted)]
+        assert len(llm_completed) >= 1
+        assert llm_completed[0].agent_key == "refund-agent"
+
+    def test_llm_started_has_agent_key_field(self):
+        """LLMCallStarted 也有 agent_key 字段。"""
+        event = LLMCallStarted(
+            run_id="r",
+            model="m",
+            agent_key="test-agent",
+        )
+        assert event.agent_key == "test-agent"
+
+
+# ── Acceptance Test: Streaming span_ids ────────────────────────────
+
+
+class TestAcceptanceStreamingSpanIds:
+    """Streaming path 的 RunStarted 携带 span_id。"""
+
+    @pytest.mark.asyncio
+    async def test_stream_run_started_has_span_id(self):
+        from unittest.mock import AsyncMock
+
+        gateway = MagicMock()
+
+        async def _fake_stream(*args, **kwargs):
+            yield MagicMock(
+                delta="reply",
+                full_text="reply",
+                is_done=True,
+                usage=UsageInfo(input_tokens=10, output_tokens=5),
+            )
+
+        gateway.generate_text_stream = _fake_stream
+        runtime = _make_runtime(gateway)
+
+        collected_events: list[RuntimeEvent] = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        ctx = ExecutionContext(session_id="s1")
+        events = []
+        async for event in runtime.stream_turn(
+            AgentTurnRequest(user_message="hi", session_id="s1"),
+            execution_context=ctx,
+        ):
+            events.append(event)
+
+        run_started = [e for e in collected_events if isinstance(e, RunStarted)]
+        assert len(run_started) == 1
+        assert run_started[0].span_id is not None
+        assert len(run_started[0].span_id) == 16  # uuid4().hex[:16]
+
+
+# ── Acceptance Test: Comparability with evaluator_specs ────────────
+
+
+class TestAcceptanceComparabilityEvaluatorSpecs:
+    """evaluator_specs 不一致时抛出 IncompatibleEvaluationRuns。"""
+
+    def test_different_evaluator_specs_raises(self):
+        from evaluation.compare import IncompatibleEvaluationRuns, compare_runs
+        from evaluation.contracts_v2 import (
+            EvaluatorSpec,
+            EvaluationResult,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        baseline = EvaluationRun(
+            run_id="baseline",
+            dataset_id="ds1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.5)],
+            evaluator_specs=[EvaluatorSpec(name="ragas", version="0.4")],
+            total_examples=1,
+            completed_examples=1,
+        )
+        current = EvaluationRun(
+            run_id="current",
+            dataset_id="ds1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.8)],
+            evaluator_specs=[EvaluatorSpec(name="ragas", version="0.5")],
+            total_examples=1,
+            completed_examples=1,
+        )
+
+        with pytest.raises(IncompatibleEvaluationRuns) as exc_info:
+            compare_runs(baseline, current)
+
+        assert "evaluator_specs" in str(exc_info.value)
+
+    def test_same_evaluator_specs_passes(self):
+        from evaluation.compare import compare_runs
+        from evaluation.contracts_v2 import (
+            EvaluatorSpec,
+            EvaluationResult,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        specs = [EvaluatorSpec(name="ragas", version="0.4")]
+        baseline = EvaluationRun(
+            run_id="baseline",
+            dataset_id="ds1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.5)],
+            evaluator_specs=specs,
+            total_examples=1,
+            completed_examples=1,
+        )
+        current = EvaluationRun(
+            run_id="current",
+            dataset_id="ds1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.8)],
+            evaluator_specs=specs,
+            total_examples=1,
+            completed_examples=1,
+        )
+
+        result = compare_runs(baseline, current)
+        assert len(result.improved) == 1
+
+    def test_empty_specs_skips_check(self):
+        from evaluation.compare import compare_runs
+        from evaluation.contracts_v2 import (
+            EvaluationResult,
+            EvaluationRun,
+            EvaluationRunStatus,
+        )
+
+        baseline = EvaluationRun(
+            run_id="baseline",
+            dataset_id="ds1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.5)],
+            total_examples=1,
+            completed_examples=1,
+        )
+        current = EvaluationRun(
+            run_id="current",
+            dataset_id="ds1",
+            agent_key="agent",
+            status=EvaluationRunStatus.COMPLETED,
+            results=[EvaluationResult(example_id="1", score=0.8)],
+            total_examples=1,
+            completed_examples=1,
+        )
+
+        result = compare_runs(baseline, current)
+        assert len(result.improved) == 1
+
+
+# ── Acceptance Test: Replay example_id flows through ────────────────
+
+
+class TestAcceptanceReplayExampleIdFlow:
+    """ReplayConfig.example_id → ReplayResult.example_id 全链路传递。"""
+
+    def test_config_example_id_flows_to_result(self):
+        from evaluation.replay import ReplayResult, ComparisonResult
+
+        result = ReplayResult(
+            original_run_id="orig",
+            new_run_id="new",
+            comparison=ComparisonResult(
+                improved=[], degraded=[], unchanged=[], regressions=[]
+            ),
+            example_id="dataset-42",
+        )
+        assert result.example_id == "dataset-42"
+
+    def test_config_example_id_none_by_default(self):
+        from evaluation.replay import ReplayConfig
+
+        config = ReplayConfig(target="agent", user_message="hi")
+        assert config.example_id is None
+
+    def test_result_example_id_none_by_default(self):
+        from evaluation.replay import ReplayResult, ComparisonResult
+
+        result = ReplayResult(
+            original_run_id="orig",
+            new_run_id="new",
+            comparison=ComparisonResult(
+                improved=[], degraded=[], unchanged=[], regressions=[]
+            ),
+        )
+        assert result.example_id is None
+
+
+# ── Acceptance Test: CostRecord span_id and agent_key ───────────────
+
+
+class TestAcceptanceCostRecordIdentity:
+    """CostProjector 产出的 CostRecord 携带 span_id 和 agent_key。"""
+
+    @pytest.mark.asyncio
+    async def test_cost_record_has_span_id_and_agent_key(self):
+        from unittest.mock import MagicMock
+
+        from cost_analysis.projector import CostProjector
+
+        event = LLMCallCompleted(
+            run_id="run-abc",
+            trace_id="trace-xyz",
+            span_id="span-001",
+            agent_key="refund-agent",
+            model="gpt-4",
+            input_tokens=100,
+            output_tokens=50,
+        )
+
+        publisher = MagicMock()
+        projector = CostProjector(publisher=publisher)
+        await projector.handle(event)
+
+        assert publisher.submit_nowait.called
+        record = publisher.submit_nowait.call_args[0][0]
+        assert record.run_id == "run-abc"
+        assert record.trace_id == "trace-xyz"
+        assert record.span_id == "span-001"
+        assert record.agent_key == "refund-agent"

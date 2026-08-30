@@ -263,7 +263,8 @@ def _validate_comparable(baseline: EvaluationRun, current: EvaluationRun) -> Non
 
     检查：
     - dataset_id 必须一致
-    - 如果有 evaluator metadata，检查一致性
+    - dataset_version 在两者都设置时必须一致
+    - evaluator_specs 在两者都设置时检查一致性
 
     Raises:
         IncompatibleEvaluationRuns: 当不可比较时
@@ -276,6 +277,26 @@ def _validate_comparable(baseline: EvaluationRun, current: EvaluationRun) -> Non
             f"dataset_id mismatch: baseline={baseline.dataset_id!r}, "
             f"current={current.dataset_id!r}"
         )
+
+    # dataset_version: 当两者都设置时检查一致性
+    if (baseline.dataset_version is not None
+            and current.dataset_version is not None
+            and baseline.dataset_version != current.dataset_version):
+        reasons.append(
+            f"dataset_version mismatch: baseline={baseline.dataset_version!r}, "
+            f"current={current.dataset_version!r}"
+        )
+
+    # evaluator_specs: 当两者都设置时检查一致性
+    if baseline.evaluator_specs and current.evaluator_specs:
+        baseline_specs = {(s.name, s.version) for s in baseline.evaluator_specs}
+        current_specs = {(s.name, s.version) for s in current.evaluator_specs}
+        if baseline_specs != current_specs:
+            reasons.append(
+                f"evaluator_specs mismatch: "
+                f"baseline={[f'{s.name}@{s.version}' for s in baseline.evaluator_specs]!r}, "
+                f"current={[f'{s.name}@{s.version}' for s in current.evaluator_specs]!r}"
+            )
 
     if reasons:
         raise IncompatibleEvaluationRuns(reasons)
