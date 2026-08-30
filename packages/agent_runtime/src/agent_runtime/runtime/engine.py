@@ -849,196 +849,367 @@ class AgentRuntime:
             definition=definition,
         )
         pending_reply_deltas: list[str] = []
-        for _ in range(_MAX_STREAM_TOOL_ROUNDS):
-            accumulated = ""
-            completed_text: str | None = None
-            usage: UsageInfo | None = None
-            conversation = self._messages_to_conversation_tuple(stream_messages)
-            if _obs_bridge:
-                await self._event_bus.emit(MessageStartEvent(
-                    message=AgentMessage(role=AgentRole.ASSISTANT, content=""),
-                ))
-            _llm_span = _span_mgr.start_llm_span() if _span_mgr else None
-            try:
-                async for stream_delta in llm.generate_stream(
-                    system_prompt=system_prompt,
-                    conversation=conversation,
-                    tools=tool_schemas,
-                ):
-                    if stream_delta.delta:
-                        delta_text = stream_delta.delta
-                        accumulated = stream_delta.full_text
-                        pending_reply_deltas.extend(
-                            await voice_handler.process_delta(delta_text),
-                        )
-                    if stream_delta.is_done:
-                        completed_text = stream_delta.full_text
-                        usage = stream_delta.usage
-                        pending_reply_deltas.extend(await voice_handler.flush())
-            except AgentError as exc:
-                if _span_mgr:
-                    _span_mgr.set_error(exc.message or "AgentError")
-                elif _obs_bridge:
-                    _obs_bridge.set_error(exc.message or "AgentError")
-                await self._session_mgr.best_effort_save_on_error(
-                    request=resolved_request, snapshot=restored_snapshot, settings=effective_settings,
-                )
-                raise
-            except Exception as exc:
-                from llm_gateway import GatewayError
+        try:
+            for _ in range(_MAX_STREAM_TOOL_ROUNDS):
+                accumulated = ""
+                completed_text: str | None = None
+                usage: UsageInfo | None = None
+                conversation = self._messages_to_conversation_tuple(stream_messages)
+                if _obs_bridge:
+                    await self._event_bus.emit(MessageStartEvent(
+                        message=AgentMessage(role=AgentRole.ASSISTANT, content=""),
+                    ))
+                _llm_span = _span_mgr.start_llm_span() if _span_mgr else None
+                try:
+                    async for stream_delta in llm.generate_stream(
+                        system_prompt=system_prompt,
+                        conversation=conversation,
+                        tools=tool_schemas,
+                    ):
+                        if stream_delta.delta:
+                            delta_text = stream_delta.delta
+                            accumulated = stream_delta.full_text
+                            pending_reply_deltas.extend(
+                                await voice_handler.process_delta(delta_text),
+                            )
+                        if stream_delta.is_done:
+                            completed_text = stream_delta.full_text
+                            usage = stream_delta.usage
+                            pending_reply_deltas.extend(await voice_handler.flush())
+                except AgentError as exc:
+                    if _span_mgr:
+                        _span_mgr.set_error(exc.message or "AgentError")
+                    elif _obs_bridge:
+                        _obs_bridge.set_error(exc.message or "AgentError")
+                    await self._session_mgr.best_effort_save_on_error(
+                        request=resolved_request, snapshot=restored_snapshot, settings=effective_settings,
+                    )
+                    raise
+                except Exception as exc:
+                    from llm_gateway import GatewayError
 
-                if _span_mgr:
-                    _span_mgr.set_error(str(exc))
-                elif _obs_bridge:
-                    _obs_bridge.set_error(str(exc))
-                await self._session_mgr.best_effort_save_on_error(
-                    request=resolved_request, snapshot=restored_snapshot, settings=effective_settings,
-                )
-                if isinstance(exc, GatewayError):
+                    if _span_mgr:
+                        _span_mgr.set_error(str(exc))
+                    elif _obs_bridge:
+                        _obs_bridge.set_error(str(exc))
+                    await self._session_mgr.best_effort_save_on_error(
+                        request=resolved_request, snapshot=restored_snapshot, settings=effective_settings,
+                    )
+                    if isinstance(exc, GatewayError):
+                        raise AgentError(
+                            AgentErrorCode.GATEWAY_ERROR,
+                            exc.message,
+                            model=resolved_request.model,
+                            trace_id=resolved_request.trace_id,
+                        ) from exc
                     raise AgentError(
-                        AgentErrorCode.GATEWAY_ERROR,
-                        exc.message,
+                        AgentErrorCode.RUNTIME_ERROR,
+                        str(exc),
                         model=resolved_request.model,
                         trace_id=resolved_request.trace_id,
                     ) from exc
-                raise AgentError(
-                    AgentErrorCode.RUNTIME_ERROR,
-                    str(exc),
-                    model=resolved_request.model,
-                    trace_id=resolved_request.trace_id,
-                ) from exc
 
-            directive_text = completed_text or accumulated or ""
-            directive = llm.parse_response(directive_text)
-            if _obs_bridge:
-                await self._event_bus.emit(MessageEndEvent(
-                    message=AgentMessage(role=AgentRole.ASSISTANT, content=directive_text),
-                    usage=usage,
-                ))
-            if _llm_span is not None:
-                _llm_span.end()
-            if isinstance(directive, ToolDirective):
-                self._ensure_tool_allowed(directive.tool_name, auto_tool_names)
-                started_tool_event = self._tool_exec.build_tool_started_event(
-                    directive.tool_name, directive.arguments,
-                )
-                yield AgentTurnStreamEvent(
-                    event_type="tool_call",
-                    session_id=resolved_request.session_id,
-                    trace_id=resolved_request.trace_id,
-                    reply_text=directive.reply_text,
-                    tool_name=directive.tool_name,
-                    tool_arguments=dict(directive.arguments),
-                    tool_event=started_tool_event,
-                )
+                directive_text = completed_text or accumulated or ""
+                directive = llm.parse_response(directive_text)
                 if _obs_bridge:
-                    await self._event_bus.emit(ToolExecutionStartEvent(
-                        tool_name=directive.tool_name,
-                        args=dict(directive.arguments),
+                    await self._event_bus.emit(MessageEndEvent(
+                        message=AgentMessage(role=AgentRole.ASSISTANT, content=directive_text),
+                        usage=usage,
                     ))
-                _tool_span = _span_mgr.start_tool_span(directive.tool_name) if _span_mgr else None
-                recorded_before = len(deps.tool_events)
-
-                # Streaming delegation
-                delegate_handler = self.tool_registry.dynamic_registry.get_handler(
-                    directive.tool_name
-                )
-                if (
-                    directive.tool_name == "delegate_to_agent"
-                    and isinstance(delegate_handler, DelegateToAgentTool)
-                ):
-                    tool_output = ""
-                    async for delegation_event in self._tool_exec.execute_streaming_delegate_tool_call(
-                        request=resolved_request,
-                        settings=effective_settings,
-                        deps=deps,
-                        delegate_handler=delegate_handler,
-                        arguments=dict(directive.arguments),
-                        allowed_tool_names=auto_tool_names,
-                        tool_bindings=tool_bindings,
-                    ):
-                        if delegation_event.event_type == "delegation_delta":
-                            yield delegation_event
-                        elif delegation_event.event_type == "reply_completed":
-                            tool_output = delegation_event.reply_text or ""
-                    stream_usage = self._merge_usage(stream_usage, usage)
-                    stream_usage = self._drain_delegation_usage(stream_usage, deps)
-                else:
-                    tool_output = await self._tool_exec.execute_tool_call(
-                        request=resolved_request,
-                        settings=effective_settings,
-                        deps=deps,
-                        tool_name=directive.tool_name,
-                        arguments=dict(directive.arguments),
-                        allowed_tool_names=auto_tool_names,
-                        tool_bindings=tool_bindings,
-                        guards_pipeline=self.guards_pipeline,
+                if _llm_span is not None:
+                    _llm_span.end()
+                if isinstance(directive, ToolDirective):
+                    self._ensure_tool_allowed(directive.tool_name, auto_tool_names)
+                    started_tool_event = self._tool_exec.build_tool_started_event(
+                        directive.tool_name, directive.arguments,
                     )
-                    stream_usage = self._merge_usage(stream_usage, usage)
-                    stream_usage = self._drain_delegation_usage(stream_usage, deps)
-
-                if _obs_bridge:
-                    await self._event_bus.emit(ToolExecutionEndEvent(
-                        tool_name=directive.tool_name,
-                        result=tool_output[:200] if tool_output else "",
-                        is_error=False,
-                    ))
-                if _tool_span is not None:
-                    _tool_span.end()
-
-                for tool_event in deps.tool_events[recorded_before:]:
                     yield AgentTurnStreamEvent(
-                        event_type="tool_result",
+                        event_type="tool_call",
                         session_id=resolved_request.session_id,
                         trace_id=resolved_request.trace_id,
-                        tool_name=tool_event.tool_name,
-                        tool_arguments=dict(tool_event.arguments),
-                        tool_event=tool_event.model_copy(deep=True),
+                        reply_text=directive.reply_text,
+                        tool_name=directive.tool_name,
+                        tool_arguments=dict(directive.arguments),
+                        tool_event=started_tool_event,
                     )
+                    if _obs_bridge:
+                        await self._event_bus.emit(ToolExecutionStartEvent(
+                            tool_name=directive.tool_name,
+                            args=dict(directive.arguments),
+                        ))
+                    _tool_span = _span_mgr.start_tool_span(directive.tool_name) if _span_mgr else None
+                    recorded_before = len(deps.tool_events)
 
-                stream_messages.append(
-                    AgentMessage(
-                        role=AgentRole.ASSISTANT,
-                        content=directive.reply_text or "",
-                        name=directive.tool_name,
+                    # Streaming delegation
+                    delegate_handler = self.tool_registry.dynamic_registry.get_handler(
+                        directive.tool_name
                     )
-                )
-                stream_messages.append(
-                    AgentMessage(
-                        role=AgentRole.TOOL,
-                        content=tool_output,
-                        name=directive.tool_name,
+                    if (
+                        directive.tool_name == "delegate_to_agent"
+                        and isinstance(delegate_handler, DelegateToAgentTool)
+                    ):
+                        tool_output = ""
+                        async for delegation_event in self._tool_exec.execute_streaming_delegate_tool_call(
+                            request=resolved_request,
+                            settings=effective_settings,
+                            deps=deps,
+                            delegate_handler=delegate_handler,
+                            arguments=dict(directive.arguments),
+                            allowed_tool_names=auto_tool_names,
+                            tool_bindings=tool_bindings,
+                        ):
+                            if delegation_event.event_type == "delegation_delta":
+                                yield delegation_event
+                            elif delegation_event.event_type == "reply_completed":
+                                tool_output = delegation_event.reply_text or ""
+                        stream_usage = self._merge_usage(stream_usage, usage)
+                        stream_usage = self._drain_delegation_usage(stream_usage, deps)
+                    else:
+                        tool_output = await self._tool_exec.execute_tool_call(
+                            request=resolved_request,
+                            settings=effective_settings,
+                            deps=deps,
+                            tool_name=directive.tool_name,
+                            arguments=dict(directive.arguments),
+                            allowed_tool_names=auto_tool_names,
+                            tool_bindings=tool_bindings,
+                            guards_pipeline=self.guards_pipeline,
+                        )
+                        stream_usage = self._merge_usage(stream_usage, usage)
+                        stream_usage = self._drain_delegation_usage(stream_usage, deps)
+
+                    if _obs_bridge:
+                        await self._event_bus.emit(ToolExecutionEndEvent(
+                            tool_name=directive.tool_name,
+                            result=tool_output[:200] if tool_output else "",
+                            is_error=False,
+                        ))
+                    if _tool_span is not None:
+                        _tool_span.end()
+
+                    for tool_event in deps.tool_events[recorded_before:]:
+                        yield AgentTurnStreamEvent(
+                            event_type="tool_result",
+                            session_id=resolved_request.session_id,
+                            trace_id=resolved_request.trace_id,
+                            tool_name=tool_event.tool_name,
+                            tool_arguments=dict(tool_event.arguments),
+                            tool_event=tool_event.model_copy(deep=True),
+                        )
+
+                    stream_messages.append(
+                        AgentMessage(
+                            role=AgentRole.ASSISTANT,
+                            content=directive.reply_text or "",
+                            name=directive.tool_name,
+                        )
                     )
-                )
-                continue
+                    stream_messages.append(
+                        AgentMessage(
+                            role=AgentRole.TOOL,
+                            content=tool_output,
+                            name=directive.tool_name,
+                        )
+                    )
+                    continue
 
-            total_usage = self._merge_usage(stream_usage, usage)
+                total_usage = self._merge_usage(stream_usage, usage)
 
-            # Voice guardrail handoff takes precedence
-            if voice_handler.should_handoff:
-                # Check if voice guardrail targets an agent (not just human)
+                # Voice guardrail handoff takes precedence
+                if voice_handler.should_handoff:
+                    # Check if voice guardrail targets an agent (not just human)
+                    if (
+                        voice_handler.handoff_outcome is not None
+                        and voice_handler.handoff_outcome.handoff_target_type == "agent"
+                        and self._handoff_manager is not None
+                    ):
+                        voice_handoff_target = HandoffTarget(
+                            target_type="agent",
+                            reason=voice_handler.handoff_reason,
+                        )
+                        definition_handoff_policy = (
+                            dict(definition.handoff_policy) if definition else None
+                        )
+                        resolution = await self._handoff_manager.resolve_handoff(
+                            voice_handoff_target,
+                            handoff_policy=definition_handoff_policy,
+                        )
+                        if resolution.action is AgentAction.HANDOFF_AGENT:
+                            # Stream agent handoff from voice trigger
+                            if self._handoff_manager.can_stream:
+                                handoff_stream_usage = None
+                                sub_reply_text = ""
+                                sub_raw_messages: list = []
+                                sub_handoff_target: HandoffTarget | None = None
+
+                                async for sub_event in self._handoff_manager.stream_execute_agent_handoff(
+                                    resolution,
+                                    request=resolved_request,
+                                    history=resolved_request.history,
+                                ):
+                                    if sub_event.event_type == "reply_delta" and sub_event.delta:
+                                        yield AgentTurnStreamEvent(
+                                            event_type="delegation_delta",
+                                            session_id=resolved_request.session_id,
+                                            trace_id=resolved_request.trace_id,
+                                            delta=sub_event.delta,
+                                            delegation_agent_key=resolution.target_agent_key,
+                                        )
+                                    elif sub_event.event_type == "reply_completed":
+                                        sub_reply_text = sub_event.reply_text or ""
+                                        handoff_stream_usage = self._merge_usage(
+                                            handoff_stream_usage, sub_event.usage,
+                                        )
+                                        sub_raw_messages = list(sub_event.raw_messages or [])
+                                        if sub_event.handoff_target:
+                                            sub_handoff_target = sub_event.handoff_target
+                                    elif sub_event.event_type == "handoff":
+                                        handoff_stream_usage = self._merge_usage(
+                                            handoff_stream_usage, sub_event.usage,
+                                        )
+                                        if sub_event.reply_text:
+                                            sub_reply_text = sub_event.reply_text
+                                        if sub_event.handoff_target:
+                                            sub_handoff_target = sub_event.handoff_target
+
+                                total_usage = self._merge_usage(total_usage, handoff_stream_usage)
+                                handoff_event = AgentTurnStreamEvent(
+                                    event_type="handoff",
+                                    session_id=resolved_request.session_id,
+                                    trace_id=resolved_request.trace_id,
+                                    reply_text=sub_reply_text,
+                                    handoff_reason=voice_handler.handoff_reason,
+                                    usage=total_usage,
+                                    raw_messages=sub_raw_messages,
+                                    handoff_target=sub_handoff_target or HandoffTarget(
+                                        target_type="agent",
+                                        target_agent_key=resolution.target_agent_key,
+                                        reason=voice_handler.handoff_reason,
+                                    ),
+                                    applied_skills=applied_skills,
+                                    agent_key=resolved_request.agent_key,
+                                    agent_version=definition.version_number if definition else None,
+                                )
+                                await self._session_mgr.save_session_snapshot(
+                                    request=resolved_request,
+                                    result=self._stream_event_to_result(
+                                        request=resolved_request, definition=definition,
+                                        event=handoff_event, action=AgentAction.HANDOFF_AGENT,
+                                        handoff_target=handoff_event.handoff_target,
+                                        responding_agent_key=resolution.target_agent_key,
+                                    ),
+                                    snapshot=restored_snapshot, settings=effective_settings,
+                                )
+                                await _finalize_obs(terminal_status="completed")
+                                yield handoff_event
+                                return
+
+                            # Blocking agent handoff from voice
+                            handoff_result = await self._handoff_manager.execute_agent_handoff(
+                                resolution,
+                                request=resolved_request,
+                                history=resolved_request.history,
+                            )
+                            total_usage = self._merge_usage(total_usage, handoff_result.usage)
+                            handoff_event = AgentTurnStreamEvent(
+                                event_type="handoff",
+                                session_id=resolved_request.session_id,
+                                trace_id=resolved_request.trace_id,
+                                reply_text=handoff_result.reply_text,
+                                handoff_reason=voice_handler.handoff_reason,
+                                usage=total_usage,
+                                raw_messages=list(handoff_result.raw_messages),
+                                handoff_target=handoff_result.handoff_target,
+                                applied_skills=applied_skills,
+                                agent_key=resolved_request.agent_key,
+                                agent_version=definition.version_number if definition else None,
+                            )
+                            await self._session_mgr.save_session_snapshot(
+                                request=resolved_request,
+                                result=self._stream_event_to_result(
+                                    request=resolved_request, definition=definition,
+                                    event=handoff_event, action=AgentAction.HANDOFF_AGENT,
+                                    handoff_target=handoff_result.handoff_target,
+                                    responding_agent_key=handoff_result.responding_agent_key,
+                                    orchestration_chain=handoff_result.orchestration_chain,
+                                ),
+                                snapshot=restored_snapshot, settings=effective_settings,
+                            )
+                            await _finalize_obs(terminal_status="completed")
+                            yield handoff_event
+                            return
+
+                    # Default: human handoff from voice guardrail
+                    handoff_event = AgentTurnStreamEvent(
+                        event_type="handoff",
+                        session_id=resolved_request.session_id,
+                        trace_id=resolved_request.trace_id,
+                        reply_text=effective_settings.default_handoff_message,
+                        handoff_reason=voice_handler.handoff_reason,
+                        usage=total_usage,
+                        raw_messages=[
+                            AgentMessage(
+                                role=AgentRole.ASSISTANT,
+                                content=effective_settings.default_handoff_message,
+                            )
+                        ],
+                        applied_skills=applied_skills,
+                        agent_key=resolved_request.agent_key,
+                        agent_version=definition.version_number if definition else None,
+                        handoff_target=HandoffTarget(
+                            target_type="human",
+                            reason=voice_handler.handoff_reason,
+                        ),
+                    )
+                    await self._session_mgr.save_session_snapshot(
+                        request=resolved_request,
+                        result=self._stream_event_to_result(
+                            request=resolved_request, definition=definition,
+                            event=handoff_event, action=AgentAction.HANDOFF_HUMAN,
+                            handoff_target=handoff_event.handoff_target,
+                        ),
+                        snapshot=restored_snapshot, settings=effective_settings,
+                    )
+                    await _finalize_obs(terminal_status="completed")
+                    yield handoff_event
+                    return
+
+                # Model-driven agent handoff
                 if (
-                    voice_handler.handoff_outcome is not None
-                    and voice_handler.handoff_outcome.handoff_target_type == "agent"
+                    directive.should_handoff
+                    and directive.handoff_target_type == "agent"
+                    and directive.handoff_target_agent
                     and self._handoff_manager is not None
                 ):
-                    voice_handoff_target = HandoffTarget(
+                    handoff_target = HandoffTarget(
                         target_type="agent",
-                        reason=voice_handler.handoff_reason,
+                        target_agent_key=directive.handoff_target_agent,
+                        reason=directive.handoff_reason,
                     )
                     definition_handoff_policy = (
                         dict(definition.handoff_policy) if definition else None
                     )
                     resolution = await self._handoff_manager.resolve_handoff(
-                        voice_handoff_target,
+                        handoff_target,
                         handoff_policy=definition_handoff_policy,
                     )
                     if resolution.action is AgentAction.HANDOFF_AGENT:
-                        # Stream agent handoff from voice trigger
+                        # Emit any pending reply deltas from the parent agent
+                        for delta in pending_reply_deltas:
+                            yield AgentTurnStreamEvent(
+                                event_type="reply_delta",
+                                session_id=resolved_request.session_id,
+                                trace_id=resolved_request.trace_id,
+                                delta=delta,
+                            )
+
+                        # Prefer streaming handoff when available
                         if self._handoff_manager.can_stream:
                             handoff_stream_usage = None
                             sub_reply_text = ""
                             sub_raw_messages: list = []
+                            sub_chain: list[str] = []
+                            sub_agent_key: str | None = resolution.target_agent_key
                             sub_handoff_target: HandoffTarget | None = None
 
                             async for sub_event in self._handoff_manager.stream_execute_agent_handoff(
@@ -1063,6 +1234,7 @@ class AgentRuntime:
                                     if sub_event.handoff_target:
                                         sub_handoff_target = sub_event.handoff_target
                                 elif sub_event.event_type == "handoff":
+                                    # Nested handoff from sub-agent
                                     handoff_stream_usage = self._merge_usage(
                                         handoff_stream_usage, sub_event.usage,
                                     )
@@ -1071,19 +1243,22 @@ class AgentRuntime:
                                     if sub_event.handoff_target:
                                         sub_handoff_target = sub_event.handoff_target
 
-                            total_usage = self._merge_usage(total_usage, handoff_stream_usage)
+                            total_usage = self._merge_usage(
+                                self._merge_usage(stream_usage, usage),
+                                handoff_stream_usage,
+                            )
                             handoff_event = AgentTurnStreamEvent(
                                 event_type="handoff",
                                 session_id=resolved_request.session_id,
                                 trace_id=resolved_request.trace_id,
                                 reply_text=sub_reply_text,
-                                handoff_reason=voice_handler.handoff_reason,
+                                handoff_reason=resolution.reason or directive.handoff_reason,
                                 usage=total_usage,
                                 raw_messages=sub_raw_messages,
                                 handoff_target=sub_handoff_target or HandoffTarget(
                                     target_type="agent",
                                     target_agent_key=resolution.target_agent_key,
-                                    reason=voice_handler.handoff_reason,
+                                    reason=resolution.reason,
                                 ),
                                 applied_skills=applied_skills,
                                 agent_key=resolved_request.agent_key,
@@ -1095,7 +1270,8 @@ class AgentRuntime:
                                     request=resolved_request, definition=definition,
                                     event=handoff_event, action=AgentAction.HANDOFF_AGENT,
                                     handoff_target=handoff_event.handoff_target,
-                                    responding_agent_key=resolution.target_agent_key,
+                                    responding_agent_key=sub_agent_key,
+                                    orchestration_chain=sub_chain,
                                 ),
                                 snapshot=restored_snapshot, settings=effective_settings,
                             )
@@ -1103,19 +1279,22 @@ class AgentRuntime:
                             yield handoff_event
                             return
 
-                        # Blocking agent handoff from voice
+                        # Blocking fallback (no stream_runner available)
                         handoff_result = await self._handoff_manager.execute_agent_handoff(
                             resolution,
                             request=resolved_request,
                             history=resolved_request.history,
                         )
-                        total_usage = self._merge_usage(total_usage, handoff_result.usage)
+                        total_usage = self._merge_usage(
+                            self._merge_usage(stream_usage, usage),
+                            handoff_result.usage,
+                        )
                         handoff_event = AgentTurnStreamEvent(
                             event_type="handoff",
                             session_id=resolved_request.session_id,
                             trace_id=resolved_request.trace_id,
                             reply_text=handoff_result.reply_text,
-                            handoff_reason=voice_handler.handoff_reason,
+                            handoff_reason=resolution.reason or directive.handoff_reason,
                             usage=total_usage,
                             raw_messages=list(handoff_result.raw_messages),
                             handoff_target=handoff_result.handoff_target,
@@ -1138,390 +1317,221 @@ class AgentRuntime:
                         yield handoff_event
                         return
 
-                # Default: human handoff from voice guardrail
-                handoff_event = AgentTurnStreamEvent(
-                    event_type="handoff",
-                    session_id=resolved_request.session_id,
-                    trace_id=resolved_request.trace_id,
-                    reply_text=effective_settings.default_handoff_message,
-                    handoff_reason=voice_handler.handoff_reason,
-                    usage=total_usage,
-                    raw_messages=[
-                        AgentMessage(
-                            role=AgentRole.ASSISTANT,
-                            content=effective_settings.default_handoff_message,
-                        )
-                    ],
-                    applied_skills=applied_skills,
-                    agent_key=resolved_request.agent_key,
-                    agent_version=definition.version_number if definition else None,
-                    handoff_target=HandoffTarget(
-                        target_type="human",
-                        reason=voice_handler.handoff_reason,
-                    ),
+                handoff = await self.tool_registry.apply_handoff_policy(
+                    directive.handoff_reason if directive.should_handoff else None,
+                    session_state=deps.session_state,
+                    enabled=effective_settings.enable_handoff_policy,
                 )
-                await self._session_mgr.save_session_snapshot(
-                    request=resolved_request,
-                    result=self._stream_event_to_result(
-                        request=resolved_request, definition=definition,
-                        event=handoff_event, action=AgentAction.HANDOFF_HUMAN,
-                        handoff_target=handoff_event.handoff_target,
-                    ),
-                    snapshot=restored_snapshot, settings=effective_settings,
+                stream_messages.append(AgentMessage(role=AgentRole.ASSISTANT, content=directive.reply_text))
+                raw_messages = MessageBuilder.normalize_raw_messages(stream_messages[turn_start_index:])
+
+                final_reply_text = (
+                    effective_settings.default_handoff_message
+                    if handoff.should_handoff
+                    else directive.reply_text
                 )
-                await _finalize_obs(terminal_status="completed")
-                yield handoff_event
-                return
-
-            # Model-driven agent handoff
-            if (
-                directive.should_handoff
-                and directive.handoff_target_type == "agent"
-                and directive.handoff_target_agent
-                and self._handoff_manager is not None
-            ):
-                handoff_target = HandoffTarget(
-                    target_type="agent",
-                    target_agent_key=directive.handoff_target_agent,
-                    reason=directive.handoff_reason,
-                )
-                definition_handoff_policy = (
-                    dict(definition.handoff_policy) if definition else None
-                )
-                resolution = await self._handoff_manager.resolve_handoff(
-                    handoff_target,
-                    handoff_policy=definition_handoff_policy,
-                )
-                if resolution.action is AgentAction.HANDOFF_AGENT:
-                    # Emit any pending reply deltas from the parent agent
-                    for delta in pending_reply_deltas:
-                        yield AgentTurnStreamEvent(
-                            event_type="reply_delta",
-                            session_id=resolved_request.session_id,
-                            trace_id=resolved_request.trace_id,
-                            delta=delta,
+                suppress_reply_deltas = False
+                if voice_handler.is_active and not handoff.should_handoff:
+                    if voice_handler.was_modified:
+                        final_reply_text = voice_handler.visible_reply
+                        raw_messages = MessageBuilder.replace_terminal_assistant_message(
+                            raw_messages, final_reply_text,
                         )
-
-                    # Prefer streaming handoff when available
-                    if self._handoff_manager.can_stream:
-                        handoff_stream_usage = None
-                        sub_reply_text = ""
-                        sub_raw_messages: list = []
-                        sub_chain: list[str] = []
-                        sub_agent_key: str | None = resolution.target_agent_key
-                        sub_handoff_target: HandoffTarget | None = None
-
-                        async for sub_event in self._handoff_manager.stream_execute_agent_handoff(
-                            resolution,
-                            request=resolved_request,
-                            history=resolved_request.history,
-                        ):
-                            if sub_event.event_type == "reply_delta" and sub_event.delta:
-                                yield AgentTurnStreamEvent(
-                                    event_type="delegation_delta",
-                                    session_id=resolved_request.session_id,
-                                    trace_id=resolved_request.trace_id,
-                                    delta=sub_event.delta,
-                                    delegation_agent_key=resolution.target_agent_key,
-                                )
-                            elif sub_event.event_type == "reply_completed":
-                                sub_reply_text = sub_event.reply_text or ""
-                                handoff_stream_usage = self._merge_usage(
-                                    handoff_stream_usage, sub_event.usage,
-                                )
-                                sub_raw_messages = list(sub_event.raw_messages or [])
-                                if sub_event.handoff_target:
-                                    sub_handoff_target = sub_event.handoff_target
-                            elif sub_event.event_type == "handoff":
-                                # Nested handoff from sub-agent
-                                handoff_stream_usage = self._merge_usage(
-                                    handoff_stream_usage, sub_event.usage,
-                                )
-                                if sub_event.reply_text:
-                                    sub_reply_text = sub_event.reply_text
-                                if sub_event.handoff_target:
-                                    sub_handoff_target = sub_event.handoff_target
-
-                        total_usage = self._merge_usage(
-                            self._merge_usage(stream_usage, usage),
-                            handoff_stream_usage,
-                        )
-                        handoff_event = AgentTurnStreamEvent(
-                            event_type="handoff",
-                            session_id=resolved_request.session_id,
-                            trace_id=resolved_request.trace_id,
-                            reply_text=sub_reply_text,
-                            handoff_reason=resolution.reason or directive.handoff_reason,
-                            usage=total_usage,
-                            raw_messages=sub_raw_messages,
-                            handoff_target=sub_handoff_target or HandoffTarget(
-                                target_type="agent",
-                                target_agent_key=resolution.target_agent_key,
-                                reason=resolution.reason,
-                            ),
-                            applied_skills=applied_skills,
-                            agent_key=resolved_request.agent_key,
-                            agent_version=definition.version_number if definition else None,
-                        )
-                        await self._session_mgr.save_session_snapshot(
-                            request=resolved_request,
-                            result=self._stream_event_to_result(
-                                request=resolved_request, definition=definition,
-                                event=handoff_event, action=AgentAction.HANDOFF_AGENT,
-                                handoff_target=handoff_event.handoff_target,
-                                responding_agent_key=sub_agent_key,
-                                orchestration_chain=sub_chain,
-                            ),
-                            snapshot=restored_snapshot, settings=effective_settings,
-                        )
-                        await _finalize_obs(terminal_status="completed")
-                        yield handoff_event
-                        return
-
-                    # Blocking fallback (no stream_runner available)
-                    handoff_result = await self._handoff_manager.execute_agent_handoff(
-                        resolution,
-                        request=resolved_request,
-                        history=resolved_request.history,
+                elif self.guards_pipeline is not None:
+                    output_result = await self.guards_pipeline.run_output_guards(
+                        message=final_reply_text,
+                        session_id=resolved_request.session_id,
+                        trace_id=resolved_request.trace_id or "",
+                        metadata=self._build_output_guard_metadata(
+                            request=resolved_request, segment=final_reply_text,
+                        ),
                     )
-                    total_usage = self._merge_usage(
-                        self._merge_usage(stream_usage, usage),
-                        handoff_result.usage,
+                    if output_result.final_verdict is GuardVerdict.BLOCK:
+                        final_reply_text = self.guards_pipeline.block_response
+                    elif output_result.modified_text is not None:
+                        final_reply_text = output_result.modified_text
+
+                output_global_match = None
+                if not handoff.should_handoff:
+                    output_global_match = await self._turn_guards.evaluate_global_guardrails(
+                        request=resolved_request, stage="output", content=final_reply_text,
+                    )
+                    if output_global_match is not None:
+                        self._global_guardrail_service.record_match(
+                            request=resolved_request, match=output_global_match,
+                        )
+                        if output_global_match.rule.action == "block":
+                            final_reply_text = self._global_block_text()
+                            suppress_reply_deltas = True
+                            raw_messages = [
+                                AgentMessage(
+                                    role=AgentRole.ASSISTANT,
+                                    content=final_reply_text,
+                                    metadata=self._build_global_guardrail_metadata(output_global_match),
+                                )
+                            ]
+                        elif output_global_match.rule.action == "handoff":
+                            handoff_event = self._global_guardrail_handoff_stream_event(
+                                request=resolved_request, definition=definition,
+                                match=output_global_match,
+                                handoff_text=effective_settings.default_handoff_message,
+                                usage=total_usage, applied_skills=applied_skills,
+                            )
+                            await self._session_mgr.save_session_snapshot(
+                                request=resolved_request,
+                                result=self._stream_event_to_result(
+                                    request=resolved_request, definition=definition,
+                                    event=handoff_event, action=AgentAction.HANDOFF_HUMAN,
+                                    handoff_target=handoff_event.handoff_target,
+                                ),
+                                snapshot=restored_snapshot, settings=effective_settings,
+                            )
+                            await _finalize_obs(terminal_status="completed")
+                            yield handoff_event
+                            return
+                        else:
+                            raw_messages = MessageBuilder.annotate_terminal_assistant_message(
+                                raw_messages, reply_text=final_reply_text,
+                                metadata=self._build_global_guardrail_metadata(output_global_match),
+                            )
+
+                if input_global_alert_match is not None and output_global_match is None:
+                    raw_messages = MessageBuilder.annotate_terminal_assistant_message(
+                        raw_messages, reply_text=final_reply_text,
+                        metadata=self._build_global_guardrail_metadata(input_global_alert_match),
+                    )
+
+                deltas_to_emit = [] if suppress_reply_deltas else list(pending_reply_deltas)
+                if (
+                    not handoff.should_handoff
+                    and not suppress_reply_deltas
+                    and final_reply_text
+                    and not voice_handler.is_active
+                    and "".join(deltas_to_emit) != final_reply_text
+                ):
+                    deltas_to_emit = [final_reply_text]
+                elif (
+                    not handoff.should_handoff
+                    and not suppress_reply_deltas
+                    and not deltas_to_emit
+                    and final_reply_text
+                ):
+                    deltas_to_emit = [final_reply_text]
+
+                if handoff.should_handoff:
+                    if not suppress_reply_deltas:
+                        for delta in pending_reply_deltas:
+                            yield AgentTurnStreamEvent(
+                                event_type="reply_delta",
+                                session_id=resolved_request.session_id,
+                                trace_id=resolved_request.trace_id,
+                                delta=delta,
+                            )
+                    handoff_reply_text = (
+                        effective_settings.default_handoff_message
+                        if voice_handler.is_active else final_reply_text
+                    )
+                    handoff_raw_messages = (
+                        [AgentMessage(role=AgentRole.ASSISTANT, content=effective_settings.default_handoff_message)]
+                        if voice_handler.is_active else raw_messages
                     )
                     handoff_event = AgentTurnStreamEvent(
                         event_type="handoff",
                         session_id=resolved_request.session_id,
                         trace_id=resolved_request.trace_id,
-                        reply_text=handoff_result.reply_text,
-                        handoff_reason=resolution.reason or directive.handoff_reason,
+                        reply_text=handoff_reply_text,
+                        handoff_reason=handoff.reason,
                         usage=total_usage,
-                        raw_messages=list(handoff_result.raw_messages),
-                        handoff_target=handoff_result.handoff_target,
+                        raw_messages=handoff_raw_messages,
                         applied_skills=applied_skills,
                         agent_key=resolved_request.agent_key,
                         agent_version=definition.version_number if definition else None,
+                        handoff_target=HandoffTarget(
+                            target_type="human",
+                            reason=handoff.reason,
+                        ),
                     )
                     await self._session_mgr.save_session_snapshot(
                         request=resolved_request,
                         result=self._stream_event_to_result(
                             request=resolved_request, definition=definition,
-                            event=handoff_event, action=AgentAction.HANDOFF_AGENT,
-                            handoff_target=handoff_result.handoff_target,
-                            responding_agent_key=handoff_result.responding_agent_key,
-                            orchestration_chain=handoff_result.orchestration_chain,
+                            event=handoff_event, action=AgentAction.HANDOFF,
+                            handoff_target=handoff_event.handoff_target,
                         ),
                         snapshot=restored_snapshot, settings=effective_settings,
                     )
                     await _finalize_obs(terminal_status="completed")
                     yield handoff_event
                     return
-
-            handoff = await self.tool_registry.apply_handoff_policy(
-                directive.handoff_reason if directive.should_handoff else None,
-                session_state=deps.session_state,
-                enabled=effective_settings.enable_handoff_policy,
-            )
-            stream_messages.append(AgentMessage(role=AgentRole.ASSISTANT, content=directive.reply_text))
-            raw_messages = MessageBuilder.normalize_raw_messages(stream_messages[turn_start_index:])
-
-            final_reply_text = (
-                effective_settings.default_handoff_message
-                if handoff.should_handoff
-                else directive.reply_text
-            )
-            suppress_reply_deltas = False
-            if voice_handler.is_active and not handoff.should_handoff:
-                if voice_handler.was_modified:
-                    final_reply_text = voice_handler.visible_reply
-                    raw_messages = MessageBuilder.replace_terminal_assistant_message(
-                        raw_messages, final_reply_text,
+                for delta in deltas_to_emit:
+                    yield AgentTurnStreamEvent(
+                        event_type="reply_delta",
+                        session_id=resolved_request.session_id,
+                        trace_id=resolved_request.trace_id,
+                        delta=delta,
                     )
-            elif self.guards_pipeline is not None:
-                output_result = await self.guards_pipeline.run_output_guards(
-                    message=final_reply_text,
-                    session_id=resolved_request.session_id,
-                    trace_id=resolved_request.trace_id or "",
-                    metadata=self._build_output_guard_metadata(
-                        request=resolved_request, segment=final_reply_text,
-                    ),
-                )
-                if output_result.final_verdict is GuardVerdict.BLOCK:
-                    final_reply_text = self.guards_pipeline.block_response
-                elif output_result.modified_text is not None:
-                    final_reply_text = output_result.modified_text
-
-            output_global_match = None
-            if not handoff.should_handoff:
-                output_global_match = await self._turn_guards.evaluate_global_guardrails(
-                    request=resolved_request, stage="output", content=final_reply_text,
-                )
-                if output_global_match is not None:
-                    self._global_guardrail_service.record_match(
-                        request=resolved_request, match=output_global_match,
-                    )
-                    if output_global_match.rule.action == "block":
-                        final_reply_text = self._global_block_text()
-                        suppress_reply_deltas = True
-                        raw_messages = [
-                            AgentMessage(
-                                role=AgentRole.ASSISTANT,
-                                content=final_reply_text,
-                                metadata=self._build_global_guardrail_metadata(output_global_match),
-                            )
-                        ]
-                    elif output_global_match.rule.action == "handoff":
-                        handoff_event = self._global_guardrail_handoff_stream_event(
-                            request=resolved_request, definition=definition,
-                            match=output_global_match,
-                            handoff_text=effective_settings.default_handoff_message,
-                            usage=total_usage, applied_skills=applied_skills,
-                        )
-                        await self._session_mgr.save_session_snapshot(
-                            request=resolved_request,
-                            result=self._stream_event_to_result(
-                                request=resolved_request, definition=definition,
-                                event=handoff_event, action=AgentAction.HANDOFF_HUMAN,
-                                handoff_target=handoff_event.handoff_target,
-                            ),
-                            snapshot=restored_snapshot, settings=effective_settings,
-                        )
-                        await _finalize_obs(terminal_status="completed")
-                        yield handoff_event
-                        return
-                    else:
-                        raw_messages = MessageBuilder.annotate_terminal_assistant_message(
-                            raw_messages, reply_text=final_reply_text,
-                            metadata=self._build_global_guardrail_metadata(output_global_match),
-                        )
-
-            if input_global_alert_match is not None and output_global_match is None:
-                raw_messages = MessageBuilder.annotate_terminal_assistant_message(
-                    raw_messages, reply_text=final_reply_text,
-                    metadata=self._build_global_guardrail_metadata(input_global_alert_match),
-                )
-
-            deltas_to_emit = [] if suppress_reply_deltas else list(pending_reply_deltas)
-            if (
-                not handoff.should_handoff
-                and not suppress_reply_deltas
-                and final_reply_text
-                and not voice_handler.is_active
-                and "".join(deltas_to_emit) != final_reply_text
-            ):
-                deltas_to_emit = [final_reply_text]
-            elif (
-                not handoff.should_handoff
-                and not suppress_reply_deltas
-                and not deltas_to_emit
-                and final_reply_text
-            ):
-                deltas_to_emit = [final_reply_text]
-
-            if handoff.should_handoff:
-                if not suppress_reply_deltas:
-                    for delta in pending_reply_deltas:
-                        yield AgentTurnStreamEvent(
-                            event_type="reply_delta",
-                            session_id=resolved_request.session_id,
-                            trace_id=resolved_request.trace_id,
-                            delta=delta,
-                        )
-                handoff_reply_text = (
-                    effective_settings.default_handoff_message
-                    if voice_handler.is_active else final_reply_text
-                )
-                handoff_raw_messages = (
-                    [AgentMessage(role=AgentRole.ASSISTANT, content=effective_settings.default_handoff_message)]
-                    if voice_handler.is_active else raw_messages
-                )
-                handoff_event = AgentTurnStreamEvent(
-                    event_type="handoff",
+                reply_event = AgentTurnStreamEvent(
+                    event_type="reply_completed",
                     session_id=resolved_request.session_id,
                     trace_id=resolved_request.trace_id,
-                    reply_text=handoff_reply_text,
-                    handoff_reason=handoff.reason,
+                    reply_text=final_reply_text,
                     usage=total_usage,
-                    raw_messages=handoff_raw_messages,
+                    raw_messages=raw_messages,
                     applied_skills=applied_skills,
                     agent_key=resolved_request.agent_key,
                     agent_version=definition.version_number if definition else None,
-                    handoff_target=HandoffTarget(
-                        target_type="human",
-                        reason=handoff.reason,
-                    ),
                 )
                 await self._session_mgr.save_session_snapshot(
                     request=resolved_request,
                     result=self._stream_event_to_result(
                         request=resolved_request, definition=definition,
-                        event=handoff_event, action=AgentAction.HANDOFF,
-                        handoff_target=handoff_event.handoff_target,
+                        event=reply_event, action=AgentAction.REPLY,
+                        handoff_target=reply_event.handoff_target,
                     ),
                     snapshot=restored_snapshot, settings=effective_settings,
                 )
-                await _finalize_obs(terminal_status="completed")
-                yield handoff_event
+
+                # ── Long-term memory extraction (fire-and-forget) ──────────
+                if self._memory_module is not None:
+                    user_id = resolved_request.user_id or ""
+                    if user_id and raw_messages:
+                        print(f"[MEMORY] Scheduling extraction for user={user_id} msgs={len(raw_messages)}", flush=True)
+                        asyncio.create_task(self._extract_memories(
+                            user_id=user_id,
+                            session_id=resolved_request.session_id,
+                            messages=raw_messages,
+                        ))
+
+                await _finalize_obs()
+                yield reply_event
+                await _emit_run_terminal(status="completed", output_text=final_reply_text)
                 return
-            for delta in deltas_to_emit:
-                yield AgentTurnStreamEvent(
-                    event_type="reply_delta",
-                    session_id=resolved_request.session_id,
-                    trace_id=resolved_request.trace_id,
-                    delta=delta,
-                )
-            reply_event = AgentTurnStreamEvent(
-                event_type="reply_completed",
-                session_id=resolved_request.session_id,
-                trace_id=resolved_request.trace_id,
-                reply_text=final_reply_text,
-                usage=total_usage,
-                raw_messages=raw_messages,
-                applied_skills=applied_skills,
-                agent_key=resolved_request.agent_key,
-                agent_version=definition.version_number if definition else None,
-            )
-            await self._session_mgr.save_session_snapshot(
-                request=resolved_request,
-                result=self._stream_event_to_result(
-                    request=resolved_request, definition=definition,
-                    event=reply_event, action=AgentAction.REPLY,
-                    handoff_target=reply_event.handoff_target,
-                ),
-                snapshot=restored_snapshot, settings=effective_settings,
-            )
 
-            # ── Long-term memory extraction (fire-and-forget) ──────────
-            if self._memory_module is not None:
-                user_id = resolved_request.user_id or ""
-                if user_id and raw_messages:
-                    print(f"[MEMORY] Scheduling extraction for user={user_id} msgs={len(raw_messages)}", flush=True)
-                    asyncio.create_task(self._extract_memories(
-                        user_id=user_id,
-                        session_id=resolved_request.session_id,
-                        messages=raw_messages,
-                    ))
-
+        except asyncio.CancelledError:
+            await _finalize_obs(terminal_status="cancelled")
+            await _emit_run_terminal(status="cancelled", reason="stream_cancelled")
+            raise
+        except Exception as _stream_exc:
+            await _finalize_obs(terminal_status="failed", error_code="RUNTIME_ERROR", error_message=str(_stream_exc))
+            await _emit_run_terminal(status="failed", error_code="RUNTIME_ERROR", error_message=str(_stream_exc))
+            raise
+        else:
+            if _span_mgr:
+                _span_mgr.set_error("Streaming agent exceeded the maximum tool-call rounds.")
+            elif _obs_bridge:
+                _obs_bridge.set_error("Streaming agent exceeded the maximum tool-call rounds.")
             await _finalize_obs()
-            yield reply_event
-            await _emit_run_terminal(status="completed", output_text=final_reply_text)
-            return
-
-        if _span_mgr:
-            _span_mgr.set_error("Streaming agent exceeded the maximum tool-call rounds.")
-        elif _obs_bridge:
-            _obs_bridge.set_error("Streaming agent exceeded the maximum tool-call rounds.")
-        await _finalize_obs()
-        await _emit_run_terminal(
-            status="failed",
-            error_code="RUNTIME_ERROR",
-            error_message="Streaming agent exceeded the maximum tool-call rounds.",
-        )
-        raise AgentError(
-            AgentErrorCode.RUNTIME_ERROR,
-            "Streaming agent exceeded the maximum tool-call rounds.",
-            model=resolved_request.model,
-            trace_id=resolved_request.trace_id,
-        )
+            await _emit_run_terminal(
+                status="failed",
+                error_code="RUNTIME_ERROR",
+                error_message="Streaming agent exceeded the maximum tool-call rounds.",
+            )
+            raise AgentError(
+                AgentErrorCode.RUNTIME_ERROR,
+                "Streaming agent exceeded the maximum tool-call rounds.",
+                model=resolved_request.model,
+                trace_id=resolved_request.trace_id,
+            )
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # Workflow execution (parallel entry point to run_turn/stream_turn)

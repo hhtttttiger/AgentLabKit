@@ -276,6 +276,111 @@ class TestAcceptanceStreaming:
         assert run_completed[0].run_id == ctx.run_id
 
 
+# ── Acceptance Test E2: Streaming Failure Terminal ───────────────────
+
+
+class TestAcceptanceStreamingFailureTerminal:
+    """Streaming LLM error → exactly one RunFailed, no RunCompleted/RunCancelled。"""
+
+    @pytest.mark.asyncio
+    async def test_stream_llm_error_emits_run_failed(self):
+        from llm_gateway.errors import GatewayError, GatewayErrorCode
+
+        gateway = MagicMock()
+
+        async def _failing_stream(*args, **kwargs):
+            yield MagicMock(
+                delta="partial",
+                full_text="partial",
+                is_done=False,
+                usage=None,
+            )
+            raise GatewayError(GatewayErrorCode.PROVIDER_TIMEOUT, "stream timeout")
+
+        gateway.generate_text_stream = _failing_stream
+        runtime = _make_runtime(gateway)
+
+        collected_events: list[RuntimeEvent] = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        ctx = ExecutionContext(session_id="s1")
+        with pytest.raises(Exception):
+            async for _ in runtime.stream_turn(
+                AgentTurnRequest(user_message="hi", session_id="s1"),
+                execution_context=ctx,
+            ):
+                pass
+
+        run_started = [e for e in collected_events if isinstance(e, RunStarted)]
+        run_failed = [e for e in collected_events if isinstance(e, RunFailed)]
+        run_completed = [e for e in collected_events if isinstance(e, RunCompleted)]
+        run_cancelled = [e for e in collected_events if isinstance(e, RunCancelled)]
+
+        assert len(run_started) == 1, f"Expected 1 RunStarted, got {len(run_started)}"
+        assert len(run_failed) == 1, f"Expected 1 RunFailed, got {len(run_failed)}"
+        assert len(run_completed) == 0, f"Expected 0 RunCompleted, got {len(run_completed)}"
+        assert len(run_cancelled) == 0, f"Expected 0 RunCancelled, got {len(run_cancelled)}"
+        assert run_failed[0].run_id == ctx.run_id
+
+
+# ── Acceptance Test E3: Streaming Cancellation Terminal ──────────────
+
+
+class TestAcceptanceStreamingCancellationTerminal:
+    """Streaming CancelledError → exactly one RunCancelled, no RunCompleted/RunFailed。"""
+
+    @pytest.mark.asyncio
+    async def test_stream_cancel_emits_run_cancelled(self):
+        gateway = MagicMock()
+
+        async def _slow_stream(*args, **kwargs):
+            yield MagicMock(
+                delta="slow",
+                full_text="slow",
+                is_done=False,
+                usage=None,
+            )
+            # Simulate cancellation by raising CancelledError
+            raise asyncio.CancelledError()
+
+        gateway.generate_text_stream = _slow_stream
+        runtime = _make_runtime(gateway)
+
+        collected_events: list[RuntimeEvent] = []
+        original_emit = runtime._event_bus.emit
+
+        async def capture_emit(event):
+            collected_events.append(event)
+            await original_emit(event)
+
+        runtime._event_bus.emit = capture_emit
+
+        ctx = ExecutionContext(session_id="s1")
+        with pytest.raises(asyncio.CancelledError):
+            async for _ in runtime.stream_turn(
+                AgentTurnRequest(user_message="hi", session_id="s1"),
+                execution_context=ctx,
+            ):
+                pass
+
+        run_started = [e for e in collected_events if isinstance(e, RunStarted)]
+        run_cancelled = [e for e in collected_events if isinstance(e, RunCancelled)]
+        run_completed = [e for e in collected_events if isinstance(e, RunCompleted)]
+        run_failed = [e for e in collected_events if isinstance(e, RunFailed)]
+
+        assert len(run_started) == 1, f"Expected 1 RunStarted, got {len(run_started)}"
+        assert len(run_cancelled) == 1, f"Expected 1 RunCancelled, got {len(run_cancelled)}"
+        assert len(run_completed) == 0, f"Expected 0 RunCompleted, got {len(run_completed)}"
+        assert len(run_failed) == 0, f"Expected 0 RunFailed, got {len(run_failed)}"
+        assert run_cancelled[0].run_id == ctx.run_id
+
+
 # ── Acceptance Test F: Dataset Evaluation ────────────────────────────
 
 
