@@ -235,6 +235,16 @@ class AgentRun:
             return 0.0
         return self.usage.estimated_cost
 
+    @property
+    def total_input_tokens(self) -> int:
+        """输入 token 数（RunView protocol）。"""
+        return self.usage.input_tokens if self.usage else 0
+
+    @property
+    def total_output_tokens(self) -> int:
+        """输出 token 数（RunView protocol）。"""
+        return self.usage.output_tokens if self.usage else 0
+
 
 __all__ = [
     "AgentRun",

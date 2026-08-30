@@ -84,6 +84,22 @@ class RunView(Protocol):
     @property
     def finished_at(self) -> datetime | None: ...
 
+    # Agent-native evaluators need these (tool/latency/cost evaluators)
+    @property
+    def tool_names(self) -> list[str]: ...
+
+    @property
+    def tool_call_count(self) -> int: ...
+
+    @property
+    def duration_ms(self) -> int | None: ...
+
+    @property
+    def total_input_tokens(self) -> int: ...
+
+    @property
+    def total_output_tokens(self) -> int: ...
+
 
 # ── AgentRunSummary (concrete RunView implementation) ───────────────
 
@@ -310,8 +326,8 @@ class ExampleEvaluation:
                 "avg_score": self.avg_score,
                 "all_passed": self.all_passed,
             },
-            started_at=datetime.now(),
-            finished_at=datetime.now(),
+            started_at=None,
+            finished_at=None,
             errors=[] if not self.any_failed else ["One or more evaluators failed"],
         )
         return result
@@ -327,6 +343,13 @@ class ExampleEvaluation:
             "avg_score": self.avg_score,
             "results": [asdict(r) for r in self.results],
         }
+
+
+@dataclass(frozen=True, slots=True)
+class EvaluatorSpec:
+    """描述一次评估运行使用的评估器。"""
+    name: str
+    version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,6 +371,8 @@ class EvaluationRun:
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None
+    dataset_version: str | None = None
+    evaluator_specs: list[EvaluatorSpec] = field(default_factory=list)
 
 
 # ── 评估器协议 ─────────────────────────────────────────────────────
@@ -464,6 +489,7 @@ __all__ = [
     "EvaluationContext",
     "EvaluationResult",
     "ExampleEvaluation",
+    "EvaluatorSpec",
     "EvaluationRun",
     # Protocol
     "RunView",

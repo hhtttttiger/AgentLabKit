@@ -149,6 +149,7 @@ class LLMCallStarted(RuntimeEvent):
     event_type: str = "llm.call_started"
     model: str = ""
     provider: str = ""
+    agent_key: str | None = None
 
 
 @dataclass

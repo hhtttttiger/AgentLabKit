@@ -498,6 +498,7 @@ class AgentRuntime:
                 cancel=cancel_token,
                 run_id=_run_id,
                 trace_id=_trace_id,
+                agent_key=resolved_request.agent_key or "",
             )
         except AgentError:
             if _span_mgr:
@@ -751,6 +752,7 @@ class AgentRuntime:
                 agent_version=definition.version_number if definition else "",
                 input_text=resolved_request.user_message,
                 session_id=resolved_request.session_id,
+                span_id=execution_context.root_span_id,
             ))
             _run_started = True
         _span_mgr: _TracerSpanManager | None = None

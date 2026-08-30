@@ -114,11 +114,15 @@ def _make_semantic_emit(
     run_id: str,
     trace_id: str,
     span_ctx: _SpanContext | None = None,
+    agent_key: str = "",
 ) -> SemanticEventSink:
     """Create a callback that emits v2 semantic events with run_id/trace_id/span_id filled in.
 
     If span_ctx is provided, events that have span_id set will use it,
     and parent_span_id will be derived from the span stack.
+
+    If agent_key is provided, LLMCallCompleted and LLMCallFailed events
+    will carry it so that CostProjector can attribute costs correctly.
     """
 
     async def _semantic_emit(event: RuntimeEvent) -> None:
@@ -127,6 +131,9 @@ def _make_semantic_emit(
         # If the event already has a span_id (set by caller), derive parent
         if event.span_id is not None and span_ctx is not None:
             event.parent_span_id = span_ctx.parent_span_id
+        # Propagate agent_key to LLM events for CostProjector
+        if agent_key and hasattr(event, "agent_key") and not event.agent_key:
+            event.agent_key = agent_key
         if event_bus is not None:
             await event_bus.emit(event)
 
@@ -251,6 +258,7 @@ async def run_agent_loop(
     *,
     run_id: str = "",
     trace_id: str = "",
+    agent_key: str = "",
 ) -> LoopResult:
     """Run the agent loop in **blocking** mode.
 
@@ -274,7 +282,7 @@ async def run_agent_loop(
             await event_bus.emit(event)
 
     span_ctx = _SpanContext()
-    _sem = _make_semantic_emit(event_bus, run_id, trace_id, span_ctx)
+    _sem = _make_semantic_emit(event_bus, run_id, trace_id, span_ctx, agent_key=agent_key)
 
     cancel = cancel or CancelToken()
     new_messages: list[AgentMessage] = list(prompts)
@@ -313,6 +321,7 @@ async def run_agent_loop(
             cancel=cancel,
             semantic_emit=_sem,
             span_ctx=span_ctx,
+            agent_key=agent_key,
         )
     except asyncio.CancelledError:
         # ── Cancellation as first-class status (2.5) ──────────────
@@ -355,6 +364,7 @@ async def stream_agent_loop(
     *,
     run_id: str = "",
     trace_id: str = "",
+    agent_key: str = "",
 ) -> AsyncIterator[AgentEvent]:
     """Run the agent loop in **streaming** mode.
 
@@ -364,18 +374,25 @@ async def stream_agent_loop(
     This is the Python equivalent of pi's ``agentLoop()`` which returns an
     ``EventStream``.
     """
-    _sem = _make_semantic_emit(event_bus, run_id, trace_id)
+    span_ctx = _SpanContext()
+    _sem = _make_semantic_emit(event_bus, run_id, trace_id, span_ctx, agent_key=agent_key)
 
     cancel = cancel or CancelToken()
     new_messages: list[AgentMessage] = list(prompts)
     current_messages = list(context.messages) + list(prompts)
 
     # ── Dual emit: old (yielded) + v2 (event_bus) ──────────────────
+    run_span_id = uuid4().hex[:16]
+    span_ctx.push(run_span_id)
     yield AgentStartEvent()
-    await _sem(RunStarted(input_text=prompts[0].content if prompts else ""))
-    await _sem(AgentStarted())
+    await _sem(RunStarted(input_text=prompts[0].content if prompts else "", span_id=run_span_id))
+    agent_span_id = uuid4().hex[:16]
+    span_ctx.push(agent_span_id)
+    await _sem(AgentStarted(span_id=agent_span_id))
+    turn_span_id = uuid4().hex[:16]
+    span_ctx.push(turn_span_id)
     yield TurnStartEvent()
-    await _sem(AgentTurnStarted(turn_index=0))
+    await _sem(AgentTurnStarted(turn_index=0, span_id=turn_span_id))
 
     for prompt in prompts:
         yield MessageStartEvent(message=prompt)
@@ -432,7 +449,9 @@ async def stream_agent_loop(
                 await task
             except (asyncio.CancelledError, Exception):
                 pass
-        await _sem(RunCancelled(reason="stream_cancelled"))
+        while span_ctx.current_span_id is not None:
+            span_ctx.pop()
+        await _sem(RunCancelled(reason="stream_cancelled", span_id=run_span_id))
         raise
     except Exception:
         if not task.done():
@@ -453,15 +472,22 @@ async def stream_agent_loop(
     if result_holder:
         result = result_holder[0]
         final_text = result.final_directive.reply_text if result.final_directive else ""
+        # Pop turn, agent, run spans
+        span_ctx.pop()  # turn
+        span_ctx.pop()  # agent
+        span_ctx.pop()  # run
         yield AgentEndEvent(messages=result.messages)
-        await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text))
-        await _sem(AgentCompleted())
-        await _sem(RunCompleted(output_text=final_text))
+        await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text, span_id=turn_span_id))
+        await _sem(AgentCompleted(span_id=agent_span_id))
+        await _sem(RunCompleted(output_text=final_text, span_id=run_span_id))
     else:
         # Task failed without producing results — emit RunFailed
+        while span_ctx.current_span_id is not None:
+            span_ctx.pop()
         await _sem(RunFailed(
             error_code="RUNTIME_ERROR",
             error_message="streaming loop exited without result",
+            span_id=run_span_id,
         ))
 
 
@@ -494,6 +520,7 @@ async def _run_loop_body(
     cancel: CancelToken,
     semantic_emit: SemanticEventSink | None = None,
     span_ctx: _SpanContext | None = None,
+    agent_key: str = "",
 ) -> LoopResult:
     """Core loop logic shared by blocking and streaming modes.
 
@@ -556,6 +583,7 @@ async def _run_loop_body(
                     model=_llm_model,
                     provider=_llm_provider,
                     span_id=_llm_span_id,
+                    agent_key=agent_key,
                 ))
             try:
                 directive, usage = await llm.generate(
@@ -573,6 +601,7 @@ async def _run_loop_body(
                         span_id=_llm_span_id,
                         started_at=_llm_started_at,
                         completed_at=datetime.now(timezone.utc),
+                        agent_key=agent_key,
                     ))
                 if span_ctx is not None:
                     span_ctx.pop()
@@ -591,6 +620,7 @@ async def _run_loop_body(
                     span_id=_llm_span_id,
                     started_at=_llm_started_at,
                     completed_at=_llm_completed_at,
+                    agent_key=agent_key,
                 ))
             if span_ctx is not None:
                 span_ctx.pop()

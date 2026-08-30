@@ -312,6 +312,26 @@ class TestRunViewProtocol:
             def finished_at(self) -> datetime | None:
                 return None
 
+            @property
+            def tool_names(self) -> list[str]:
+                return []
+
+            @property
+            def tool_call_count(self) -> int:
+                return 0
+
+            @property
+            def duration_ms(self) -> int | None:
+                return None
+
+            @property
+            def total_input_tokens(self) -> int:
+                return 0
+
+            @property
+            def total_output_tokens(self) -> int:
+                return 0
+
         assert isinstance(FakeRun(), RunView)
 
 
