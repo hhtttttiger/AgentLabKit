@@ -98,11 +98,14 @@ class ReplayConfig:
     target: 执行目标。None 表示使用 original_run 的 target。
     timeout_seconds: 超时时间（秒）。0 表示不超时。
     metadata: 附加 metadata，会与 original metadata 合并。
+    example_id: DatasetExample 的 stable identity。用于 replay compare 时
+        baseline/candidate 对齐同一个 example。None 时回退到 original.run_id。
     """
 
     target: RunTarget | None = None
     timeout_seconds: int = 0
     metadata: dict[str, Any] = field(default_factory=dict)
+    example_id: str | None = None
 
 
 # ── Result ───────────────────────────────────────────────────────────
@@ -118,6 +121,7 @@ class ReplayResult:
     comparison: ComparisonResult | None = None
     duration_ms: int = 0
     error_message: str | None = None
+    example_id: str | None = None
 
 
 # ── Runner ───────────────────────────────────────────────────────────
@@ -212,7 +216,10 @@ class ReplayRunner:
         # 5. 比较（如果配置了评估器）
         comparison = None
         if self._evaluator is not None:
-            comparison = await self._compare_runs(original_run, new_run)
+            comparison = await self._compare_runs(
+                original_run, new_run,
+                example_id=config.example_id,
+            )
 
         return ReplayResult(
             original_run_id=run_id,
@@ -221,6 +228,7 @@ class ReplayRunner:
             new_run=new_run,
             comparison=comparison,
             duration_ms=int((time.monotonic() - start) * 1000),
+            example_id=config.example_id,
         )
 
     async def replay_batch(
@@ -239,14 +247,21 @@ class ReplayRunner:
         self,
         original: RunView,
         new: RunView,
+        *,
+        example_id: str | None = None,
     ) -> ComparisonResult:
         """比较原始 Run 和新 Run。
 
-        baseline 和 candidate 使用同一个 example_id（original.run_id），
+        baseline 和 candidate 使用同一个 example_id，
         这样 compare_runs 可以正确对齐。
+
+        Args:
+            original: 原始 Run
+            new: 新 Run
+            example_id: DatasetExample 的 stable identity。
+                None 时回退到 original.run_id。
         """
-        # 使用 original.run_id 作为共享的 example_id
-        shared_example_id = original.run_id
+        shared_example_id = example_id or original.run_id
 
         original_context = EvaluationContext(
             example=DatasetExample(
