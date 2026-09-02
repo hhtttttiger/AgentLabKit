@@ -17,6 +17,7 @@ AI Agent 平台 — 企业级多智能体、安全护栏、知识库 RAG 全栈�
 ## 目录
 
 - [架构总览](#架构总览)
+- [Execution Model v2](#execution-model-v2)
 - [设计亮点](#设计亮点)
 - [核心能力](#核心能力)
 - [技术栈](#技术栈)
@@ -75,6 +76,31 @@ AgentLabKit 采用分层架构，严格遵循单向依赖：
 
 `backend/` 中的 FastAPI 应用仅是一层**薄壳**（`main.py` 约 150 行），核心逻辑全部位于 `packages/` 下的框架无关包中。
 
+### Execution Model v2
+
+一次 Agent execution 由 Runtime 产生事实，并由不同消费者投影：
+
+```text
+User / API
+    │
+    ▼
+Agent Runtime
+   ├──────────► Agent Run
+   └──────────► Runtime Events
+                  ├──────────► Observability / Trace
+                  └──────────► Cost Analysis
+
+Agent Run ────────► Dataset ───────► Evaluation ───────► Compare / Regression
+     └─────────────► Replay ───────► Agent Runtime
+```
+
+- `ExecutionContext` 持有一次 execution 的 identity；`AgentRuntime` 负责执行并创建 `run_id`、`trace_id` 和 span identity。
+- `RuntimeEvent` 描述 semantic execution facts（例如 `RunStarted`、`LLMCallCompleted`、`ToolCallCompleted`、`RetrievalCompleted`、`GuardrailBlocked`、`RunCompleted`），不只是日志。
+- `AgentRun` 是一次真实业务执行的边界；**Run != Trace**。Trace 是这次执行的 observability projection，Cost 是 usage facts 的 cost projection。
+- `DatasetExample` 保存稳定的 `example_id`（跨执行保持不变；`run_id` 不是 `example_id`）。Evaluation 使用 `DatasetExample + AgentRun + Trace` 评价行为；Replay 复用历史输入/上下文，请求 Runtime 产生新的 `AgentRun`，不会自行制造执行事实。
+
+Regression 的基础闭环是 `Run → Dataset → Evaluation → Replay → Compare`。更完整的 CLI/CI 回归策略不在此处承诺为现有能力。详见 [`docs/architecture/execution-model-v2.md`](docs/architecture/execution-model-v2.md)。
+
 ---
 
 ## 设计亮点
@@ -88,7 +114,7 @@ AgentLabKit 采用分层架构，严格遵循单向依赖：
 | `llm_gateway` | 切换到新的 LLM Provider，或接入内部模型平台 |
 | `retrieval` | 从 pgvector 迁移到 Milvus / Qdrant / Elasticsearch |
 | `agent_runtime` | 替换编排策略，或接入第三方 Agent 框架 |
-| `evaluation` | 切换评估 Provider（RAGAS → DeepEval 等），通过 ProviderRegistry 注册 |
+| `evaluation` | Agent-native testing/evaluation；RAGAS、LLM judge 等是可选 evaluator 适配器 |
 | `memory` | 切换到 Mem0 / Zep 等成熟记忆方案（已支持 Mem0 provider） |
 | `observability` | 从 EventBus 切换到 OpenTelemetry 采集器 |
 
@@ -442,13 +468,13 @@ async for event in engine.stream_workflow(workflow, user_input, context):
 跨会话 episodic/semantic 记忆提取、注入、合并（pgvector）。支持 Mem0/Native provider 切换。
 
 #### `observability` — 可观测性
-EventBus 驱动的分布式链路追踪（Span/Trace）。
+消费 RuntimeEvent，将执行事实投影为 Trace/Span；不创建或定义执行 identity。
 
-#### `evaluation` — 评估框架
-数据集管理、LLM-as-Judge 质量评估、可插拔指标。Provider 抽象层支持 RAGAS v0.4.3（30+ metric），后端启动时自动注册，gateway 不可用时降级到 legacy Judge 模式。
+#### `evaluation` — Agent-native Testing & Evaluation
+基于 DatasetExample、AgentRun 和可选 Trace 评价 Agent 行为。优先使用工具调用、轨迹、步数、延迟、成本和未处理错误等确定性 evaluator；RAGAS、LLM judge 和外部 provider 是可选适配器。
 
 #### `cost_analysis` — 成本分析
-按模型/Agent/时间段聚合 token 用量和成本。
+消费 RuntimeEvent（尤其是 `LLMCallCompleted`）投影 CostRecord，再按模型/Agent/时间段聚合 token 用量和成本。
 
 ---
 
@@ -458,7 +484,8 @@ EventBus 驱动的分布式链路追踪（Span/Trace）。
 
 | 文档 | 内容 |
 |------|------|
-| [`AGENTS.md`](AGENTS.md) | 架构总览、分层依赖、快速定位表 |
+| [`AGENTS.md`](AGENTS.md) | 架构总览、Execution Model v2 约束、快速定位表 |
+| [`docs/architecture/execution-model-v2.md`](docs/architecture/execution-model-v2.md) | Execution Model v2 ownership、生命周期与不变量 |
 | [`docs/operations/docker-debug.md`](docs/operations/docker-debug.md) | Docker 启动命令、访问地址、已修复 bug |
 | [`docs/operations/local-debug.md`](docs/operations/local-debug.md) | 本地开发完整指南（后端 + 前端 + Worker） |
 | [`docs/desktop-app-plan.md`](docs/desktop-app-plan.md) | 桌面客户端规划与进度 |

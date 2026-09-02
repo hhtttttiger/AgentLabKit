@@ -99,7 +99,7 @@ class ReplayConfig:
     target: 执行目标。None 表示使用 original_run 的 target。
     metadata: 附加 metadata，会与 original metadata 合并。
     example_id: DatasetExample 的 stable identity。用于 replay compare 时
-        baseline/candidate 对齐同一个 example。None 时回退到 original.run_id。
+        baseline/candidate 对齐同一个 example。仅在需要比较时必填。
     """
 
     target: RunTarget | None = None
@@ -169,6 +169,15 @@ class ReplayRunner:
         config = config or ReplayConfig()
         start = time.monotonic()
 
+        # Dataset-style comparison requires identity supplied by the caller or
+        # an existing DatasetExample; a Run ID is execution provenance, not an
+        # example identity.
+        if self._evaluator is not None and not config.example_id:
+            raise ValueError(
+                "Replay comparison requires a stable DatasetExample identity. "
+                "Provide example_id explicitly or compare through an existing DatasetExample."
+            )
+
         # 1. 获取历史 Run
         original_run = await self._run_store.get_run(run_id)
         if original_run is None:
@@ -181,18 +190,13 @@ class ReplayRunner:
                 duration_ms=int((time.monotonic() - start) * 1000),
             )
 
-        # 2. 确定 target：config.target or original_run 的 target
-        # When no config.target, preserve the original run's target
-        # (including agent_version for faithful replay)
+        # 2. 确定 target：显式 override 整体替换 historical target；否则
+        # 保留 historical value object 的全部字段（包括 workflow identity）。
         original_target = getattr(original_run, "target", None)
-        if config.target:
+        if config.target is not None:
             target = config.target
         elif original_target is not None:
-            target = RunTarget(
-                type=getattr(original_target, "type", "agent") or "agent",
-                agent_key=getattr(original_target, "agent_key", None) or "",
-                agent_version=getattr(original_target, "agent_version", None),
-            )
+            target = original_target
         else:
             target = RunTarget(
                 type="agent",
@@ -268,10 +272,15 @@ class ReplayRunner:
         Args:
             original: 原始 Run
             new: 新 Run
-            example_id: DatasetExample 的 stable identity。
-                None 时回退到 original.run_id。
+            example_id: DatasetExample 的 stable identity，必须由 caller
+                或真实 Dataset context 提供。
         """
-        shared_example_id = example_id or original.run_id
+        if not example_id:
+            raise ValueError(
+                "Replay comparison requires a stable DatasetExample identity. "
+                "Provide example_id explicitly or compare through an existing DatasetExample."
+            )
+        shared_example_id = example_id
 
         original_context = EvaluationContext(
             example=DatasetExample(
