@@ -36,6 +36,7 @@ dependencies = [
 
     # Evaluation
     "agentlabkit-evaluation>=0.1.0",
+    "agentlabkit-application>=0.1.0",
 
     # Auth
     "pyjwt[crypto]>=2.10.0",

@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir \
     /tmp/packages/observability/ \
     /tmp/packages/memory/ \
     /tmp/packages/evaluation/ \
+    /tmp/packages/application/ \
     && rm -rf /tmp/packages
 
 COPY backend/pyproject.toml ./
