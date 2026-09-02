@@ -361,7 +361,12 @@ class TestComparabilityValidation:
         这是验收测试 I 的核心：Example #42 baseline Run A 和 candidate Run B
         必须使用同一个 example_id，compare 不会把它们识别成 removed/new。
         """
-        from evaluation.replay import InMemoryRunStore, MockRunExecutor, ReplayRunner
+        from evaluation.replay import (
+            InMemoryRunStore,
+            MockRunExecutor,
+            ReplayConfig,
+            ReplayRunner,
+        )
         from evaluation.contracts_v2 import AgentRunSummary
 
         # 创建一个评估器，检查 example_id 一致性
@@ -379,7 +384,7 @@ class TestComparabilityValidation:
 
         store = InMemoryRunStore()
         original = AgentRunSummary(
-            run_id="example-42",
+            run_id="run-A",
             trace_id="trace-1",
             agent_key="refund-agent",
             input_text="refund order 123",
@@ -396,7 +401,10 @@ class TestComparabilityValidation:
         evaluator = ExampleIdCapturingEvaluator()
         runner = ReplayRunner(store, executor, evaluator)
 
-        result = await runner.replay("example-42")
+        result = await runner.replay(
+            "run-A",
+            ReplayConfig(example_id="refund-case-42"),
+        )
 
         # 比较成功（没有 removed/new）
         assert result.comparison is not None
@@ -405,4 +413,5 @@ class TestComparabilityValidation:
 
         # baseline 和 candidate 使用同一个 example_id
         assert len(captured_ids) == 2
-        assert captured_ids[0] == captured_ids[1]
+        assert captured_ids[0] == captured_ids[1] == "refund-case-42"
+        assert original.run_id != executor.run_id

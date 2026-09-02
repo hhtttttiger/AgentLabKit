@@ -207,6 +207,71 @@ class TestReplayRunner:
         assert executor.received_target.agent_key == "original-agent"
 
     @pytest.mark.asyncio
+    async def test_replay_without_example_id_still_executes(self):
+        """Replay execution 本身不要求 Dataset example identity。"""
+        store = InMemoryRunStore()
+        await store.save_run(_make_run())
+        executor = MockRunExecutor(run_id="run-B")
+
+        result = await ReplayRunner(store, executor).replay("run-123")
+
+        assert result.error_message is None
+        assert result.new_run_id == "run-B"
+
+    @pytest.mark.asyncio
+    async def test_replay_comparison_requires_example_id(self):
+        """Comparison 不得把 historical run_id 冒充为 example_id。"""
+        store = InMemoryRunStore()
+        await store.save_run(_make_run())
+        executor = MockRunExecutor()
+
+        with pytest.raises(ValueError, match="stable DatasetExample identity"):
+            await ReplayRunner(store, executor, MockEvaluator()).replay("run-123")
+
+    @pytest.mark.asyncio
+    async def test_replay_preserves_workflow_target(self):
+        store = InMemoryRunStore()
+        await store.save_run(_make_run(
+            target=RunTarget(
+                type="workflow",
+                workflow_id="refund-workflow",
+                workflow_version="7",
+            )
+        ))
+        executor = MockRunExecutor()
+
+        await ReplayRunner(store, executor).replay("run-123")
+
+        assert executor.received_target == RunTarget(
+            type="workflow",
+            workflow_id="refund-workflow",
+            workflow_version="7",
+        )
+
+    @pytest.mark.asyncio
+    async def test_replay_target_override_replaces_historical_target(self):
+        store = InMemoryRunStore()
+        await store.save_run(_make_run(
+            target=RunTarget(
+                type="workflow",
+                workflow_id="refund-workflow",
+                workflow_version="7",
+            )
+        ))
+        override = RunTarget(
+            type="workflow",
+            workflow_id="refund-workflow",
+            workflow_version="8",
+        )
+        executor = MockRunExecutor()
+
+        await ReplayRunner(store, executor).replay(
+            "run-123", ReplayConfig(target=override)
+        )
+
+        assert executor.received_target == override
+
+    @pytest.mark.asyncio
     async def test_replay_executor_error(self):
         store = InMemoryRunStore()
         run = _make_run()
@@ -268,7 +333,10 @@ class TestReplayRunner:
         evaluator = MockEvaluator(score=0.9)
         runner = ReplayRunner(store, executor, evaluator)
 
-        result = await runner.replay("run-123")
+        result = await runner.replay(
+            "run-123",
+            ReplayConfig(example_id="refund-case-42"),
+        )
 
         assert result.comparison is not None
         assert result.comparison.baseline_run_id == "run-123"

@@ -85,26 +85,19 @@ User / API
     │
     ▼
 Agent Runtime
-    │
-    ▼
-Runtime Events
-   ├──────────► Observability / Trace
-   ├──────────► Cost Analysis
-   │
-   ▼
-Agent Run
-   │
-   ├──────────► Dataset
-   ├──────────► Replay ───────► Agent Runtime
-   │
-   ▼
-Evaluation ─────────► Compare / Regression
+   ├──────────► Agent Run
+   └──────────► Runtime Events
+                  ├──────────► Observability / Trace
+                  └──────────► Cost Analysis
+
+Agent Run ────────► Dataset ───────► Evaluation ───────► Compare / Regression
+     └─────────────► Replay ───────► Agent Runtime
 ```
 
 - `ExecutionContext` 持有一次 execution 的 identity；`AgentRuntime` 负责执行并创建 `run_id`、`trace_id` 和 span identity。
 - `RuntimeEvent` 描述 semantic execution facts（例如 `RunStarted`、`LLMCallCompleted`、`ToolCallCompleted`、`RetrievalCompleted`、`GuardrailBlocked`、`RunCompleted`），不只是日志。
 - `AgentRun` 是一次真实业务执行的边界；**Run != Trace**。Trace 是这次执行的 observability projection，Cost 是 usage facts 的 cost projection。
-- `DatasetExample` 保存稳定的 `example_id`。Evaluation 使用 `DatasetExample + AgentRun + Trace` 评价行为；Replay 复用历史输入/上下文，请求 Runtime 产生新的 `AgentRun`，不会自行制造执行事实。
+- `DatasetExample` 保存稳定的 `example_id`（跨执行保持不变；`run_id` 不是 `example_id`）。Evaluation 使用 `DatasetExample + AgentRun + Trace` 评价行为；Replay 复用历史输入/上下文，请求 Runtime 产生新的 `AgentRun`，不会自行制造执行事实。
 
 Regression 的基础闭环是 `Run → Dataset → Evaluation → Replay → Compare`。更完整的 CLI/CI 回归策略不在此处承诺为现有能力。详见 [`docs/architecture/execution-model-v2.md`](docs/architecture/execution-model-v2.md)。
 

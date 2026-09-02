@@ -4,30 +4,28 @@ Execution Model v2 is the current execution architecture. Runtime is the source 
 
 ## 1. Core concepts
 
-```text
-                    ExecutionContext
-                           │
-                           ▼
-                      AgentRuntime
-                           │
-                           ▼
-                      RuntimeEvent
-                      /         \
-                     ▼           ▼
-                   Trace        Cost
-                     │
-                     ▼
-                  AgentRun
-                 /        \
-                ▼          ▼
-             Dataset     Replay
-                │          │
-                └────┬─────┘
-                     ▼
-                 Evaluation
-                     │
-                     ▼
-                   Compare
+```mermaid
+flowchart TD
+    EC[ExecutionContext] --> RT[AgentRuntime]
+
+    RT --> RUN[AgentRun]
+    RT --> EV[RuntimeEvent]
+
+    EV --> TP[TraceProjector]
+    EV --> CP[CostProjector]
+
+    TP --> TRACE[Trace]
+    CP --> COST[CostRecord]
+
+    RUN --> DATASET[Dataset]
+    RUN --> REPLAY[Replay]
+    REPLAY --> RT
+
+    DATASET --> EVAL[Evaluation]
+    RUN --> EVAL
+    TRACE --> EVAL
+
+    EVAL --> COMPARE[Compare]
 ```
 
 - **ExecutionContext** owns the identity of one execution (`run_id`, `trace_id`, root span and target).
@@ -38,7 +36,7 @@ Execution Model v2 is the current execution architecture. Runtime is the source 
 - **CostRecord** is the cost projection of usage facts.
 - **DatasetExample** owns stable regression-example identity (`example_id`).
 - **Evaluation** judges a DatasetExample against an AgentRun and, when needed, its Trace.
-- **Replay** asks the Runtime to execute historical input again. It does not manufacture execution facts.
+- **Replay** asks the Runtime to execute historical input again. It does not manufacture execution facts or create an `AgentRun` itself.
 - **Compare** compares evaluations for the same DatasetExample across executions.
 
 ## 2. Ownership model
@@ -112,7 +110,7 @@ RunExecutor → AgentRuntime
 New AgentRun with new Runtime-owned identity
 ```
 
-Replay preserves the historical target, including agent version, when no target override is supplied. Replay owns neither `run_id`, `trace_id`, nor `AgentRun` creation.
+Replay preserves the complete historical target, including agent/workflow identity and version, when no target override is supplied. Replay owns neither `run_id`, `trace_id`, nor `AgentRun` creation.
 
 ## 7. Dependency direction
 
