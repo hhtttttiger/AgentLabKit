@@ -2,6 +2,68 @@
 
 AI Agent 平台。Python + React 全栈。
 
+> **Current architecture:** Execution Model v2 is merged into `main`. This file is the repository-wide architecture constitution; package-specific rules refine it. The current source and [`docs/architecture/execution-model-v2.md`](docs/architecture/execution-model-v2.md) are authoritative over historical plans.
+
+## Execution Model v2
+
+```text
+ExecutionContext → AgentRuntime → RuntimeEvent
+                                  ├→ Trace (observability projection)
+                                  └→ Cost (cost projection)
+                         → AgentRun → Dataset / Replay → Evaluation → Compare
+```
+
+### Ownership
+
+| Concept | Owner |
+|---|---|
+| `run_id`, `trace_id`, root identity | `ExecutionContext` / Runtime |
+| `span_id`, `parent_span_id` | Runtime |
+| `AgentRun`, `RuntimeEvent` | `agent_runtime` |
+| `Trace`, `Span` | `observability` |
+| `CostRecord` | `cost_analysis` |
+| `example_id`, `DatasetExample` | Dataset / `evaluation` contracts |
+| `EvaluationResult`, `EvaluationRun` | `evaluation` |
+| Replay execution | Runtime through `RunExecutor` |
+| Comparison | Evaluation / Compare |
+
+Runtime produces facts. `RuntimeEvent` describes facts. `AgentRun` defines one real execution boundary. Trace observes those facts, Cost projects usage, Dataset owns stable example identity, Evaluation judges Run + Trace, Replay requests Runtime execution, and Compare compares evaluations for the same DatasetExample.
+
+### Non-negotiable invariants
+
+- `Run != Trace`; Trace is an observability projection of a Run.
+- Projectors never generate execution IDs, span IDs, or parent relationships.
+- Replay and Evaluation never construct `AgentRun` or manufacture execution facts; real execution goes through `RunExecutor` to Runtime.
+- `run_id` must never be used as stable DatasetExample `example_id`.
+- One operation maps to one `span_id`; multiple semantic events may enrich that span.
+- Every `RunStarted` has exactly one terminal event: `RunCompleted`, `RunFailed`, or `RunCancelled`.
+- Guardrail blocking is normally a valid business outcome, not Runtime failure; the Run still terminates.
+- Evaluation outcome (`PASS`, `FAIL`, `SKIPPED`) is distinct from evaluation orchestration status. Only evaluator exceptions, runner errors, or infrastructure failures make an `EvaluationRun` fail.
+
+### Forbidden patterns
+
+- Do not generate execution IDs outside Runtime ownership.
+- Do not generate span identity inside projectors or infer hierarchy from names/order.
+- Do not construct `AgentRun` inside Replay or Evaluation.
+- Do not make Evaluation core provider-specific; RAGAS and LLM judges are adapters.
+- Do not treat guardrail block as a Runtime crash or evaluation `FAIL` as runner failure.
+
+### Dependency direction
+
+```text
+agent_runtime → execution contracts/events
+observability  → RuntimeEvents
+cost_analysis  → RuntimeEvents
+evaluation     → Run/Trace contracts
+replay         → RunExecutor → Runtime
+```
+
+Runtime must not depend on Evaluation or Compare; TraceProjector must not depend on Evaluation; Replay must not depend on Runtime internals. Legacy events, runners, aliases, and compatibility APIs adapt to v2 rather than reshaping v2 around legacy assumptions.
+
+### Cross-package testing
+
+Execution changes require more than module unit tests. Exercise `AgentRuntime → RuntimeEvent → TraceProjector/CostProjector` and `DatasetExample → RunExecutor → AgentRun → TraceProvider → Evaluator`. Cover Runtime success/failure/cancellation/guardrail block/streaming and evaluation PASS/FAIL/SKIPPED/ERROR, plus identity preservation and replay target/version behavior.
+
 ## 架构原则
 
 ### 底层能力层
@@ -125,7 +187,7 @@ docker compose up --build
 
 | 模块 | 文档 | 一句话描述 |
 |------|------|-----------|
-| **agent_runtime** | [`packages/agent_runtime/AGENTS.md`](packages/agent_runtime/AGENTS.md) | Agent 编排内核：PydanticAI 集成、动态工具、Guardrails、Memory |
+| **agent_runtime** | [`packages/agent_runtime/AGENTS.md`](packages/agent_runtime/AGENTS.md) | Agent 执行内核：Runtime、RuntimeEvent、动态工具、Guardrails、Memory |
 | ├ tools | [`packages/agent_runtime/src/agent_runtime/tools/AGENTS.md`](packages/agent_runtime/src/agent_runtime/tools/AGENTS.md) | 动态工具注册、JSON Schema 校验、超时隔离与重试 |
 | ├ guardrails | [`packages/agent_runtime/src/agent_runtime/guardrails/AGENTS.md`](packages/agent_runtime/src/agent_runtime/guardrails/AGENTS.md) | 输入/输出/工具调用安全 Pipeline |
 | ├ memory | [`packages/agent_runtime/src/agent_runtime/memory/AGENTS.md`](packages/agent_runtime/src/agent_runtime/memory/AGENTS.md) | **单会话** Token-aware 上下文管理、摘要压缩；跨会话长期记忆见平台能力层 [`packages/memory`](packages/memory/AGENTS.md) |
@@ -139,9 +201,9 @@ docker compose up --build
 | 模块 | 文档 | 一句话描述 |
 |------|------|-----------|
 | **cost_analysis** | [`packages/cost_analysis/AGENTS.md`](packages/cost_analysis/AGENTS.md) | LLM 用量成本聚合 + 预算/告警 |
-| **evaluation** | [`packages/evaluation/AGENTS.md`](packages/evaluation/AGENTS.md) | 评估框架：Provider 抽象层（RAGAS v0.4.3）、数据集、LLM-as-Judge |
+| **evaluation** | [`packages/evaluation/AGENTS.md`](packages/evaluation/AGENTS.md) | Agent-native testing/evaluation：DatasetExample、Run/Trace、deterministic evaluators 与可选适配器 |
 | **memory** | [`packages/memory/AGENTS.md`](packages/memory/AGENTS.md) | 跨会话长期记忆（pgvector），支持 Mem0/Native provider 切换 ≠ agent_runtime/memory |
-| **observability** | [`packages/observability/AGENTS.md`](packages/observability/AGENTS.md) | 分布式链路追踪（EventBus → Span/Trace） |
+| **observability** | [`packages/observability/AGENTS.md`](packages/observability/AGENTS.md) | RuntimeEvent → Trace/Span 投影（不定义执行 identity） |
 
 ### 应用层
 

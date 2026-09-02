@@ -1,5 +1,7 @@
 # AgentLabKit Execution Model v2 重构计划
 
+> 本文是 Execution Model v2 的历史实施计划，所有 Phase 已完成。当前架构规范请以 [`docs/architecture/execution-model-v2.md`](architecture/execution-model-v2.md) 和源码为准；本文中的设计草案、迁移步骤和旧 API 示例不作为当前实现契约。
+
 ## 进度追踪
 
 | Phase | 状态 | 完成日期 | 备注 |
