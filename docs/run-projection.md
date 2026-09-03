@@ -65,7 +65,7 @@ complete `AgentRun` read model:
 | metadata | yes | `attributes` on selected events | incomplete |
 | action/handoff/chain/skills | yes | not on Run lifecycle events | no |
 | usage/tool summary | yes | call-level events exist, but no Run aggregate | not in minimal v1 |
-| user ID | request/runtime context | absent from Run lifecycle events | no |
+| user ID | request/runtime context | `RunStarted.user_id` from `ExecutionContext` | yes |
 
 The projector therefore never reconstructs target type, duration, usage, tool
 summary, metadata, or output from Trace. Missing fields stay `None` (or the
@@ -76,7 +76,9 @@ explicit empty value delivered by Runtime).
 The selected source model is **events plus terminal `AgentRun` snapshot**:
 
 1. `RunStarted` creates the running row and supplies identity, input, target
-   key/version, session, and start time.
+   key/version, session, owner, and start time. The owner is projected from
+   `ExecutionContext.user_id` immediately, so running rows are already
+   authorization-ready.
 2. A terminal event supplies lifecycle status and terminal event time. It is
    enough to expose a minimal skeleton even if the caller does not retain the
    returned `AgentRun`.
@@ -122,8 +124,9 @@ record untouched. Lookup and storage always use the same `run_id`.
 
 Terminal snapshots may complement the lifecycle skeleton with target type,
 target key/version, input/output, timestamps, duration, session, metadata, and
-error facts. Projection metadata (`projected_at`, `updated_at`, and version)
-is owned by the projection. Nullable facts are tested with `is None`, never
+error facts. A terminal snapshot owner must match the owner projected at start;
+a legacy null owner may be filled at finalization. Projection metadata
+(`projected_at`, `updated_at`, and version) is owned by the projection. Nullable facts are tested with `is None`, never
 truthiness: `0`, `0.0`, `""`, `[]`, `{}`, and `False` remain valid explicit
 values. Missing facts remain missing.
 

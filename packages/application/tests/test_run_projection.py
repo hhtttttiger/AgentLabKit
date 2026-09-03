@@ -44,6 +44,33 @@ async def test_lifecycle_is_idempotent_and_preserves_distinct_identity(ids):
 
 
 @pytest.mark.asyncio
+async def test_started_projects_owner_immediately_and_duplicate_is_idempotent(ids):
+    store = InMemoryRunStore()
+    started = RunStarted(event_id="s1", user_id="user-a", **ids)
+    await store.project_event(started)
+    await store.project_event(RunStarted(event_id="s2", user_id="user-a", **ids))
+    record = await store.get_run(ids["run_id"])
+    assert record.user_id == "user-a"
+    assert record.status == "running"
+
+
+@pytest.mark.asyncio
+async def test_duplicate_started_fills_legacy_missing_owner(ids):
+    store = InMemoryRunStore()
+    await store.project_event(RunStarted(event_id="s1", **ids))
+    await store.project_event(RunStarted(event_id="s2", user_id="user-a", **ids))
+    assert (await store.get_run(ids["run_id"])).user_id == "user-a"
+
+
+@pytest.mark.asyncio
+async def test_duplicate_started_rejects_conflicting_owner(ids):
+    store = InMemoryRunStore()
+    await store.project_event(RunStarted(event_id="s1", user_id="user-a", **ids))
+    with pytest.raises(RunProjectionConflict, match="user_id"):
+        await store.project_event(RunStarted(event_id="s2", user_id="user-b", **ids))
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("event", "status"),
     [

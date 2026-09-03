@@ -222,6 +222,7 @@ class TestAgentRuntimeRun:
         agent_run = await runtime.run(AgentTurnRequest(
             user_message="hi",
             session_id="s1",
+            user_id="user-123",
         ))
 
         # Extract RunStarted and RunCompleted events
@@ -242,3 +243,4 @@ class TestAgentRuntimeRun:
             "AgentRun.trace_id must equal RunStarted.trace_id"
         assert agent_run.trace_id == run_completed[0].trace_id, \
             "AgentRun.trace_id must equal RunCompleted.trace_id"
+        assert run_started[0].user_id == "user-123"

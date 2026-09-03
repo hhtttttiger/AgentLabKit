@@ -77,6 +77,10 @@ class SqlAlchemyRunStore(RunReader, RunWriter):
                     if model is not None:
                         if model.trace_id and event.trace_id and model.trace_id != event.trace_id:
                             raise RunProjectionConflict(f"run_id {event.run_id} has conflicting trace_id")
+                        if model.user_id is not None and event.user_id is not None and model.user_id != event.user_id:
+                            raise RunProjectionConflict(f"run_id {event.run_id} has conflicting user_id")
+                        if model.user_id is None and event.user_id is not None:
+                            model.user_id = event.user_id
                     else:
                         session.add(RunRecordModel(
                             run_id=event.run_id,
@@ -87,6 +91,7 @@ class SqlAlchemyRunStore(RunReader, RunWriter):
                             input_json=_json_safe(event.input_text),
                             started_at=event.timestamp,
                             session_id=event.session_id or None,
+                            user_id=event.user_id,
                             metadata_json=_json_safe(dict(event.attributes)),
                             projected_at=event.timestamp,
                             updated_at=event.timestamp,
@@ -112,8 +117,10 @@ class SqlAlchemyRunStore(RunReader, RunWriter):
                     raise RunProjectionConflict(f"run_id {run.run_id} has conflicting trace_id")
                 if model.user_id is not None and run.user_id is not None and model.user_id != run.user_id:
                     raise RunProjectionConflict(f"run_id {run.run_id} has conflicting user_id")
-                model.user_id = model.user_id or run.user_id
-                model.trace_id = model.trace_id or run.trace_id
+                if model.user_id is None and run.user_id is not None:
+                    model.user_id = run.user_id
+                if model.trace_id is None and run.trace_id is not None:
+                    model.trace_id = run.trace_id
                 model.status = status
                 model.target_type = run.target.type if run.target.type is not None else model.target_type
                 key = run.target.agent_key if run.target.agent_key is not None else run.target.workflow_id

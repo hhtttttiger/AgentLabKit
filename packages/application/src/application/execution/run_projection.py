@@ -112,6 +112,10 @@ class InMemoryRunStore(RunReader, RunWriter):
             # Never reset a partially projected or terminal record.
             if existing.trace_id != event.trace_id:
                 raise RunProjectionConflict(f"run_id {event.run_id} has conflicting trace_id")
+            if existing.user_id is not None and event.user_id is not None and existing.user_id != event.user_id:
+                raise RunProjectionConflict(f"run_id {event.run_id} has conflicting user_id")
+            if existing.user_id is None and event.user_id is not None:
+                existing.user_id = event.user_id
             return
         self._records[event.run_id] = RunRecord(
             run_id=event.run_id,
@@ -122,6 +126,7 @@ class InMemoryRunStore(RunReader, RunWriter):
             input=event.input_text,
             started_at=event.timestamp,
             session_id=event.session_id or None,
+            user_id=event.user_id,
             metadata=dict(event.attributes),
             projected_at=event.timestamp,
             updated_at=event.timestamp,

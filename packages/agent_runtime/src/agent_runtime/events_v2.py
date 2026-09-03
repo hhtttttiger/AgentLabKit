@@ -79,6 +79,8 @@ class RunStarted(RuntimeEvent):
     agent_version: str = ""
     input_text: str = ""
     session_id: str = ""
+    # Authoritative execution owner, propagated from ExecutionContext.
+    user_id: str | None = None
 
 
 @dataclass

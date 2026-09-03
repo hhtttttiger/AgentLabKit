@@ -29,8 +29,8 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_get_run_contract(app, client, auth_headers):
-    record = RunRecord(run_id="run-1", trace_id="trace-1", user_id="test-user", status="completed", output="")
+async def test_get_running_run_is_visible_to_owner(app, client, auth_headers):
+    record = RunRecord(run_id="run-1", trace_id="trace-1", user_id="test-user", status="running", output="")
     reader = FakeRunReader(record)
     app.dependency_overrides[get_run_reader] = lambda: reader
     try:
@@ -41,7 +41,7 @@ async def test_get_run_contract(app, client, auth_headers):
     data = response.json()["data"]
     assert data["runId"] == "run-1"
     assert data["traceId"] == "trace-1"
-    assert data["status"] == "completed"
+    assert data["status"] == "running"
     assert data["output"] == ""
     assert data["durationMs"] is None
     assert data["metadata"] == {}
@@ -83,8 +83,8 @@ async def test_replay_endpoint_is_thin_and_returns_new_run(app, client, auth_hea
 
 
 @pytest.mark.asyncio
-async def test_non_owner_run_is_hidden(app, client, auth_headers):
-    reader = FakeRunReader(RunRecord(run_id="run-1", user_id="other-user", status="completed"))
+async def test_non_owner_running_run_is_hidden(app, client, auth_headers):
+    reader = FakeRunReader(RunRecord(run_id="run-1", user_id="other-user", status="running"))
     app.dependency_overrides[get_run_reader] = lambda: reader
     try:
         response = await client.get("/api/runs/run-1", headers=auth_headers)

@@ -509,6 +509,7 @@ class AgentRuntime:
                 agent_version=definition.version_number if definition else "",
                 input_text=prepared.resolved_request.user_message,
                 session_id=prepared.resolved_request.session_id,
+                user_id=execution_context.user_id,
                 span_id=execution_context.root_span_id,
             ))
             _run_lifecycle_started = True
@@ -960,6 +961,7 @@ class AgentRuntime:
                 agent_version=definition.version_number if definition else "",
                 input_text=prepared.resolved_request.user_message,
                 session_id=prepared.resolved_request.session_id,
+                user_id=execution_context.user_id,
                 span_id=execution_context.root_span_id,
             ))
             _run_started = True
