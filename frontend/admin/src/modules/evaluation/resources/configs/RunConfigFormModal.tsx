@@ -12,6 +12,8 @@ interface RunConfigFormModalProps {
   error: string | null;
   onClose: () => void;
   onSubmit: (model: CreateRunConfigDraft) => Promise<void>;
+  initialDatasetId?: string;
+  agents?: Array<{ agentKey: string; displayName: string }>;
 }
 
 export interface CreateRunConfigDraft {
@@ -45,12 +47,14 @@ export function RunConfigFormModal({
   error,
   onClose,
   onSubmit,
+  initialDatasetId,
+  agents = [],
 }: RunConfigFormModalProps) {
   const [draft, setDraft] = useState<CreateRunConfigDraft>(emptyDraft);
 
   useEffect(() => {
-    if (open) setDraft(emptyDraft);
-  }, [open]);
+    if (open) setDraft({ ...emptyDraft, datasetId: initialDatasetId ?? '' });
+  }, [open, initialDatasetId]);
 
   const toggleMetric = (name: string) => {
     setDraft((prev) => ({
@@ -66,8 +70,8 @@ export function RunConfigFormModal({
   return (
     <FormModal
       open={open}
-      title="新建运行配置"
-      description="创建评估运行配置以对数据集执行自动化评估"
+      title="Evaluate Dataset"
+      description="选择数据集、Agent 和指标，然后运行评估。配置会保存下来供后续 Run Again 使用。"
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-3">
@@ -79,7 +83,7 @@ export function RunConfigFormModal({
             onClick={() => onSubmit(draft)}
             disabled={loading || !isValid}
           >
-            {loading ? '提交中...' : '创建'}
+            {loading ? '运行准备中...' : 'Run Evaluation'}
           </Button>
         </div>
       }
@@ -121,13 +125,23 @@ export function RunConfigFormModal({
           <option value="rag_pipeline">RAG Pipeline</option>
         </SelectField>
 
-        <TextField
-          label={draft.targetType === 'agent' ? 'Agent Key' : '知识库 ID'}
-          value={draft.targetKey}
-          onChange={(e) => setDraft((p) => ({ ...p, targetKey: e.target.value }))}
-          placeholder={draft.targetType === 'agent' ? '例如：qa-bot' : '例如：kb-123'}
-          hint={draft.targetType === 'agent' ? '对应 Agent 定义的 agent_key' : '对应知识库的 ID'}
-        />
+        {draft.targetType === 'agent' ? (
+          <SelectField
+            label="Agent"
+            value={draft.targetKey}
+            onChange={(e) => setDraft((p) => ({ ...p, targetKey: e.target.value }))}
+          >
+            <option value="">选择 Agent...</option>
+            {agents.map((agent) => <option key={agent.agentKey} value={agent.agentKey}>{agent.displayName} ({agent.agentKey})</option>)}
+          </SelectField>
+        ) : (
+          <TextField
+            label="知识库 ID"
+            value={draft.targetKey}
+            onChange={(e) => setDraft((p) => ({ ...p, targetKey: e.target.value }))}
+            placeholder="例如：kb-123"
+          />
+        )}
 
         <div>
           <label className="mb-1 block text-xs font-medium text-text-muted">

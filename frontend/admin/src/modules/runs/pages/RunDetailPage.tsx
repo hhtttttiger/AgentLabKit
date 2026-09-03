@@ -17,6 +17,7 @@ export function RunDetailPage() {
   const tab = params.get('tab') === 'trace' ? 'trace' : 'overview';
   const { data: run, isLoading, error } = useRunDetail(runId ?? '');
   const [captureOpen, setCaptureOpen] = useState(false);
+  const [addedDatasetId, setAddedDatasetId] = useState<string | null>(null);
   const captureMutation = useCaptureRun();
   const { data: datasets } = useDatasetList();
   const { toast } = useToast();
@@ -33,14 +34,15 @@ export function RunDetailPage() {
           <p className="mt-1 text-sm text-text-secondary">{run.agentKey ?? '—'}{run.agentVersion ? ` · v${run.agentVersion}` : ''}{run.durationMs != null ? ` · ${formatDuration(run.durationMs)}` : ''}</p>
         </div>
         <button type="button" onClick={() => navigate(`/runs/${run.id}/replay`)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover"><RotateCcw size={14} />{t('runs:actions.replay')}</button>
-        <button type="button" disabled={run.status !== 'completed'} onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"><Database size={14} />Capture</button>
+        <button type="button" disabled={run.status !== 'completed'} onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"><Database size={14} />Add to Dataset</button>
         <button type="button" onClick={() => navigate(run.agentKey ? `/playground?agent=${encodeURIComponent(run.agentKey)}` : '/playground')} className="inline-flex items-center gap-2 bg-primary px-3 py-2 text-sm text-primary-foreground"><Play size={14} />{t('runs:actions.openPlayground')}</button>
       </header>
       <nav className="flex gap-1 border-b border-border bg-surface px-6">
         {(['overview', 'trace'] as const).map((id) => <button key={id} type="button" onClick={() => setParams({ tab: id }, { replace: true })} className={`border-b-2 px-4 py-3 text-sm font-medium ${tab === id ? 'border-primary text-primary' : 'border-transparent text-text-muted'}`}>{t(`runs:tabs.${id}`)}</button>)}
       </nav>
+      {addedDatasetId && <div role="status" className="flex items-center justify-between border-b border-success/30 bg-success-subtle px-6 py-3 text-sm text-success-text"><span>Added to dataset.</span><button type="button" onClick={() => navigate(`/evaluation/dataset/${addedDatasetId}`)} className="font-medium underline">View Dataset</button></div>}
       <div className="flex-1 overflow-y-auto">{tab === 'overview' ? <Overview run={run} /> : <Trace traceId={run.traceId} />}</div>
-      <CaptureModal open={captureOpen} datasets={datasets?.items ?? []} loading={captureMutation.isPending} error={captureMutation.error ? 'Capture failed. Please try again.' : null} onClose={() => { setCaptureOpen(false); captureMutation.reset(); }} onSubmit={async (datasetId, expectedOutput) => { const result = await captureMutation.mutateAsync({ runId: run.id, request: { datasetId, ...(expectedOutput ? { expectedOutput } : {}) } }); setCaptureOpen(false); toast(`Captured as DatasetExample ${result.exampleId}`); }} />
+      <CaptureModal open={captureOpen} datasets={datasets?.items ?? []} loading={captureMutation.isPending} error={captureMutation.error ? 'Capture failed. Please try again.' : null} onClose={() => { setCaptureOpen(false); captureMutation.reset(); }} onSubmit={async (datasetId, expectedOutput) => { const result = await captureMutation.mutateAsync({ runId: run.id, request: { datasetId, ...(expectedOutput ? { expectedOutput } : {}) } }); setCaptureOpen(false); setAddedDatasetId(result.datasetId); toast('Added to dataset'); }} />
     </div>
   );
 }
@@ -66,7 +68,7 @@ function Trace({ traceId }: { traceId: string | null }) {
 function CaptureModal({ open, datasets, loading, error, onClose, onSubmit }: { open: boolean; datasets: Array<{ id: string; name: string }>; loading: boolean; error: string | null; onClose: () => void; onSubmit: (datasetId: number, expectedOutput: string) => Promise<void> }) {
   const [datasetId, setDatasetId] = useState('');
   const [expectedOutput, setExpectedOutput] = useState('');
-  return <Modal open={open} title="Capture Run" description="Save this completed Run as a DatasetExample. Expected output is optional and remains empty unless you provide it." onClose={onClose} footer={<div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="border border-border px-3 py-2 text-sm">Cancel</button><button type="button" disabled={!datasetId || loading} onClick={() => onSubmit(Number(datasetId), expectedOutput)} className="bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">{loading ? 'Capturing…' : 'Capture Run'}</button></div>}>
+  return <Modal open={open} title="Add run to dataset" description="Save this completed Run as a dataset case. Expected output is optional and remains empty unless you provide it." onClose={onClose} footer={<div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="border border-border px-3 py-2 text-sm">Cancel</button><button type="button" disabled={!datasetId || loading} onClick={() => onSubmit(Number(datasetId), expectedOutput)} className="bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">{loading ? 'Adding…' : 'Add to Dataset'}</button></div>}>
     <div className="space-y-4"><label className="block text-sm text-text"><span className="mb-1 block font-medium">Dataset</span><select value={datasetId} onChange={(e) => setDatasetId(e.target.value)} className="w-full rounded border border-border bg-background px-3 py-2"><option value="">Select a dataset</option>{datasets.map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}</select></label><label className="block text-sm text-text"><span className="mb-1 block font-medium">Expected output <span className="font-normal text-text-muted">(optional)</span></span><textarea value={expectedOutput} onChange={(e) => setExpectedOutput(e.target.value)} rows={4} className="w-full rounded border border-border bg-background px-3 py-2" placeholder="Leave empty to keep this unset" /></label>{error && <p role="alert" className="text-sm text-error">{error}</p>}</div>
   </Modal>;
 }

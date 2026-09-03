@@ -21,5 +21,5 @@ export function useRunList() {
 }
 
 export function useRunDetail(runId: string) {
-  return useQuery({ queryKey: evaluationQueryKeys.runDetail(runId), queryFn: () => getRunDetail(runId), enabled: !!runId });
+  return useQuery({ queryKey: evaluationQueryKeys.runDetail(runId), queryFn: () => getRunDetail(runId), enabled: !!runId, refetchInterval: (query) => query.state.data?.run.status === 'running' ? 2000 : false });
 }
