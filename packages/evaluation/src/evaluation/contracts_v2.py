@@ -305,8 +305,8 @@ class ExampleEvaluation:
 
     @property
     def all_passed(self) -> bool:
-        """所有评估器都通过。"""
-        return all(r.passed for r in self.results if r.passed is not None)
+        """所有评估器都通过；没有任何 verdict 时不是 PASS。"""
+        return self.passed is True
 
     @property
     def any_failed(self) -> bool:
@@ -341,7 +341,11 @@ class ExampleEvaluation:
             metric_results=[
                 MetricResult(
                     metric_name=r.evaluator_name,
-                    score=r.score or (1.0 if r.passed else 0.0),
+                    score=(
+                        r.score
+                        if r.score is not None
+                        else (1.0 if r.passed is True else 0.0)
+                    ),
                     reasoning=r.message,
                     passed=r.passed,
                     details=r.details,
@@ -520,17 +524,20 @@ def eval_run_result_to_evaluation_result(
 
     if metric_results:
         avg_score = sum(m.score for m in metric_results) / len(metric_results)
-        all_passed = all(m.passed for m in metric_results if m.passed is not None)
+        verdicts = [m.passed for m in metric_results if m.passed is not None]
+        # No verdict is not a successful verdict.  Preserve the v2
+        # tri-state meaning of passed (True / False / None).
+        all_passed = all(verdicts) if verdicts else None
     else:
         avg_score = 0.0
-        all_passed = False
+        all_passed = None
 
-    # 优先使用 old result 的 overall_score，否则用 metric_results 平均
-    overall_score = getattr(eval_result, "overall_score", None)
-    if overall_score is not None and overall_score > 0:
-        score = overall_score
-    else:
-        score = avg_score
+    # ``0.0`` is a valid authoritative score; only a missing attribute falls
+    # back to the metric average.  This matters for a legitimate all-failed
+    # evaluation as well as for explicit zero scores.
+    _missing = object()
+    overall_score = getattr(eval_result, "overall_score", _missing)
+    score = avg_score if overall_score is _missing or overall_score is None else overall_score
 
     # 向后兼容：error_message
     error_msg = getattr(eval_result, "error_message", None) or getattr(eval_result, "error", None)

@@ -393,6 +393,28 @@ class TestDatasetEvaluationRunner:
         assert result.overall_score == 0.8  # 无 score 的结果不参与平均
 
     @pytest.mark.asyncio
+    @pytest.mark.asyncio
+    async def test_runtime_execution_failure_fails_run_without_evaluation_verdict(self):
+        store = InMemoryDatasetStore()
+        dataset_id = await store.create_dataset("test")
+        await store.add_example(DatasetExample(
+            example_id="1", dataset_id=dataset_id, input_text="A",
+        ))
+
+        class FailingExecutor:
+            async def execute(self, **kwargs):
+                raise RuntimeError("runtime failed")
+
+        result = await DatasetEvaluationRunner(
+            MockEvaluator(), store, run_executor=FailingExecutor(), target=RunTarget(agent_key="chat")
+        ).run(dataset_id, "chat")
+
+        assert result.status == EvaluationRunStatus.FAILED
+        assert result.failed_examples == 1
+        assert result.results[0].passed is None
+        assert "runtime failed" in result.results[0].error_message
+
+    @pytest.mark.asyncio
     async def test_run_with_executor_populates_context_run(self):
         """RunExecutor 真实执行，EvaluationContext.run 包含真实 RunView。"""
         store = InMemoryDatasetStore()

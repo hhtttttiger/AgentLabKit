@@ -13,6 +13,7 @@ from evaluation.contracts_v2 import (
     EvaluationContext,
     EvaluationResult,
     EvaluationRun,
+    ExampleEvaluation,
     EvaluationRunStatus,
     MetricResult,
     RunStatus,
@@ -235,6 +236,37 @@ class TestAdapters:
         assert eval_result.overall_score == 0.9
         assert eval_result.duration_ms == 500
 
+    @pytest.mark.parametrize(
+        ("metric_results", "overall_score", "expected_passed", "expected_score"),
+        [
+            ([EvalMetricResult(metric_name="m", score=1.0, passed=True)], 1.0, True, 1.0),
+            ([EvalMetricResult(metric_name="m", score=0.0, passed=False)], 0.0, False, 0.0),
+            ([EvalMetricResult(metric_name="m", score=0.4, passed=None)], 0.4, None, 0.4),
+            ([EvalMetricResult(metric_name="m", score=0.4, passed=True)], None, True, 0.4),
+            ([EvalMetricResult(metric_name="a", score=1.0, passed=True),
+              EvalMetricResult(metric_name="b", score=0.0, passed=None)], 0.0, True, 0.0),
+            ([], 0.0, None, 0.0),
+        ],
+    )
+    def test_adapter_preserves_verdict_and_authoritative_zero_score(
+        self, metric_results, overall_score, expected_passed, expected_score
+    ):
+        result = EvalRunResult(
+            case_id=1,
+            metric_results=metric_results,
+            overall_score=overall_score,
+        )
+        eval_result = eval_run_result_to_evaluation_result(result)
+        assert eval_result.passed is expected_passed
+        assert eval_result.score == expected_score
+
+    def test_adapter_maps_evaluator_error_without_inventing_fail_verdict(self):
+        result = EvalRunResult(case_id=1, error_message="evaluator failed")
+        eval_result = eval_run_result_to_evaluation_result(result)
+        assert eval_result.passed is None
+        assert eval_result.score == 0.0
+        assert eval_result.error_message == "evaluator failed"
+
     def test_eval_run_result_with_error(self):
         result = EvalRunResult(
             case_id=1,
@@ -245,6 +277,14 @@ class TestAdapters:
         assert eval_result.example_id == "1"
         assert eval_result.error_message == "failed"
         assert eval_result.run_id is None
+
+    def test_example_evaluation_does_not_promote_no_verdict_to_pass(self):
+        skipped = EvaluationResult(example_id="1", passed=None, score=None,
+                                    skip_reason="trace unavailable")
+        aggregate = ExampleEvaluation(example_id="1", results=[skipped])
+        assert aggregate.passed is None
+        assert aggregate.all_passed is False
+        assert aggregate.any_failed is False
 
 
 # ── Evaluator Protocol ─────────────────────────────────────────────

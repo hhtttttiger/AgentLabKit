@@ -64,6 +64,22 @@ def _make_span(name: str, **kwargs) -> SpanSummary:
 
 class TestToolCalledEvaluator:
     @pytest.mark.asyncio
+    async def test_missing_trace_is_skipped_not_failed(self):
+        evaluator = ToolCalledEvaluator(tool_name="search")
+        context = EvaluationContext(
+            example=_make_example(),
+            run=_make_run(),
+            extra={"trace_unavailable": True},
+        )
+
+        result = await evaluator.evaluate(context)
+
+        assert result.passed is None
+        assert result.score is None
+        assert result.skip_reason == "trace unavailable"
+        assert result.error_message == "trace unavailable"
+
+    @pytest.mark.asyncio
     async def test_tool_called_from_run(self):
         evaluator = ToolCalledEvaluator(tool_name="search")
         context = EvaluationContext(
