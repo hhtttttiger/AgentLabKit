@@ -31,6 +31,7 @@ class RunRecord:
 
     run_id: str
     trace_id: str | None = None
+    user_id: str | None = None
     status: str = "running"
     target_type: str | None = None
     target_key: str | None = None
@@ -182,6 +183,10 @@ class InMemoryRunStore(RunReader, RunWriter):
             raise RunProjectionConflict(f"run_id {run.run_id} snapshot changes terminal status")
         if record.trace_id and run.trace_id and record.trace_id != run.trace_id:
             raise RunProjectionConflict(f"run_id {run.run_id} has conflicting trace_id")
+        if record.user_id is not None and run.user_id is not None and record.user_id != run.user_id:
+            raise RunProjectionConflict(f"run_id {run.run_id} has conflicting user_id")
+        if record.user_id is None and run.user_id is not None:
+            record.user_id = run.user_id
         record.status = run.status.value
         if record.trace_id is None and run.trace_id is not None:
             record.trace_id = run.trace_id

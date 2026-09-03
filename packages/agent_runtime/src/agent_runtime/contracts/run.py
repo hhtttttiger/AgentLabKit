@@ -81,6 +81,7 @@ class ExecutionContext:
 
     run_id: str = field(default_factory=lambda: uuid4().hex)
     trace_id: str = field(default_factory=lambda: uuid4().hex)
+    user_id: str | None = None
     session_id: str = ""
     agent_key: str | None = None
     agent_version: str | None = None
@@ -104,6 +105,7 @@ class AgentRun:
 
     run_id: str = ""
     trace_id: str | None = None
+    user_id: str | None = None
 
     input: Any = ""
     output: Any | None = None

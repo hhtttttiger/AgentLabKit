@@ -67,7 +67,7 @@ async def test_snapshot_is_authoritative_and_preserves_zero_values(ids):
     finished_at = datetime(2025, 1, 1, 0, 0, 2, tzinfo=timezone.utc)
     await store.project_event(RunStarted(event_id="s", timestamp=started_at, **ids))
     run = AgentRun(
-        run_id=ids["run_id"], trace_id=ids["trace_id"], input="in", output="",
+        run_id=ids["run_id"], trace_id=ids["trace_id"], user_id="user-1", input="in", output="",
         target=RunTarget(type="workflow", workflow_id="wf", workflow_version="3"),
         started_at=started_at, finished_at=finished_at,
     )
@@ -81,6 +81,20 @@ async def test_snapshot_is_authoritative_and_preserves_zero_values(ids):
     assert record.target_version == "3"
     assert record.output == ""
     assert record.duration_ms == 2000
+    assert record.user_id == "user-1"
+
+
+@pytest.mark.asyncio
+async def test_snapshot_rejects_conflicting_immutable_user_identity(ids):
+    store = InMemoryRunStore()
+    await store.project_event(RunStarted(event_id="s", **ids))
+    first = AgentRun(run_id=ids["run_id"], trace_id=ids["trace_id"], user_id="user-1")
+    first.mark_completed(output="")
+    await store.finalize(first)
+    conflicting = AgentRun(run_id=ids["run_id"], trace_id=ids["trace_id"], user_id="user-2")
+    conflicting.mark_completed(output="")
+    with pytest.raises(RunProjectionConflict, match="user_id"):
+        await store.finalize(conflicting)
 
 
 @pytest.mark.asyncio

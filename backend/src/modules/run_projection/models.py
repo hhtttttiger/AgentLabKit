@@ -21,6 +21,7 @@ class RunRecordModel(Base):
 
     run_id: Mapped[str] = mapped_column(String(128), primary_key=True)
     trace_id: Mapped[str | None] = mapped_column(String(128))
+    user_id: Mapped[str | None] = mapped_column(String(128))
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     target_type: Mapped[str | None] = mapped_column(String(32))
     target_key: Mapped[str | None] = mapped_column(String(256))

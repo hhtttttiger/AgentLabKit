@@ -110,6 +110,9 @@ class SqlAlchemyRunStore(RunReader, RunWriter):
                     raise RunProjectionConflict(f"run_id {run.run_id} snapshot changes terminal status")
                 if model.trace_id and run.trace_id and model.trace_id != run.trace_id:
                     raise RunProjectionConflict(f"run_id {run.run_id} has conflicting trace_id")
+                if model.user_id is not None and run.user_id is not None and model.user_id != run.user_id:
+                    raise RunProjectionConflict(f"run_id {run.run_id} has conflicting user_id")
+                model.user_id = model.user_id or run.user_id
                 model.trace_id = model.trace_id or run.trace_id
                 model.status = status
                 model.target_type = run.target.type if run.target.type is not None else model.target_type
@@ -161,7 +164,7 @@ class SqlAlchemyRunStore(RunReader, RunWriter):
 
     @staticmethod
     def _to_record(model: RunRecordModel) -> RunRecord:
-        return RunRecord(run_id=model.run_id, trace_id=model.trace_id, status=model.status,
+        return RunRecord(run_id=model.run_id, trace_id=model.trace_id, user_id=model.user_id, status=model.status,
             target_type=model.target_type, target_key=model.target_key, target_version=model.target_version,
             input=model.input_json, output=model.output_json, started_at=model.started_at,
             completed_at=model.completed_at, duration_ms=model.duration_ms, session_id=model.session_id,

@@ -411,6 +411,7 @@ class AgentRuntime:
         run = AgentRun(
             run_id=context.run_id,
             trace_id=context.trace_id,
+            user_id=context.user_id,
             input=request.user_message,
             session_id=context.session_id,
             target=context.target,
@@ -726,6 +727,7 @@ class AgentRuntime:
             agent_version=str(getattr(request, "agent_version", "")) if getattr(request, "agent_version", None) else None,
         )
         ctx = ExecutionContext(
+            user_id=request.user_id,
             session_id=request.session_id or "",
             agent_key=_target.agent_key,
             agent_version=_target.agent_version,
@@ -735,6 +737,7 @@ class AgentRuntime:
         run = AgentRun(
             run_id=ctx.run_id,
             trace_id=ctx.trace_id,
+            user_id=ctx.user_id,
             input=request.user_message,
             session_id=ctx.session_id,
             target=_target,
@@ -845,6 +848,7 @@ class AgentRuntime:
             agent_version=str(request.agent_version) if request.agent_version else None,
         )
         context = ExecutionContext(
+            user_id=request.user_id,
             session_id=request.session_id or "",
             agent_key=target.agent_key,
             agent_version=target.agent_version,
