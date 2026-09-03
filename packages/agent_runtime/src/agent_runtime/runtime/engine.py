@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
 import logging
+import time
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
@@ -80,6 +81,7 @@ from ..events_v2 import (
     RunFailed,
     RunStarted,
     ToolCallCompleted,
+    ToolCallFailed,
     ToolCallStarted,
 )
 from ..guardrails import (
@@ -922,8 +924,8 @@ class AgentRuntime:
         )
         _run_started = False
         _terminal_emitted = False
-        # Streaming uses the same runtime-owned semantic span hierarchy as the
-        # blocking loop. OTel spans remain an independent export concern.
+        # Streaming uses Runtime-owned semantic span identity. Retrieval spans
+        # are nested beneath the active streaming ToolCall span.
         _stream_span_ctx = _SpanContext()
         _stream_semantic_emit = (
             _make_semantic_emit(
@@ -1183,74 +1185,99 @@ class AgentRuntime:
                         ))
                         _stream_span_ctx.push(_semantic_tool_span_id)
                     recorded_before = len(deps.tool_events)
+                    tool_started_at = time.monotonic()
 
-                    # Streaming delegation
+                    # Keep business/tool-result errors as completed calls, but
+                    # publish an exceptional invocation as ToolCallFailed.  The
+                    # finally block is deliberately responsible for both span
+                    # stacks so cancellation cannot strand either span.
                     tool_is_error = False
                     delegate_handler = self.tool_registry.dynamic_registry.get_handler(
                         directive.tool_name
                     )
-                    if (
-                        directive.tool_name == "delegate_to_agent"
-                        and isinstance(delegate_handler, DelegateToAgentTool)
-                    ):
-                        tool_output = ""
-                        async for delegation_event in self._tool_exec.execute_streaming_delegate_tool_call(
-                            request=resolved_request,
-                            settings=effective_settings,
-                            deps=deps,
-                            delegate_handler=delegate_handler,
-                            arguments=dict(directive.arguments),
-                            allowed_tool_names=auto_tool_names,
-                            tool_bindings=tool_bindings,
+                    try:
+                        # Streaming delegation
+                        if (
+                            directive.tool_name == "delegate_to_agent"
+                            and isinstance(delegate_handler, DelegateToAgentTool)
                         ):
-                            if delegation_event.event_type == "delegation_delta":
-                                yield delegation_event
-                            elif delegation_event.event_type == "reply_completed":
-                                tool_output = delegation_event.reply_text or ""
-                        stream_usage = self._merge_usage(stream_usage, usage)
-                        stream_usage = self._drain_delegation_usage(stream_usage, deps)
+                            tool_output = ""
+                            async for delegation_event in self._tool_exec.execute_streaming_delegate_tool_call(
+                                request=resolved_request,
+                                settings=effective_settings,
+                                deps=deps,
+                                delegate_handler=delegate_handler,
+                                arguments=dict(directive.arguments),
+                                allowed_tool_names=auto_tool_names,
+                                tool_bindings=tool_bindings,
+                            ):
+                                if delegation_event.event_type == "delegation_delta":
+                                    yield delegation_event
+                                elif delegation_event.event_type == "reply_completed":
+                                    tool_output = delegation_event.reply_text or ""
+                            stream_usage = self._merge_usage(stream_usage, usage)
+                            stream_usage = self._drain_delegation_usage(stream_usage, deps)
+                        else:
+                            tool_result = await self._tool_exec.execute_tool_call(
+                                request=resolved_request,
+                                settings=effective_settings,
+                                deps=deps,
+                                tool_name=directive.tool_name,
+                                arguments=dict(directive.arguments),
+                                allowed_tool_names=auto_tool_names,
+                                tool_bindings=tool_bindings,
+                                guards_pipeline=self.guards_pipeline,
+                                observers=(
+                                    ToolExecutionObservers(
+                                        retrieval=RuntimeRetrievalObserver(
+                                            _stream_semantic_emit, _stream_span_ctx,
+                                        ),
+                                    )
+                                    if _stream_semantic_emit is not None else None
+                                ),
+                            )
+                            tool_output = tool_result.output if isinstance(tool_result, ToolResult) else str(tool_result)
+                            tool_is_error = isinstance(tool_result, ToolResult) and tool_result.status != "success"
+                            stream_usage = self._merge_usage(stream_usage, usage)
+                            stream_usage = self._drain_delegation_usage(stream_usage, deps)
+                    except Exception as exc:
+                        if _obs_bridge:
+                            await self._event_bus.emit(ToolExecutionEndEvent(
+                                tool_name=directive.tool_name,
+                                result=str(exc),
+                                is_error=True,
+                            ))
+                        if _stream_semantic_emit is not None and _semantic_tool_span_id is not None:
+                            await _stream_semantic_emit(ToolCallFailed(
+                                tool_name=directive.tool_name,
+                                error_code="TOOL_EXECUTION_ERROR",
+                                error_message=str(exc),
+                                span_id=_semantic_tool_span_id,
+                                parent_span_id=execution_context.root_span_id,
+                            ))
+                        raise
                     else:
-                        tool_result = await self._tool_exec.execute_tool_call(
-                            request=resolved_request,
-                            settings=effective_settings,
-                            deps=deps,
-                            tool_name=directive.tool_name,
-                            arguments=dict(directive.arguments),
-                            allowed_tool_names=auto_tool_names,
-                            tool_bindings=tool_bindings,
-                            guards_pipeline=self.guards_pipeline,
-                            observers=(
-                                ToolExecutionObservers(
-                                    retrieval=RuntimeRetrievalObserver(
-                                        _stream_semantic_emit, _stream_span_ctx,
-                                    ),
-                                )
-                                if _stream_semantic_emit is not None else None
-                            ),
-                        )
-                        tool_output = tool_result.output if isinstance(tool_result, ToolResult) else str(tool_result)
-                        tool_is_error = isinstance(tool_result, ToolResult) and tool_result.status != "success"
-                        stream_usage = self._merge_usage(stream_usage, usage)
-                        stream_usage = self._drain_delegation_usage(stream_usage, deps)
-
-                    if _obs_bridge:
-                        await self._event_bus.emit(ToolExecutionEndEvent(
-                            tool_name=directive.tool_name,
-                            result=tool_output[:200] if tool_output else "",
-                            is_error=tool_is_error,
-                        ))
-                    if _stream_semantic_emit is not None and _semantic_tool_span_id is not None:
-                        await _stream_semantic_emit(ToolCallCompleted(
-                            tool_name=directive.tool_name,
-                            result=tool_output[:500] if tool_output else "",
-                            duration_ms=0,
-                            is_error=tool_is_error,
-                            span_id=_semantic_tool_span_id,
-                            parent_span_id=execution_context.root_span_id,
-                        ))
-                        _stream_span_ctx.pop()
-                    if _tool_span is not None:
-                        _tool_span.end()
+                        tool_duration_ms = int((time.monotonic() - tool_started_at) * 1000)
+                        if _obs_bridge:
+                            await self._event_bus.emit(ToolExecutionEndEvent(
+                                tool_name=directive.tool_name,
+                                result=tool_output[:200] if tool_output else "",
+                                is_error=tool_is_error,
+                            ))
+                        if _stream_semantic_emit is not None and _semantic_tool_span_id is not None:
+                            await _stream_semantic_emit(ToolCallCompleted(
+                                tool_name=directive.tool_name,
+                                result=tool_output[:500] if tool_output else "",
+                                duration_ms=tool_duration_ms,
+                                is_error=tool_is_error,
+                                span_id=_semantic_tool_span_id,
+                                parent_span_id=execution_context.root_span_id,
+                            ))
+                    finally:
+                        if _semantic_tool_span_id is not None:
+                            _stream_span_ctx.pop()
+                        if _tool_span is not None:
+                            _tool_span.end()
 
                     for tool_event in deps.tool_events[recorded_before:]:
                         yield AgentTurnStreamEvent(
