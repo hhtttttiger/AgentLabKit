@@ -22,6 +22,11 @@ from .dataset import (
 )
 from .evaluation.contracts import EvaluationConfiguration, EvaluateDatasetCommand, EvaluateDatasetResult
 from .evaluation.evaluate_dataset import EvaluateDataset
+from .evaluation.compare import (
+    CompareEvaluationRuns, CompareEvaluationRunsCommand, CompareEvaluationRunsResult,
+    EvaluationExampleComparison, EvaluationRunNotFound, EvaluationRunsNotComparable,
+    InvalidEvaluationResultSet,
+)
 
 __all__ = [
     "ExecuteAgent", "ExecuteAgentCommand", "ExecuteAgentResult", "ExecuteAgentUpdate",
@@ -32,4 +37,7 @@ __all__ = [
     "CaptureSourceRunNotFound", "RunNotCapturable",
     "SaveRunAsDatasetExample", "SaveRunAsDatasetExampleCommand", "SaveRunAsDatasetExampleResult",
     "EvaluateDataset", "EvaluationConfiguration", "EvaluateDatasetCommand", "EvaluateDatasetResult",
+    "CompareEvaluationRuns", "CompareEvaluationRunsCommand", "CompareEvaluationRunsResult",
+    "EvaluationExampleComparison", "EvaluationRunNotFound", "EvaluationRunsNotComparable",
+    "InvalidEvaluationResultSet",
 ]

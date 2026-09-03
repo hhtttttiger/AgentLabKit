@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 
 from application import EvaluationConfiguration
 from application.ports.datasets import DatasetExampleWriter
+from application.ports.evaluation import EvaluationRunReader
 from evaluation.contracts import EvalCase, EvalRunConfig
 from evaluation.contracts_v2 import (
     DatasetExample,
@@ -47,7 +48,7 @@ class BackendDatasetExampleWriter(DatasetExampleWriter):
                              metadata: Any, source_run_id: str,
                              source_trace_id: str | None):
         async with self._factory() as session:
-            return await DatasetService(session).create_example(
+            example = await DatasetService(session).create_example(
                 dataset_id=dataset_id,
                 input_text=input_text,
                 expected_output=expected_output,
@@ -55,6 +56,56 @@ class BackendDatasetExampleWriter(DatasetExampleWriter):
                 source_run_id=source_run_id,
                 source_trace_id=source_trace_id,
             )
+            # async_sessionmaker context managers close sessions; they do not
+            # commit them.  Writes in this adapter own their transaction, as do
+            # the other backend persistence adapters.
+            await session.commit()
+            return example
+
+
+class BackendEvaluationRunReader(EvaluationRunReader):
+    """Read persisted evaluation facts without performing comparison logic."""
+
+    def __init__(self, session_factory: Any) -> None:
+        self._factory = session_factory
+
+    async def get_run(self, run_id: str):
+        async with self._factory() as session:
+            run = await session.get(EvalRun, int(run_id))
+            if run is None:
+                return None
+            config = await session.get(EvalRunConfigModel, run.config_id)
+            if config is None:
+                return None
+            summary = dict(run.summary_json or {})
+            from evaluation.contracts_v2 import EvaluationRun, EvaluationRunStatus
+            return EvaluationRun(
+                run_id=str(run.id), dataset_id=str(config.dataset_id),
+                agent_key=config.target_key,
+                status=EvaluationRunStatus(run.status),
+                total_examples=int(summary.get("total_cases", 0)),
+                completed_examples=int(summary.get("total_cases", 0)),
+                overall_score=float(summary.get("avg_score", 0.0)),
+            )
+
+    async def list_results(self, run_id: str) -> list[EvaluationResult]:
+        async with self._factory() as session:
+            rows = (await session.execute(
+                select(EvalRunResult).where(EvalRunResult.run_id == int(run_id))
+            )).scalars().all()
+            results = []
+            for row in rows:
+                metrics = list(row.metric_results_json or [])
+                verdicts = [m.get("passed") for m in metrics if m.get("passed") is not None]
+                results.append(EvaluationResult(
+                    evaluator_name="backend.persisted",
+                    example_id=str(row.case_id), score=float(row.overall_score),
+                    passed=all(verdicts) if verdicts else None,
+                    message=row.error_message,
+                    details={"actual_output": row.actual_output, "metric_results": metrics},
+                    duration_ms=row.duration_ms or 0,
+                ))
+            return results
 
 
 class BackendEvaluationDatasetReader:

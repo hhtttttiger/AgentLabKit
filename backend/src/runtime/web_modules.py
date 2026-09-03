@@ -20,6 +20,14 @@ def build_capture_run_as_dataset_example(*, session_factory: Any, run_reader: An
     )
 
 
+def build_compare_evaluation_runs(*, session_factory: Any) -> Any:
+    """Compose read-only evaluation comparison without exposing HTTP transport."""
+    from application import CompareEvaluationRuns
+    from application_adapters.evaluation import BackendEvaluationRunReader
+
+    return CompareEvaluationRuns(BackendEvaluationRunReader(session_factory))
+
+
 def build_cost_analysis_module(session_factory: Any) -> Any:
     """构造 Cost Analysis 模块。"""
     from cost_analysis import create_cost_analysis_module

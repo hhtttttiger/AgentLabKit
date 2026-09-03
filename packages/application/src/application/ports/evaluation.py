@@ -1,6 +1,11 @@
+from collections.abc import Sequence
 from typing import Any, Protocol
 
-from evaluation.contracts_v2 import EvaluationResult
+from evaluation.contracts_v2 import EvaluationResult, EvaluationRun
+
+class EvaluationRunReader(Protocol):
+    async def get_run(self, run_id: str) -> EvaluationRun | None: ...
+    async def list_results(self, run_id: str) -> Sequence[EvaluationResult]: ...
 
 class EvaluationConfigurationReader(Protocol):
     async def get_configuration(self, config_id: str): ...

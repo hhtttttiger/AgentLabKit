@@ -56,3 +56,24 @@ fields, but authoritative provenance (`source_run_id`, `source_trace_id`, and
 available target identity) always wins. Repeated capture is allowed and creates
 a new Dataset-owned example each time. A public capture endpoint remains
 deferred.
+
+## CompareEvaluationRuns
+
+`CompareEvaluationRuns` is production-wired in the backend without an HTTP
+endpoint. It is read/orchestration only: it loads two existing `EvaluationRun`
+records and their `EvaluationResult` facts, rejects different dataset identities,
+and aligns the union of results by stable `DatasetExample.example_id` (never by
+position or input text). Partial result sets remain explicit as left-only,
+right-only, or matched entries. Duplicate example results are rejected as invalid
+persisted state. The use case does not execute Runtime, invoke an Evaluator, or
+read/reconstruct Trace data.
+
+Application v1 catalog:
+
+| Use case | Status |
+|---|---|
+| ExecuteAgent | production |
+| ReplayRun | production |
+| CaptureRunAsDatasetExample | production |
+| EvaluateDataset | production |
+| CompareEvaluationRuns | production |

@@ -22,6 +22,7 @@ from runtime.bootstrap import (
 from runtime.web_modules import (
     build_agent_runtime,
     build_capture_run_as_dataset_example,
+    build_compare_evaluation_runs,
     build_cost_analysis_module,
     build_evaluation_module,
     build_memory_module,
@@ -57,6 +58,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.capture_run_as_dataset_example = build_capture_run_as_dataset_example(
             session_factory=sf,
             run_reader=run_store,
+        )
+        app.state.compare_evaluation_runs = build_compare_evaluation_runs(
+            session_factory=sf,
         )
 
         # ── 核心模块（始终初始化，不依赖 gateway）──
