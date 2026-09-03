@@ -2,21 +2,24 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/cn';
-import { ArrowLeft, Ban, Plus } from 'lucide-react';
+import { ArrowLeft, Ban, Pencil, Play, Plus } from 'lucide-react';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 import { Skeleton } from '@/shared/ui/Skeleton';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
-import { formatAdminDateTime, formatAdminRelativeTime } from '@/shared/i18n/formatters';
+import { formatAdminDateTime } from '@/shared/i18n/formatters';
 import { useAdminLocale } from '@/shared/i18n/useAdminLocale';
 import { useAgent, useAgentMutations } from './hooks';
 import { useRunList } from '@/modules/runs/hooks';
 import { VersionList, type VersionLaunchAction } from '../versions/VersionList';
+import { VersionDrawer } from '../versions/VersionDrawer';
+import { useVersionDetail, useVersionList } from '../versions/hooks';
 import { AuditList } from '../audits/AuditList';
+import type { VersionDetailView } from '../../lib/contracts';
 
-type Tab = 'overview' | 'prompt' | 'capabilities' | 'knowledge' | 'runs' | 'evaluation' | 'versions' | 'audits';
+type Tab = 'build' | 'runs' | 'versions' | 'audits';
 
 const am = 'agentManagement:';
 
@@ -28,8 +31,10 @@ const statusTone: Record<string, 'success' | 'warning' | 'neutral'> = {
 
 function getTab(searchParams: URLSearchParams): Tab {
   const tab = searchParams.get('tab');
-  const validTabs: Tab[] = ['overview', 'prompt', 'capabilities', 'knowledge', 'runs', 'evaluation', 'versions', 'audits'];
-  return validTabs.includes(tab as Tab) ? (tab as Tab) : 'versions';
+  const legacyBuildTabs = ['overview', 'prompt', 'capabilities', 'knowledge', 'evaluation'];
+  if (!tab || legacyBuildTabs.includes(tab)) return 'build';
+  const validTabs: Tab[] = ['build', 'runs', 'versions', 'audits'];
+  return validTabs.includes(tab as Tab) ? (tab as Tab) : 'build';
 }
 
 function getLaunchAction(searchParams: URLSearchParams): VersionLaunchAction | null {
@@ -77,6 +82,10 @@ export function AgentDetailPage() {
   } | null>(null);
   const [disableOpen, setDisableOpen] = useState(false);
   const [createVersionTrigger, setCreateVersionTrigger] = useState(0);
+  const [buildEditOpen, setBuildEditOpen] = useState(false);
+  const [buildEditVersion, setBuildEditVersion] = useState<VersionDetailView | null>(null);
+  const [buildSeed, setBuildSeed] = useState<VersionDetailView | null>(null);
+  const [publishSuccess, setPublishSuccess] = useState(false);
 
   useEffect(() => {
     setActiveTab(getTab(searchParams));
@@ -140,6 +149,7 @@ export function AgentDetailPage() {
         },
       });
       setPublishVersion(null);
+      setPublishSuccess(true);
     } catch {
       // surfaced by the mutation state
     }
@@ -159,13 +169,13 @@ export function AgentDetailPage() {
   };
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'overview', label: t(`${am}agents.detail.tabOverview`) },
-    { key: 'versions', label: t(`${am}agents.detail.tabVersions`) },
+    { key: 'build', label: t(`${am}agents.detail.tabBuild`) },
     { key: 'runs', label: t(`${am}agents.detail.tabRuns`) },
-    { key: 'evaluation', label: t(`${am}agents.detail.tabEvaluation`) },
-    { key: 'capabilities', label: t(`${am}agents.detail.tabCapabilities`) },
+    { key: 'versions', label: t(`${am}agents.detail.tabVersions`) },
     { key: 'audits', label: t(`${am}agents.detail.tabAudits`) },
   ];
+
+  const testAgent = () => navigate(`/playground?agent=${encodeURIComponent(agent.agentKey)}`);
 
   return (
     <div className="flex h-full flex-col">
@@ -187,6 +197,9 @@ export function AgentDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {activeTab === 'build' && agent.publishedVersionNumber !== null && (
+              <Button variant="secondary" onClick={testAgent}><Play size={16} />{t(`${am}agents.detail.test`)}</Button>
+            )}
             {activeTab === 'versions' && (
               <Button onClick={() => setCreateVersionTrigger((n) => n + 1)}>
                 <Plus size={16} />
@@ -303,7 +316,23 @@ export function AgentDetailPage() {
 
           {/* Scrollable: Tab content */}
           <div className="flex-1 overflow-y-auto">
-            {activeTab === 'overview' && <AgentOverviewTab agent={agent} />}
+            {publishSuccess && activeTab === 'build' && (
+              <div className="mx-6 mt-5 flex items-center justify-between gap-4 rounded-[2px] border border-success/30 bg-success/5 px-4 py-3 text-sm">
+                <span className="text-text">{t(`${am}agents.detail.publishedSuccess`)}</span>
+                <Button variant="secondary" onClick={testAgent}><Play size={14} />{t(`${am}agents.detail.testInPlayground`)}</Button>
+              </div>
+            )}
+            {activeTab === 'build' && (
+              <AgentBuildTab
+                agent={agent}
+                onEdit={(version, seed) => {
+                  setBuildEditVersion(version);
+                  setBuildSeed(seed);
+                  setBuildEditOpen(true);
+                }}
+                onPublish={(version) => setPublishVersion({ versionNumber: version.versionNumber, rowVersion: version.rowVersion })}
+              />
+            )}
             {activeTab === 'versions' && (
               <VersionList
                 agentKey={agentKey!}
@@ -315,12 +344,22 @@ export function AgentDetailPage() {
               />
             )}
             {activeTab === 'runs' && <AgentRunsTab agentKey={agentKey!} />}
-            {activeTab === 'evaluation' && <AgentEvaluationTab agentKey={agentKey!} />}
-            {activeTab === 'capabilities' && <AgentCapabilitiesTab agentKey={agentKey!} />}
             {activeTab === 'audits' && <AuditList agentKey={agentKey!} />}
           </div>
         </div>
       </div>
+
+      <VersionDrawer
+        open={buildEditOpen}
+        agentKey={agentKey!}
+        editVersion={buildEditVersion}
+        seedVersion={buildSeed}
+        onClose={() => {
+          setBuildEditOpen(false);
+          setBuildEditVersion(null);
+          setBuildSeed(null);
+        }}
+      />
 
       <ConfirmDialog
         open={publishVersion !== null}
@@ -358,58 +397,70 @@ export function AgentDetailPage() {
   );
 }
 
-function AgentOverviewTab({ agent }: { agent: { agentKey: string; status: string; publishedVersionNumber: number | null } }) {
-  const { t } = useTranslation(['agentManagement', 'common']);
+function AgentBuildTab({
+  agent,
+  onEdit,
+  onPublish,
+}: {
+  agent: AgentDetailPageAgent;
+  onEdit: (version: VersionDetailView | null, seed: VersionDetailView | null) => void;
+  onPublish: (version: VersionDetailView) => void;
+}) {
+  const { t } = useTranslation(['common', 'agentManagement']);
   const navigate = useNavigate();
-  const { data, isLoading, error } = useRunList({ agentKey: agent.agentKey });
-  const recentRuns = data?.items.slice(0, 5) ?? [];
+  const versionsQuery = useVersionList(agent.agentKey, { page: 1, pageSize: 100 });
+  const rows = versionsQuery.data?.items ?? [];
+  const draftRow = rows.find((row) => row.versionStatus === 'draft') ?? null;
+  const publishedRow = rows.find((row) => row.versionNumber === agent.publishedVersionNumber) ?? null;
+  const displayRow = draftRow ?? publishedRow;
+  const detailQuery = useVersionDetail(agent.agentKey, displayRow?.versionNumber ?? null);
+  const version = detailQuery.data;
+  const isEditable = draftRow !== null;
 
+  if (versionsQuery.isLoading || (displayRow && detailQuery.isLoading)) {
+    return <div className="p-6 text-sm text-text-muted">{t('common:states.loading')}</div>;
+  }
+
+  if (!version) {
+    return (
+      <div className="m-6 rounded-[2px] border border-border bg-background-subtle/40 p-6">
+        <h2 className="text-lg font-semibold text-text">{t(`${am}agents.detail.setupTitle`)}</h2>
+        <p className="mt-2 text-sm text-text-secondary">{t(`${am}agents.detail.setupDescription`)}</p>
+        <div className="mt-5 space-y-2 text-sm text-text-secondary">
+          <div>✓ {t(`${am}agents.detail.setupAgentCreated`)}</div>
+          <div>○ {t(`${am}agents.detail.setupModel`)}</div>
+          <div>○ {t(`${am}agents.detail.setupInstructions`)}</div>
+        </div>
+        <Button className="mt-5" onClick={() => onEdit(null, null)}><Plus size={15} />{t(`${am}agents.detail.configure`)}</Button>
+      </div>
+    );
+  }
+
+  const bindingCount = version.toolBindings.length + version.knowledgeBaseBindings.length + version.skillBindings.length + version.mcpBindings.length;
   return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          label={t('agentManagement:agents.detail.metrics.status')}
-          value={agent.status}
-        />
-        <MetricCard
-          label={t('agentManagement:agents.detail.metrics.version')}
-          value={agent.publishedVersionNumber !== null ? `v${agent.publishedVersionNumber}` : '—'}
-        />
-        <MetricCard
-          label={t('agentManagement:agents.detail.metrics.successRate')}
-          value="—"
-        />
-        <MetricCard
-          label={t('agentManagement:agents.detail.metrics.avgCost')}
-          value="—"
-        />
+    <div className="space-y-4 p-6">
+      {!isEditable && <InlineMessage tone="info">{t(`${am}agents.detail.publishedReadonlyInfo`)}</InlineMessage>}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><div className="text-xs text-text-muted">{t(`${am}agents.detail.versionLabel`)}</div><div className="mt-1 font-mono text-sm text-text">v{version.versionNumber} · {version.modelKey || t(`${am}agents.detail.notConfigured`)}</div></div>
+        <div className="flex gap-2">
+          {isEditable ? <Button onClick={() => onPublish(version)}>{t(`${am}agents.detail.publishDraft`)}</Button> : <Button onClick={() => onEdit(null, version)}><Pencil size={14} />{t(`${am}agents.detail.editAgent`)}</Button>}
+          <Button variant="secondary" onClick={() => navigate(`/playground?agent=${encodeURIComponent(agent.agentKey)}`)}><Play size={14} />{t(`${am}agents.detail.test`)}</Button>
+        </div>
       </div>
-
-      <div className="mt-6">
-        <h3 className="mb-3 text-sm font-semibold text-text">
-          {t('agentManagement:agents.detail.metrics.recentRuns')}
-        </h3>
-        {isLoading && <p className="text-sm text-text-muted">{t('common:states.loading')}</p>}
-        {error && <p className="text-sm text-error">{t('common:states.loadingFailed')}</p>}
-        {!isLoading && !error && recentRuns.length === 0 && <div className="rounded-[2px] border border-border bg-surface-subtle p-4"><p className="text-sm text-text-muted">{t('agentManagement:agents.detail.metrics.noRuns')}</p></div>}
-        {!isLoading && !error && recentRuns.length > 0 && <div className="space-y-2">{recentRuns.map((run) => (
-          <button key={run.id} type="button" onClick={() => navigate(`/runs/${run.id}`)} className="flex w-full items-center justify-between rounded-[2px] border border-border bg-surface p-3 text-left hover:bg-surface-hover">
-            <span className="flex items-center gap-2"><StatusBadge status={run.status} /><span className="font-mono text-xs text-text-muted">{run.id.slice(0, 8)}</span></span>
-            <span className="text-xs text-text-muted">{formatAdminRelativeTime(run.startedAt)}</span>
-          </button>
-        ))}</div>}
-      </div>
+      <BuildSummary title={t(`${am}agents.detail.model`)} value={version.modelKey || t(`${am}agents.detail.notConfigured`)} />
+      <BuildSummary title={t(`${am}agents.detail.instructions`)} help={t(`${am}agents.detail.instructionsHelp`)} value={version.systemPromptTemplate || t(`${am}agents.detail.notConfigured`)} multiline />
+      <BuildSummary title={t(`${am}agents.detail.tools`)} value={version.toolBindings.length ? version.toolBindings.map((item) => item.displayName || item.toolName).join(', ') : t(`${am}agents.detail.noneConfigured`)} />
+      <BuildSummary title={t(`${am}agents.detail.knowledge`)} value={version.knowledgeBaseBindings.length ? `${version.knowledgeBaseBindings.length} ${t(`${am}agents.detail.bindings`)}` : t(`${am}agents.detail.noneConfigured`)} />
+      <BuildSummary title={t(`${am}agents.detail.skillsMcp`)} value={bindingCount - version.toolBindings.length - version.knowledgeBaseBindings.length ? `${version.skillBindings.length} skills · ${version.mcpBindings.length} MCP` : t(`${am}agents.detail.noneConfigured`)} />
+      <BuildSummary title={t(`${am}agents.detail.advanced`)} value={Object.keys(version.runtimeOptions ?? {}).length || Object.keys(version.guardrailsPolicy ?? {}).length ? t(`${am}agents.detail.configured`) : t(`${am}agents.detail.default`)} />
     </div>
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[2px] border border-border bg-surface p-4">
-      <p className="text-xs text-text-muted">{label}</p>
-      <p className="mt-1 text-xl font-bold text-text">{value}</p>
-    </div>
-  );
+type AgentDetailPageAgent = import('../../lib/contracts').AgentDetailView;
+
+function BuildSummary({ title, value, help, multiline = false }: { title: string; value: string; help?: string; multiline?: boolean }) {
+  return <section className="rounded-[2px] border border-border bg-surface p-4"><div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold text-text">{title}</h2><span className="text-xs text-text-muted">{help}</span></div><p className={`mt-2 text-sm ${multiline ? 'max-w-3xl whitespace-pre-wrap leading-relaxed' : ''} text-text-secondary`}>{value}</p></section>;
 }
 
 function AgentRunsTab({ agentKey }: { agentKey: string }) {
@@ -441,7 +492,7 @@ function AgentRunsTab({ agentKey }: { agentKey: string }) {
         <p className="text-sm text-text-muted">{t('agentManagement:agents.detail.noRuns')}</p>
         <button
           type="button"
-          onClick={() => navigate('/playground')}
+          onClick={() => navigate(`/playground?agent=${encodeURIComponent(agentKey)}`)}
           className="mt-3 text-sm font-medium text-primary hover:underline"
         >
           {t('runs:empty.openPlayground')}
@@ -476,52 +527,6 @@ function AgentRunsTab({ agentKey }: { agentKey: string }) {
             </div>
           </button>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function AgentEvaluationTab({ agentKey: _agentKey }: { agentKey: string }) {
-  const { t } = useTranslation(['agentManagement']);
-
-  return (
-    <div className="flex flex-col items-center justify-center py-12">
-      <p className="text-sm text-text-muted">{t('agentManagement:agents.detail.evaluationUnavailable')}</p>
-    </div>
-  );
-}
-
-function AgentCapabilitiesTab({ agentKey: _agentKey }: { agentKey: string }) {
-  const { t } = useTranslation(['agentManagement']);
-  const navigate = useNavigate();
-
-  return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => navigate('/capabilities/tools')}
-          className="flex flex-col items-center gap-2 rounded-[2px] border border-border bg-surface p-6 transition hover:bg-surface-hover"
-        >
-          <span className="text-lg font-semibold text-text">{t('agentManagement:agents.detail.tools')}</span>
-          <span className="text-xs text-text-muted">{t('agentManagement:agents.detail.manageTools')}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/capabilities/skills')}
-          className="flex flex-col items-center gap-2 rounded-[2px] border border-border bg-surface p-6 transition hover:bg-surface-hover"
-        >
-          <span className="text-lg font-semibold text-text">{t('agentManagement:agents.detail.skills')}</span>
-          <span className="text-xs text-text-muted">{t('agentManagement:agents.detail.manageSkills')}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => navigate('/capabilities/mcp')}
-          className="flex flex-col items-center gap-2 rounded-[2px] border border-border bg-surface p-6 transition hover:bg-surface-hover"
-        >
-          <span className="text-lg font-semibold text-text">{t('agentManagement:agents.detail.mcpServers')}</span>
-          <span className="text-xs text-text-muted">{t('agentManagement:agents.detail.manageMcpServers')}</span>
-        </button>
       </div>
     </div>
   );

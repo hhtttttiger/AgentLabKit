@@ -229,6 +229,7 @@ export function AgentsPage() {
           await mutations.create.mutateAsync(model);
           setCreateOpen(false);
           toast(t('toast.created'));
+          navigate(`/agents/${encodeURIComponent(model.agentKey)}?tab=build`);
         }}
       />
     </>

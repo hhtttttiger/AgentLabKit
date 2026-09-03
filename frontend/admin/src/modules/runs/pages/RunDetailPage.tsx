@@ -34,7 +34,7 @@ export function RunDetailPage() {
         </div>
         <button type="button" onClick={() => navigate(`/runs/${run.id}/replay`)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover"><RotateCcw size={14} />{t('runs:actions.replay')}</button>
         <button type="button" disabled={run.status !== 'completed'} onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"><Database size={14} />Capture</button>
-        <button type="button" onClick={() => navigate('/playground')} className="inline-flex items-center gap-2 bg-primary px-3 py-2 text-sm text-primary-foreground"><Play size={14} />{t('runs:actions.openPlayground')}</button>
+        <button type="button" onClick={() => navigate(run.agentKey ? `/playground?agent=${encodeURIComponent(run.agentKey)}` : '/playground')} className="inline-flex items-center gap-2 bg-primary px-3 py-2 text-sm text-primary-foreground"><Play size={14} />{t('runs:actions.openPlayground')}</button>
       </header>
       <nav className="flex gap-1 border-b border-border bg-surface px-6">
         {(['overview', 'trace'] as const).map((id) => <button key={id} type="button" onClick={() => setParams({ tab: id }, { replace: true })} className={`border-b-2 px-4 py-3 text-sm font-medium ${tab === id ? 'border-primary text-primary' : 'border-transparent text-text-muted'}`}>{t(`runs:tabs.${id}`)}</button>)}

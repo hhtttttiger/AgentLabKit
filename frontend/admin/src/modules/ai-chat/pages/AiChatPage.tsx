@@ -10,6 +10,7 @@
  *      a flag is set, and the *next* sendMessage creates a new session.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { ChatSession, ModelOption } from '../lib/contracts';
 import { buildSessionTitle } from '../lib/session-title';
 import { useChatSession } from '../hooks/useChatSession';
@@ -25,9 +26,12 @@ type AiChatPageProps = {
 export function AiChatPage({ agentOptions, modelOptions }: AiChatPageProps) {
   // ── Model selection ────────────────────────────────────────────────
 
+  const [searchParams] = useSearchParams();
+  const requestedAgent = searchParams.get('agent');
   const defaultModel = useMemo<ModelOption | null>(() => {
-    return agentOptions[0] ?? modelOptions[0] ?? null;
-  }, [agentOptions, modelOptions]);
+    const requested = requestedAgent ? agentOptions.find((option) => option.type === 'agent' && option.id === requestedAgent) : null;
+    return requested ?? agentOptions[0] ?? modelOptions[0] ?? null;
+  }, [agentOptions, modelOptions, requestedAgent]);
 
   const [selectedModel, setSelectedModel] = useState<ModelOption | null>(defaultModel);
   const selectedModelRef = useRef<ModelOption | null>(selectedModel);
@@ -35,8 +39,13 @@ export function AiChatPage({ agentOptions, modelOptions }: AiChatPageProps) {
   useEffect(() => {
     if (!selectedModel && defaultModel) {
       setSelectedModel(defaultModel);
+      return;
     }
-  }, [defaultModel, selectedModel]);
+    if (requestedAgent) {
+      const requested = agentOptions.find((option) => option.type === 'agent' && option.id === requestedAgent);
+      if (requested && selectedModel?.id !== requested.id) setSelectedModel(requested);
+    }
+  }, [agentOptions, defaultModel, requestedAgent, selectedModel]);
 
   useEffect(() => {
     selectedModelRef.current = selectedModel;
