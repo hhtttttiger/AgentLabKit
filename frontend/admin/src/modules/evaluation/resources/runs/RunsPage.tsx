@@ -9,6 +9,7 @@ import { useToast } from '@/shared/ui/Toast';
 import { RunConfigFormModal } from '../configs/RunConfigFormModal';
 import type { CreateRunConfigDraft } from '../configs/RunConfigFormModal';
 import { getErrorMessage } from '@/shared/api/errors';
+import { formatAdminDateTime } from '@/shared/i18n/formatters';
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'text-text-muted',
@@ -97,7 +98,7 @@ export function RunsPage() {
                 <td className="py-2 text-right font-medium text-text">{((r.summary?.avgScore as number) ?? 0).toFixed(3)}</td>
                 <td className="py-2 text-right text-text-secondary">{(r.summary?.total_cases as number) ?? '—'}</td>
                 <td className="py-2 text-right text-text-secondary">{(r.summary?.error_count as number) ?? 0}</td>
-                <td className="py-2 text-text-secondary">{r.createdAtUtc ? new Date(r.createdAtUtc).toLocaleString() : '—'}</td>
+                <td className="py-2 text-text-secondary">{formatAdminDateTime(r.createdAtUtc)}</td>
               </tr>
             ))}
           </tbody>

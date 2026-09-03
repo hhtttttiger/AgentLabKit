@@ -42,10 +42,10 @@ describe('AppSidebar', () => {
       removeEventListener: vi.fn(),
     }));
   });
-  it('renders the ai chat navigation entry', () => {
+  it('renders the playground navigation entry', () => {
     renderSidebar({ currentModuleKey: 'ai-chat' });
 
-    expect(screen.getByRole('link', { name: 'AI 对话' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Playground' })).toBeInTheDocument();
   });
 
   it('keeps the module nav scrollable when more entries are added', () => {

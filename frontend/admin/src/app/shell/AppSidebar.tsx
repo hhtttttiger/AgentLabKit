@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { UserMenu } from '@/shared/ui/UserMenu';
-import { appModules } from '../modules';
+import { getModulesByGroup, type ModuleGroup } from '../modules';
 import type { ModuleKey } from '../modules';
 import './AppSidebar.css';
 
@@ -15,21 +15,34 @@ interface AppSidebarProps {
 }
 
 const NAV_LABEL_KEYS: Record<ModuleKey, string> = {
-  'ai-chat': 'nav.aiChat',
-  'agent-management': 'nav.agentManagement',
-  'model-management': 'nav.modelManagement',
+  'ai-chat': 'nav.playground',
+  'agent-management': 'nav.agents',
+  'model-management': 'nav.models',
   glossary: 'nav.glossary',
-  'knowledge-base': 'nav.knowledgeBase',
-  'model-monitoring': 'nav.modelMonitoring',
-  'cost-analysis': 'nav.costAnalysis',
-  observability: 'nav.observability',
+  'knowledge-base': 'nav.knowledge',
+  'model-monitoring': 'nav.monitoring',
+  'cost-analysis': 'nav.cost',
+  observability: 'nav.traces',
   memory: 'nav.memory',
   evaluation: 'nav.evaluation',
-  'user-management': 'nav.userManagement',
+  'user-management': 'nav.users',
+  runs: 'nav.runs',
+  capabilities: 'nav.capabilities',
 } as const;
+
+const GROUP_LABEL_KEYS: Record<ModuleGroup, string> = {
+  build: 'nav.group.build',
+  run: 'nav.group.run',
+  improve: 'nav.group.improve',
+  platform: 'nav.group.platform',
+};
 
 export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, displayName, onLogout }: AppSidebarProps) {
   const { t } = useTranslation('common');
+  const groupedModules = getModulesByGroup();
+
+  // Render groups in defined order
+  const groupOrder: ModuleGroup[] = ['build', 'run', 'improve', 'platform'];
 
   return (
     <aside className={`admin-sidebar ${collapsed ? 'admin-sidebar--collapsed' : ''}`}>
@@ -46,19 +59,33 @@ export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, disp
         aria-label={t('nav.ariaLabel')}
         style={{ minHeight: 0, overflowY: 'auto' }}
       >
-        {appModules.map((module) => {
-          const Icon = module.icon;
-          const label = t(NAV_LABEL_KEYS[module.key]);
+        {groupOrder.map((group) => {
+          const modules = groupedModules.get(group);
+          if (!modules || modules.length === 0) return null;
+
           return (
-            <NavLink
-              key={module.key}
-              to={module.basePath}
-              title={collapsed ? label : undefined}
-              className={`admin-sidebar__link ${currentModuleKey === module.key ? 'admin-sidebar__link--active' : ''}`}
-            >
-              <Icon size={18} />
-              <span className="admin-sidebar__link-label">{label}</span>
-            </NavLink>
+            <div key={group} className="admin-sidebar__group">
+              {!collapsed && (
+                <div className="admin-sidebar__group-label">
+                  {t(GROUP_LABEL_KEYS[group])}
+                </div>
+              )}
+              {modules.map((module) => {
+                const Icon = module.icon;
+                const label = t(NAV_LABEL_KEYS[module.key]);
+                return (
+                  <NavLink
+                    key={module.key}
+                    to={module.basePath}
+                    title={collapsed ? label : undefined}
+                    className={`admin-sidebar__link ${currentModuleKey === module.key ? 'admin-sidebar__link--active' : ''}`}
+                  >
+                    <Icon size={18} />
+                    <span className="admin-sidebar__link-label">{label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
           );
         })}
       </nav>

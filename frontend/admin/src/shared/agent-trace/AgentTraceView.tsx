@@ -107,10 +107,10 @@ export function AgentTraceView({
           </span>
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary">
-          <span className="font-medium text-text">{trace.agentKey}</span>
+          <span className="font-medium text-text">{trace.agentKey ?? '—'}</span>
           <span className="text-text-subtle">v{trace.agentVersion}</span>
           <span className="text-text-subtle">·</span>
-          <span>{trace.action}</span>
+          <span>{trace.action ?? '—'}</span>
           {usage !== 'n/a' ? (
             <>
               <span className="text-text-subtle">·</span>
@@ -335,7 +335,7 @@ function RunDetailsFooter({ trace }: { trace: AgentExecutionTrace }) {
   const rows: Array<[string, string]> = [
     ['Run', trace.runId],
     ['Trace', trace.traceId],
-    ['Session', trace.sessionId],
+    ['Session', trace.sessionId ?? '—'],
   ];
   return (
     <div className="border-t border-border bg-surface px-5 py-3">

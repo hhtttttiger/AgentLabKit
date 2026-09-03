@@ -5,8 +5,16 @@ export const evaluation = {
       eyebrow: '评估管理',
       title: '评估管理',
       sections: {
+        overview: '概览',
         datasets: '数据集',
         runs: '评估运行'
+      },
+      overview: {
+        title: '评估概览',
+        datasets: '数据集',
+        totalRuns: '总运行数',
+        avgScore: '平均分',
+        recentRuns: '最近运行'
       },
       datasets: {
         title: '数据集',

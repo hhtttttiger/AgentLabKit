@@ -28,7 +28,7 @@ export const appRouteTree: RouteObject[] = [
           </AuthGuard>
         ),
         children: [
-          { index: true, element: <Navigate replace to="/model-management" /> },
+          { index: true, element: <Navigate replace to="/overview" /> },
           ...moduleRoutes,
         ],
       },

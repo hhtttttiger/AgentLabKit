@@ -13,10 +13,11 @@ const ModelInstancesTab = lazyRoute(() => import('./resources/model-cards/tabs/M
 const ModelBindingsTab = lazyRoute(() => import('./resources/model-cards/tabs/ModelCardBindingsTab'), 'ModelBindingsTab');
 
 export const modelManagementRoutes: RouteObject[] = [
+  // New primary route
   {
-    path: 'model-management',
+    path: 'models',
     children: [
-      { index: true, element: <Navigate replace to="/model-management/models" /> },
+      { index: true, element: <Navigate replace to="/models/models" /> },
       // List pages — wrapped in the tab navigation layout
       {
         element: routeElement(ModelManagementLayout),
@@ -39,5 +40,14 @@ export const modelManagementRoutes: RouteObject[] = [
         ],
       },
     ],
+  },
+  // Legacy route alias
+  {
+    path: 'model-management',
+    element: <Navigate replace to="/models" />,
+  },
+  {
+    path: 'model-management/*',
+    element: <Navigate replace to="/models" />,
   },
 ];

@@ -6,6 +6,7 @@ import { InlineMessage } from '@/shared/ui/InlineMessage';
 import { SkeletonRows } from '@/shared/ui/Skeleton';
 import { formatCost } from '../../lib/formatters';
 import type { AlertData } from '../../lib/contracts';
+import { formatAdminDateTime } from '@/shared/i18n/formatters';
 
 export function AlertsPage() {
   const { t } = useTranslation(['common', 'costAnalysis']);
@@ -77,7 +78,7 @@ export function AlertsPage() {
                 <td className="py-2 text-text-secondary">{a.scopeType}: {a.scopeKey}</td>
                 <td className="py-2 text-right font-medium text-text">{formatCost(a.currentSpendUsd)}</td>
                 <td className="py-2 text-right text-text-secondary">{formatCost(a.thresholdUsd)}</td>
-                <td className="py-2 text-text-secondary">{new Date(a.triggeredAtUtc).toLocaleString()}</td>
+                <td className="py-2 text-text-secondary">{formatAdminDateTime(a.triggeredAtUtc)}</td>
                 <td className="py-2 text-center">
                   {a.acknowledgedAtUtc ? (
                     <span className="text-xs text-success">{t('costAnalysis:alerts.statusLabel.acknowledged')}</span>

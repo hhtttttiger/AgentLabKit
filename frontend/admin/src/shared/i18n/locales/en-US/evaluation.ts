@@ -5,8 +5,16 @@ export const evaluation = {
   eyebrow: 'Evaluation',
   title: 'Evaluation',
   sections: {
+    overview: 'Overview',
     datasets: 'Datasets',
     runs: 'Evaluation runs'
+  },
+  overview: {
+    title: 'Evaluation Overview',
+    datasets: 'Datasets',
+    totalRuns: 'Total Runs',
+    avgScore: 'Avg Score',
+    recentRuns: 'Recent Runs'
   },
   datasets: {
     title: 'Datasets',

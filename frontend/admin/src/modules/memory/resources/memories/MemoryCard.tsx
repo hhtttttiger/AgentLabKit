@@ -1,4 +1,5 @@
 import type { MemoryItemData } from '../../lib/contracts';
+import { formatAdminDateTime } from '@/shared/i18n/formatters';
 
 const TYPE_STYLES: Record<string, string> = {
   episodic: 'bg-blue-500/10 text-blue-500',
@@ -41,7 +42,7 @@ export function MemoryCard({
         <div className="mt-2 flex items-center gap-3 text-xs text-text-muted">
           <span>{accessCountLabel}</span>
           <span>{relevanceLabel}</span>
-          <span>{new Date(memory.createdAtUtc).toLocaleString()}</span>
+          <span>{formatAdminDateTime(memory.createdAtUtc)}</span>
         </div>
       </div>
       <button

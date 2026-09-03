@@ -13,7 +13,7 @@ describe('app route tree', () => {
     expect(loginRoute).toBeDefined();
   });
 
-  it('redirects root index route to model management', () => {
+  it('redirects root index route to overview', () => {
     const rootRoute = authChildren.find((r) => r.path === '/');
     const indexRoute = rootRoute?.children?.[0];
     const element = indexRoute?.element as ReactElement<{ to: string }>;
@@ -21,47 +21,37 @@ describe('app route tree', () => {
     expect(rootRoute?.path).toBe('/');
     expect(indexRoute?.index).toBe(true);
     expect(element.type).toBe(Navigate);
-    expect(element.props.to).toBe('/model-management');
+    expect(element.props.to).toBe('/overview');
   });
 
-  it('registers model monitoring routes under the protected shell', () => {
+  it('registers monitoring routes under the protected shell', () => {
     const rootRoute = authChildren.find((r) => r.path === '/');
-    const monitoringRoute = rootRoute?.children?.find((r) => r.path === 'model-monitoring');
+    const monitoringRoute = rootRoute?.children?.find((r) => r.path === 'monitoring');
 
     expect(monitoringRoute).toBeDefined();
     expect(monitoringRoute?.children?.some((child) => child.index === true)).toBe(true);
     expect(monitoringRoute?.children?.some((child) => child.path === 'errors')).toBe(true);
   });
 
-  it('registers ai chat route under the protected shell', () => {
+  it('registers playground route under the protected shell', () => {
     const rootRoute = authChildren.find((r) => r.path === '/');
-    const aiChatRoute = rootRoute?.children?.find((r) => r.path === 'ai-chat');
+    const playgroundRoute = rootRoute?.children?.find((r) => r.path === 'playground');
 
-    expect(aiChatRoute).toBeDefined();
+    expect(playgroundRoute).toBeDefined();
   });
 
-  it('redirects agent management index route to the agents list', () => {
+  it('registers agents route under the protected shell', () => {
     const rootRoute = authChildren.find((r) => r.path === '/');
-    const moduleRoute = rootRoute?.children?.find((r) => r.path === 'agent-management');
-    const indexRoute = moduleRoute?.children?.find((child) => child.index);
-    const element = indexRoute?.element as ReactElement<{ to: string }>;
+    const agentsRoute = rootRoute?.children?.find((r) => r.path === 'agents');
 
-    expect(moduleRoute).toBeDefined();
-    expect(indexRoute?.index).toBe(true);
-    expect(element.type).toBe(Navigate);
-    expect(element.props.to).toBe('/agent-management/agents');
+    expect(agentsRoute).toBeDefined();
   });
 
-  it('redirects model management index route to the models list', () => {
+  it('registers models route under the protected shell', () => {
     const rootRoute = authChildren.find((r) => r.path === '/');
-    const moduleRoute = rootRoute?.children?.find((r) => r.path === 'model-management');
-    const indexRoute = moduleRoute?.children?.find((child) => child.index);
-    const element = indexRoute?.element as ReactElement<{ to: string }>;
+    const modelsRoute = rootRoute?.children?.find((r) => r.path === 'models');
 
-    expect(moduleRoute).toBeDefined();
-    expect(indexRoute?.index).toBe(true);
-    expect(element.type).toBe(Navigate);
-    expect(element.props.to).toBe('/model-management/models');
+    expect(modelsRoute).toBeDefined();
   });
 
 });

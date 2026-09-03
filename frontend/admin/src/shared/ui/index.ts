@@ -36,9 +36,11 @@ export { TextField, DateField, NumberField, SelectField, TextAreaField, ToggleFi
 export { FormModal } from './FormModal';
 export { JsonEditor } from './JsonEditor';
 export { MetricStrip } from './MetricStrip';
+export { MetricsCard } from './MetricsCard';
 export { Modal } from './Modal';
 export { Pagination } from './Pagination';
 export { RowActions } from './RowActions';
+export { StatusBadge } from './StatusBadge';
 
 // Layouts
 export { ManagementListFrame } from './ManagementListFrame';

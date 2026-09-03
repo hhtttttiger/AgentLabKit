@@ -40,12 +40,12 @@ export type AgentTraceStep = {
 
 export type AgentExecutionTrace = {
   runId: string;
-  sessionId: string;
+  sessionId: string | null;
   traceId: string;
-  agentKey: string;
-  agentVersion: number;
+  agentKey: string | null;
+  agentVersion: number | null;
   status: string;
-  action: string;
+  action: string | null;
   replyText?: string | null;
   handoffReason?: string | null;
   errorCode?: string | null;

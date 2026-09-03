@@ -6,12 +6,16 @@ import { formatCost, formatTokens, formatLatency, formatPct } from '../../lib/fo
 import { CostTrendChart } from '../../lib/charts/CostTrendChart';
 import { CostPieChart } from '../../lib/charts/CostPieChart';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { useRunList } from '@/modules/runs/hooks';
 
 export function CostOverviewPage() {
   const { t } = useTranslation(['common', 'costAnalysis']);
+  const navigate = useNavigate();
   const overviewQuery = useCostOverview(30);
   const breakdownQuery = useBreakdownByModel(30);
   const trendQuery = useCostTrend('day', 30);
+  const { data: runsData } = useRunList();
 
   // 等待所有查询加载完毕再渲染，避免内容闪烁
   if (overviewQuery.isLoading || breakdownQuery.isLoading || trendQuery.isLoading) {
@@ -110,6 +114,63 @@ export function CostOverviewPage() {
                   <td className="py-2 text-right text-text-secondary">{formatTokens(m.totalOutputTokens)}</td>
                   <td className="py-2 text-right font-medium text-text">{formatCost(m.totalEstimatedCost)}</td>
                   <td className="py-2 text-right text-text-secondary">{formatLatency(m.avgLatencyMs)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 最近运行成本 */}
+      {runsData && runsData.items.length > 0 && (
+        <div className="border border-border rounded-[2px] bg-surface px-6 py-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
+              {t('costAnalysis:overview.recentRunsCost')}
+            </h3>
+            <button
+              type="button"
+              onClick={() => navigate('/runs')}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              {t('costAnalysis:overview.viewAllRuns')}
+            </button>
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-text-muted">
+                <th className="pb-2 font-medium">Run ID</th>
+                <th className="pb-2 font-medium">Agent</th>
+                <th className="pb-2 font-medium text-right">耗时</th>
+                <th className="pb-2 font-medium text-right">花费</th>
+                <th className="pb-2 font-medium text-right">状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runsData.items.slice(0, 5).map((run) => (
+                <tr
+                  key={run.id}
+                  className="cursor-pointer border-b border-border-subtle last:border-0 hover:bg-surface-raised"
+                  onClick={() => navigate(`/runs/${run.id}`)}
+                >
+                  <td className="py-2 font-mono text-xs text-primary">#{run.id.slice(0, 8)}</td>
+                  <td className="py-2 text-text">{run.agentKey}</td>
+                  <td className="py-2 text-right text-text-secondary">
+                    {run.durationMs != null ? `${(run.durationMs / 1000).toFixed(2)}s` : '—'}
+                  </td>
+                  <td className="py-2 text-right font-medium text-text">
+                    {run.costUsd != null ? formatCost(run.costUsd) : '—'}
+                  </td>
+                  <td className="py-2 text-right">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      run.status === 'success' ? 'bg-success/10 text-success' :
+                      run.status === 'failed' ? 'bg-error/10 text-error' :
+                      run.status === 'running' ? 'bg-primary/10 text-primary' :
+                      'bg-text-muted/10 text-text-muted'
+                    }`}>
+                      {run.status}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

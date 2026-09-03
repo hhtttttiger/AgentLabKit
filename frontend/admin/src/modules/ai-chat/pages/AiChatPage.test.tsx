@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { switchTestLanguage } from '@/shared/test/setup';
 import { createStorageMock } from '@/shared/test/storage';
@@ -57,7 +58,11 @@ describe('AiChatPage', () => {
       return vi.fn();
     });
 
-    render(<AiChatPage agentOptions={[]} modelOptions={modelOptions} />);
+    render(
+      <MemoryRouter>
+        <AiChatPage agentOptions={[]} modelOptions={modelOptions} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText('No conversations yet')).toBeInTheDocument();
 

@@ -17,6 +17,8 @@ export const costAnalysis = {
         costTrend: '成本趋势',
         modelDistribution: '模型分布',
         topModels: 'Top 模型',
+        recentRunsCost: '最近运行成本',
+        viewAllRuns: '查看所有运行',
         error: '加载成本概览失败，请重试。'
       },
       budgets: {

@@ -2,7 +2,7 @@
  * AI Chat Module - Routes
  */
 
-import { type RouteObject } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { lazyRoute, routeElement } from '@/app/route-lazy';
 import { useChatAgentOptions, useChatModelOptions } from './hooks';
@@ -32,8 +32,9 @@ function AiChatPageLoader() {
 }
 
 export const aiChatRoutes: RouteObject[] = [
+  // New primary route
   {
-    path: 'ai-chat',
+    path: 'playground',
     element: routeElement(AiChatLayout),
     children: [
       {
@@ -41,5 +42,10 @@ export const aiChatRoutes: RouteObject[] = [
         element: routeElement(AiChatPageLoader),
       },
     ],
+  },
+  // Legacy route alias
+  {
+    path: 'ai-chat',
+    element: <Navigate replace to="/playground" />,
   },
 ];
