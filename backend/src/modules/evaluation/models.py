@@ -56,5 +56,7 @@ class EvalRunResult(EntityBase):
     actual_output: Mapped[str] = mapped_column(Text, default="")
     metric_results_json: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
     overall_score: Mapped[float] = mapped_column(Float, default=0)
+    # Nullable is authoritative: None means the evaluator did not judge this example.
+    passed: Mapped[bool | None] = mapped_column(nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text)
     duration_ms: Mapped[int] = mapped_column(BigInteger, default=0)

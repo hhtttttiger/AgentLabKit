@@ -18,13 +18,17 @@ export function RunDetailPage() {
   const { run, results } = detail;
   const scores = results.map((r) => r.overallScore);
   const avgScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
-  const passCount = results.filter((r) => r.overallScore >= 0.7).length;
+  const passCount = results.filter((r) => r.passed === true).length;
+  const failCount = results.filter((r) => r.passed === false).length;
+  const unknownCount = results.filter((r) => r.passed === null).length;
   const errorCount = results.filter((r) => r.errorMessage).length;
 
   const metrics = [
     { label: '平均分', value: avgScore.toFixed(3), accent: 'blue' as const },
     { label: '用例总数', value: String(results.length), accent: 'violet' as const },
-    { label: '通过数 (≥0.7)', value: String(passCount), accent: 'teal' as const },
+    { label: '通过数', value: String(passCount), accent: 'teal' as const },
+    { label: '失败数', value: String(failCount), accent: 'amber' as const },
+    { label: '未判定', value: String(unknownCount), accent: 'amber' as const },
     { label: '错误数', value: String(errorCount), accent: 'amber' as const },
   ];
 
@@ -73,6 +77,7 @@ export function RunDetailPage() {
               <th className="px-6 pb-2 font-medium">#</th>
               <th className="pb-2 font-medium">实际输出</th>
               <th className="pb-2 font-medium">总分</th>
+              <th className="pb-2 font-medium">判定</th>
               <th className="pb-2 font-medium">指标明细</th>
               <th className="pb-2 font-medium text-right">耗时</th>
             </tr>
@@ -83,9 +88,10 @@ export function RunDetailPage() {
                 <td className="px-6 py-2 text-text-secondary">{i + 1}</td>
                 <td className="py-2 text-text">{r.actualOutput.slice(0, 80)}{r.actualOutput.length > 80 ? '…' : ''}</td>
                 <td className="py-2">
-                  <span className={`font-medium ${r.overallScore >= 0.7 ? 'text-success' : r.overallScore >= 0.4 ? 'text-warning' : 'text-error'}`}>
-                    {r.overallScore.toFixed(3)}
-                  </span>
+                  <span className="font-medium">{r.overallScore.toFixed(3)}</span>
+                </td>
+                <td className={`py-2 text-xs font-medium ${r.passed === true ? 'text-success' : r.passed === false ? 'text-error' : 'text-text-muted'}`}>
+                  {r.passed === true ? 'PASS' : r.passed === false ? 'FAIL' : 'UNKNOWN'}
                 </td>
                 <td className="py-2 text-xs text-text-secondary">
                   {r.metricResults.map((m) => (

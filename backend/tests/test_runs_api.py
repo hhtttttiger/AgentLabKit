@@ -39,6 +39,14 @@ class FakeRunReader:
         self.requested.append(run_id)
         return self.record if self.record and self.record.run_id == run_id else None
 
+    async def list_runs(self, *, user_id: str, limit: int, offset: int = 0):
+        if self.record is None or self.record.user_id != user_id:
+            return []
+        return [self.record][offset:offset + limit]
+
+    async def count_runs(self, *, user_id: str):
+        return int(self.record is not None and self.record.user_id == user_id)
+
 
 import pytest
 
@@ -156,6 +164,18 @@ async def test_capture_rejects_missing_and_non_capturable_runs(app, client, auth
         assert response.status_code == expected_status
         if record is None:
             assert capture.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_list_runs_is_owner_scoped_and_preserves_identity(app, client, auth_headers):
+    reader = FakeRunReader(RunRecord(run_id="run-1", trace_id="trace-1", user_id="test-user", status="completed", target_key="support"))
+    app.dependency_overrides[get_run_reader] = lambda: reader
+    try:
+        response = await client.get("/api/runs?limit=10", headers=auth_headers)
+    finally:
+        app.dependency_overrides.pop(get_run_reader, None)
+    assert response.status_code == 200
+    assert response.json()["data"] == {"items": [{"runId": "run-1", "traceId": "trace-1", "status": "completed", "targetType": None, "targetKey": "support", "targetVersion": None, "input": None, "output": None, "startedAt": None, "completedAt": None, "durationMs": None, "sessionId": None, "errorCode": None, "errorMessage": None, "metadata": {}}], "total": 1}
 
 
 @pytest.mark.asyncio

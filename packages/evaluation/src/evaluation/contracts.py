@@ -47,6 +47,7 @@ class EvalRunResult:
     actual_output: str = ""
     metric_results: list[EvalMetricResult] = field(default_factory=list)
     overall_score: float = 0.0
+    passed: bool | None = None
     error_message: str | None = None
     duration_ms: int = 0
 

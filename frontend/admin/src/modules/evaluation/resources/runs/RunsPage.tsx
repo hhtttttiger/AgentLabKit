@@ -28,9 +28,11 @@ export function RunsPage() {
   const triggerMutation = useTriggerRun();
   const createConfigMutation = useCreateRunConfig();
   const [selectedConfig, setSelectedConfig] = useState('');
+  const [selectedRuns, setSelectedRuns] = useState<string[]>([]);
   const [createConfigOpen, setCreateConfigOpen] = useState(false);
 
   const datasets = datasetResult?.items ?? [];
+  const selectedDatasetId = selectedRuns.length ? configs?.find((config) => String(config.id) === String(runs?.find((run) => String(run.id) === selectedRuns[0])?.configId))?.datasetId : undefined;
 
   const handleCreateConfig = async (model: CreateRunConfigDraft) => {
     await createConfigMutation.mutateAsync({
@@ -48,7 +50,7 @@ export function RunsPage() {
   return (
     <div className="flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-text">评估运行</h2>
+        <div><h2 className="text-lg font-semibold text-text">评估运行</h2>{selectedRuns.length === 2 && <button type="button" onClick={() => navigate(`/evaluation/runs/compare?left=${selectedRuns[0]}&right=${selectedRuns[1]}`)} className="mt-1 text-xs text-primary hover:underline">Compare selected runs</button>}</div>
         <div className="flex items-center gap-2">
           <select
             className="rounded-[2px] border border-border bg-background px-3 py-1.5 text-sm"
@@ -82,6 +84,7 @@ export function RunsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-text-muted">
+              <th className="w-10 pb-2 font-medium" aria-label="Select" />
               <th className="pb-2 font-medium">Run ID</th>
               <th className="pb-2 font-medium text-center">状态</th>
               <th className="pb-2 font-medium text-right">平均分</th>
@@ -93,6 +96,7 @@ export function RunsPage() {
           <tbody>
             {runs.map((r) => (
               <tr key={r.id} className="cursor-pointer border-b border-border-subtle last:border-0 hover:bg-surface-raised" onClick={() => navigate(`/evaluation/runs/${r.id}`)}>
+                <td className="py-2 pl-2"><input type="checkbox" disabled={selectedDatasetId !== undefined && String(configs?.find((config) => String(config.id) === String(r.configId))?.datasetId) !== String(selectedDatasetId)} checked={selectedRuns.includes(String(r.id))} onChange={() => setSelectedRuns((current) => current.includes(String(r.id)) ? current.filter((id) => id !== String(r.id)) : current.length < 2 ? [...current, String(r.id)] : current)} onClick={(event) => event.stopPropagation()} aria-label={`Select evaluation run ${r.id}`} /></td>
                 <td className="py-2 font-mono text-xs text-primary">#{r.id}</td>
                 <td className={`py-2 text-center text-xs font-medium ${STATUS_COLORS[r.status] || ''}`}>{r.status}</td>
                 <td className="py-2 text-right font-medium text-text">{((r.summary?.avgScore as number) ?? 0).toFixed(3)}</td>

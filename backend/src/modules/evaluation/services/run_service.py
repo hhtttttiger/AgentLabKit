@@ -195,6 +195,7 @@ class RunService:
                         "passed": mr.passed,
                     } for mr in r.metric_results],
                     overall_score=r.overall_score,
+                    passed=r.passed,
                     error_message=r.error_message,
                     duration_ms=r.duration_ms,
                 )
@@ -234,6 +235,7 @@ class RunService:
             "actual_output": r.actual_output or "",
             "metric_results": r.metric_results_json or [],
             "overall_score": r.overall_score,
+            "passed": r.passed,
             "error_message": r.error_message,
             "duration_ms": r.duration_ms,
         }

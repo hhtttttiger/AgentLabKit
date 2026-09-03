@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getTraceDetail } from '@/modules/observability/resources/traces/api';
-import { getRun, replayRun } from '../api/client';
+import { captureRun, getRun, listRuns, replayRun } from '../api/client';
 import { mapRunDetail } from '../mappers/runMapper';
 import { mapTraceToAgentExecution } from '../mappers/traceMapper';
 import type { RunCostSummary, RunDetail, RunEvaluationSummary, RunEvent, RunFilters } from '../types';
@@ -15,10 +15,13 @@ export function useRunTrace(traceId: string | null) {
   return useQuery({ queryKey: runKeys.trace(traceId ?? ''), queryFn: async () => mapTraceToAgentExecution(await getTraceDetail(traceId as string)), enabled: !!traceId });
 }
 
-/** No Runtime Run list endpoint is public in Adapter v1; keep list UI explicitly deferred. */
 export function useRunList(_filters?: RunFilters) {
-  return useQuery<{ items: import('../types').RunSummary[]; total: number }>({
-    queryKey: [...runKeys.all, 'list'], queryFn: async () => ({ items: [], total: 0 }), enabled: false,
+  return useQuery({
+    queryKey: [...runKeys.all, 'list'],
+    queryFn: async () => {
+      const result = await listRuns();
+      return { ...result, items: result.items.map(mapRunDetail) };
+    },
   });
 }
 
@@ -26,6 +29,14 @@ export function useRunList(_filters?: RunFilters) {
 export function useRunEvents(_runId: string) { return useQuery< { items: RunEvent[] } | null>({ queryKey: [...runKeys.all, 'events'], queryFn: async () => null, enabled: false }); }
 export function useRunCost(_runId: string) { return useQuery<RunCostSummary | null>({ queryKey: [...runKeys.all, 'cost'], queryFn: async () => null, enabled: false }); }
 export function useRunEvaluation(_runId: string) { return useQuery<RunEvaluationSummary | null>({ queryKey: [...runKeys.all, 'evaluation'], queryFn: async () => null, enabled: false }); }
+
+export function useCaptureRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runId, request }: { runId: string; request: import('../api/dto').CaptureRunRequest }) => captureRun(runId, request),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: runKeys.all }),
+  });
+}
 
 export function useReplayRun() {
   const queryClient = useQueryClient();

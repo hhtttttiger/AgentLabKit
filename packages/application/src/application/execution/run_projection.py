@@ -52,6 +52,8 @@ class RunRecord:
 
 class RunReader(Protocol):
     async def get_run(self, run_id: str) -> RunRecord | None: ...
+    async def list_runs(self, *, user_id: str, limit: int, offset: int = 0) -> list[RunRecord]: ...
+    async def count_runs(self, *, user_id: str) -> int: ...
 
 
 class RunWriter(Protocol):
@@ -79,6 +81,14 @@ class InMemoryRunStore(RunReader, RunWriter):
 
     async def get_run(self, run_id: str) -> RunRecord | None:
         return self._records.get(run_id)
+
+    async def list_runs(self, *, user_id: str, limit: int, offset: int = 0) -> list[RunRecord]:
+        owned = [record for record in self._records.values() if record.user_id == user_id]
+        owned.sort(key=lambda record: record.started_at or datetime.min, reverse=True)
+        return owned[offset:offset + limit]
+
+    async def count_runs(self, *, user_id: str) -> int:
+        return sum(1 for record in self._records.values() if record.user_id == user_id)
 
     async def project_event(self, event: RuntimeEvent) -> None:
         event_id = getattr(event, "event_id", "")

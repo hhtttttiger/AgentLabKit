@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Mapping
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from application.execution.run_projection import (
@@ -53,6 +53,24 @@ class SqlAlchemyRunStore(RunReader, RunWriter):
         async with self._session_factory() as session:
             model = await session.get(RunRecordModel, run_id)
             return self._to_record(model) if model is not None else None
+
+    async def list_runs(self, *, user_id: str, limit: int, offset: int = 0) -> list[RunRecord]:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(RunRecordModel)
+                .where(RunRecordModel.user_id == user_id)
+                .order_by(RunRecordModel.started_at.desc().nullslast(), RunRecordModel.run_id.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+            return [self._to_record(model) for model in result.scalars().all()]
+
+    async def count_runs(self, *, user_id: str) -> int:
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(func.count()).select_from(RunRecordModel).where(RunRecordModel.user_id == user_id)
+            )
+            return int(result.scalar_one())
 
     async def project_event(self, event: RuntimeEvent) -> None:
         event_id = getattr(event, "event_id", "")

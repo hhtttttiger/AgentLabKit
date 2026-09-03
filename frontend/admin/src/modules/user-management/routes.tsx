@@ -5,7 +5,7 @@ const UsersPage = lazyRoute(() => import('./pages/UsersPage'), 'UsersPage');
 
 export const userManagementRoutes: RouteObject[] = [
   {
-    path: 'user-management',
+    path: 'users',
     children: [
       { index: true, element: routeElement(UsersPage) },
     ],

@@ -79,6 +79,7 @@ class RunResultResponse(CamelModel):
     actual_output: str
     metric_results: list[dict[str, Any]]
     overall_score: float
+    passed: bool | None = None
     error_message: str | None = None
     duration_ms: int
 

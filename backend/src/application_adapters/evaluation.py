@@ -96,11 +96,10 @@ class BackendEvaluationRunReader(EvaluationRunReader):
             results = []
             for row in rows:
                 metrics = list(row.metric_results_json or [])
-                verdicts = [m.get("passed") for m in metrics if m.get("passed") is not None]
                 results.append(EvaluationResult(
                     evaluator_name="backend.persisted",
                     example_id=str(row.case_id), score=float(row.overall_score),
-                    passed=all(verdicts) if verdicts else None,
+                    passed=row.passed,
                     message=row.error_message,
                     details={"actual_output": row.actual_output, "metric_results": metrics},
                     duration_ms=row.duration_ms or 0,
@@ -157,7 +156,8 @@ class BackendEvaluationRunStore:
                 case_id=int(result.example_id),
                 actual_output=str(result.details.get("actual_output", "")),
                 metric_results_json=result.details.get("metric_results", []),
-                overall_score=result.score or 0.0,
+                overall_score=result.score if result.score is not None else 0.0,
+                passed=result.passed,
                 error_message=result.message,
                 duration_ms=result.duration_ms,
             ))

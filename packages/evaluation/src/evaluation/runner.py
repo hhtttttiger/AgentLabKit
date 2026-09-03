@@ -203,6 +203,7 @@ class EvaluationRunner:
             actual_output=actual_output,
             metric_results=metric_results,
             overall_score=round(overall, 4),
+            passed=(all(verdicts) if (verdicts := [r.passed for r in metric_results if r.passed is not None]) else None),
             duration_ms=int((time.monotonic() - start) * 1000),
         )
 

@@ -47,6 +47,7 @@ export interface RunResultData {
   actualOutput: string;
   metricResults: { metricName: string; score: number; reasoning: string | null; passed: boolean | null }[];
   overallScore: number;
+  passed: boolean | null;
   errorMessage: string | null;
   durationMs: number;
 }

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from application import ReplayRunCommand, CaptureRunAsDatasetExampleCommand
 from application.dataset.save_run_as_example import CaptureSourceRunNotFound, RunNotCapturable
@@ -30,9 +30,25 @@ from .schemas import (
     CaptureRunRequest,
     CaptureRunResponse,
     CaptureRunResponseEnvelope,
+    RunListResponse,
+    RunListResponseEnvelope,
 )
 
 router = APIRouter()
+
+
+@router.get("", response_model=RunListResponseEnvelope)
+async def list_runs(
+    reader: RunReaderDep,
+    current_user: CurrentUser,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """List only durable Runs owned by the authenticated user."""
+    user_id = current_user["user_id"]
+    items = await reader.list_runs(user_id=user_id, limit=limit, offset=offset)
+    total = await reader.count_runs(user_id=user_id)
+    return ok(RunListResponse(items=[run_record_to_response(item) for item in items], total=total).model_dump())
 
 
 @router.post(

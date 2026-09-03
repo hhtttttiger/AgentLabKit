@@ -1,5 +1,10 @@
 /** Public Run and evaluation-comparison DTOs from the FastAPI adapters. */
 
+export interface RunListDto {
+  items: RunDetailDto[];
+  total: number;
+}
+
 export interface RunDetailDto {
   runId: string;
   traceId: string | null;

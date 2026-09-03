@@ -1,9 +1,13 @@
 import { apiRequest } from '@/shared/api/client';
 import type {
-  CaptureRunRequest, CaptureRunResponse, ReplayRunDto, RunDetailDto,
+  CaptureRunRequest, CaptureRunResponse, ReplayRunDto, RunDetailDto, RunListDto,
 } from './dto';
 
 /** Durable Runtime Run endpoints exposed by FastAPI Adapter v1. */
+export function listRuns(limit = 20, offset = 0): Promise<RunListDto> {
+  return apiRequest<RunListDto>(`/api/runs?limit=${limit}&offset=${offset}`);
+}
+
 export function getRun(runId: string): Promise<RunDetailDto> {
   return apiRequest<RunDetailDto>(`/api/runs/${encodeURIComponent(runId)}`);
 }

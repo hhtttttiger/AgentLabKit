@@ -56,6 +56,17 @@ class RunResponseEnvelope(CamelModel):
     data: RunResponse
 
 
+class RunListResponse(CamelModel):
+    items: list[RunResponse]
+    total: int
+
+
+class RunListResponseEnvelope(CamelModel):
+    success: bool
+    msg: str
+    data: RunListResponse
+
+
 class ReplayRunRequest(CamelModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
