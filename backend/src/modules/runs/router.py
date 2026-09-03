@@ -4,12 +4,6 @@ from fastapi import APIRouter
 
 from application import ReplayRunCommand, CaptureRunAsDatasetExampleCommand
 from application.dataset.save_run_as_example import CaptureSourceRunNotFound, RunNotCapturable
-from modules.evaluation.dependencies import CaptureRunAsDatasetExampleDep
-from modules.evaluation.schemas import (
-    CaptureRunRequest,
-    CaptureRunResponse,
-    CaptureRunResponseEnvelope,
-)
 from application.execution.replay_run import (
     ReplayInputUnavailable,
     ReplaySourceNotFound,
@@ -20,7 +14,12 @@ from common.auth import CurrentUser
 from common.errors import BusinessError, ConflictError, NotFoundError
 from common.response import ok
 
-from .dependencies import ReplayRunDep, RunReaderDep, ensure_run_access
+from .dependencies import (
+    CaptureRunAsDatasetExampleDep,
+    ReplayRunDep,
+    RunReaderDep,
+    ensure_run_access,
+)
 from .schemas import (
     agent_run_to_response,
     run_record_to_response,
@@ -28,6 +27,9 @@ from .schemas import (
     ReplayRunResponse,
     ReplayRunResponseEnvelope,
     RunResponseEnvelope,
+    CaptureRunRequest,
+    CaptureRunResponse,
+    CaptureRunResponseEnvelope,
 )
 
 router = APIRouter()

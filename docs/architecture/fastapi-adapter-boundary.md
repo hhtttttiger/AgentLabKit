@@ -78,9 +78,11 @@ read service. They are not wrapped in new Get* use cases.
 | `POST /api/runs/{run_id}/replay` | runs | `ReplayRun` / Platform Action | delegate once |
 | `POST /api/runs/{run_id}/capture` | runs | `CaptureRunAsDatasetExample` / Platform Action | delegate once |
 
-Capture returns `datasetId`, `sourceRunId`, and `exampleId`. Source Run access is
-checked before delegation; missing/inaccessible Runs return 404 and non-completed
-Runs return 409. Dataset existence is enforced by the existing Dataset service.
+Capture HTTP transport artifacts (dependency and DTOs) belong to the `runs`
+module because the resource endpoint is exposed there. Capture returns `datasetId`,
+`sourceRunId`, and `exampleId`. Source Run access is checked before delegation;
+missing/inaccessible Runs return 404 and non-completed Runs return 409. Dataset
+existence is enforced by the existing Dataset service.
 
 The execution SSE contract is unchanged: the adapter still emits public SSE
 `type`, `data`, `runId`, terminal semantics, and `[DONE]`; internal

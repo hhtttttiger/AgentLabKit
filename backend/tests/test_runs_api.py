@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from application.execution.run_projection import RunRecord
-from modules.runs.dependencies import get_replay_run, get_run_reader
+from modules.runs.dependencies import get_capture_run_as_dataset_example, get_replay_run, get_run_reader
 from modules.runs.schemas import agent_run_to_response, run_record_to_response
 
 
@@ -12,6 +12,21 @@ class FakeReplay:
 
     async def execute(self, command):
         self.command = command
+        return self.result
+
+
+class FakeCapture:
+    def __init__(self, result=None, error=None):
+        self.result = result
+        self.error = error
+        self.command = None
+        self.calls = 0
+
+    async def execute(self, command):
+        self.calls += 1
+        self.command = command
+        if self.error is not None:
+            raise self.error
         return self.result
 
 
@@ -26,6 +41,121 @@ class FakeRunReader:
 
 
 import pytest
+
+
+@pytest.mark.asyncio
+async def test_capture_endpoint_returns_public_contract_and_builds_command(app, client, auth_headers):
+    from evaluation.contracts_v2 import DatasetExample
+    from application.dataset.save_run_as_example import CaptureRunAsDatasetExampleResult
+
+    reader = FakeRunReader(RunRecord(
+        run_id="run-1", trace_id="trace-1", user_id="test-user", status="completed", output="actual",
+    ))
+    capture = FakeCapture(CaptureRunAsDatasetExampleResult(
+        dataset_id="dataset-1",
+        source_run_id="run-1",
+        example=DatasetExample(example_id="example-1", dataset_id="dataset-1", input_text="hello"),
+    ))
+    app.dependency_overrides[get_run_reader] = lambda: reader
+    app.dependency_overrides[get_capture_run_as_dataset_example] = lambda: capture
+    try:
+        response = await client.post(
+            "/api/runs/run-1/capture",
+            json={"datasetId": 7, "expectedOutput": "golden", "metadata": {}},
+            headers=auth_headers,
+        )
+    finally:
+        app.dependency_overrides.pop(get_capture_run_as_dataset_example, None)
+        app.dependency_overrides.pop(get_run_reader, None)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "msg": "ok",
+        "data": {"datasetId": "dataset-1", "sourceRunId": "run-1", "exampleId": "example-1"},
+    }
+    assert capture.calls == 1
+    assert capture.command.dataset_id == "7"
+    assert capture.command.run_id == "run-1"
+    assert capture.command.expected_output == "golden"
+    assert capture.command.metadata == {}
+
+
+@pytest.mark.asyncio
+async def test_capture_preserves_null_and_falsey_expected_output(app, client, auth_headers):
+    from evaluation.contracts_v2 import DatasetExample
+    from application.dataset.save_run_as_example import CaptureRunAsDatasetExampleResult
+
+    reader = FakeRunReader(RunRecord(run_id="run-1", user_id="test-user", status="completed"))
+    capture = FakeCapture(CaptureRunAsDatasetExampleResult(
+        dataset_id="7", source_run_id="run-1",
+        example=DatasetExample(example_id="example-1", dataset_id="7", input_text="hello"),
+    ))
+    app.dependency_overrides.update({get_run_reader: lambda: reader, get_capture_run_as_dataset_example: lambda: capture})
+    try:
+        await client.post("/api/runs/run-1/capture", json={"datasetId": 7, "expectedOutput": ""}, headers=auth_headers)
+        assert capture.command.expected_output == ""
+        await client.post("/api/runs/run-1/capture", json={"datasetId": 7, "expectedOutput": None}, headers=auth_headers)
+        assert capture.command.expected_output is None
+        await client.post("/api/runs/run-1/capture", json={"datasetId": 7}, headers=auth_headers)
+        assert capture.command.expected_output is None
+    finally:
+        app.dependency_overrides.pop(get_capture_run_as_dataset_example, None)
+        app.dependency_overrides.pop(get_run_reader, None)
+
+
+@pytest.mark.asyncio
+async def test_capture_hides_non_owner_and_null_owner(app, client, auth_headers, make_token):
+    for user_id, headers in (("user-a", {"Authorization": f"Bearer {make_token('user-b')}"}), (None, auth_headers)):
+        reader = FakeRunReader(RunRecord(run_id="run-1", user_id=user_id, status="completed"))
+        capture = FakeCapture()
+        app.dependency_overrides.update({get_run_reader: lambda: reader, get_capture_run_as_dataset_example: lambda: capture})
+        try:
+            response = await client.post("/api/runs/run-1/capture", json={"datasetId": 7}, headers=headers)
+        finally:
+            app.dependency_overrides.pop(get_capture_run_as_dataset_example, None)
+            app.dependency_overrides.pop(get_run_reader, None)
+        assert response.status_code == 404
+        assert capture.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_capture_maps_missing_dataset_to_not_found(app, client, auth_headers):
+    from common.errors import NotFoundError
+
+    reader = FakeRunReader(RunRecord(run_id="run-1", user_id="test-user", status="completed"))
+    capture = FakeCapture(error=NotFoundError("Dataset", "missing"))
+    app.dependency_overrides.update({get_run_reader: lambda: reader, get_capture_run_as_dataset_example: lambda: capture})
+    try:
+        response = await client.post("/api/runs/run-1/capture", json={"datasetId": 999}, headers=auth_headers)
+    finally:
+        app.dependency_overrides.pop(get_capture_run_as_dataset_example, None)
+        app.dependency_overrides.pop(get_run_reader, None)
+    assert response.status_code == 404
+    assert response.json()["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_capture_rejects_missing_and_non_capturable_runs(app, client, auth_headers):
+    from application.dataset.save_run_as_example import RunNotCapturable
+
+    for record, expected_status in [
+        (None, 404),
+        (RunRecord(run_id="run-1", user_id="test-user", status="running"), 409),
+        (RunRecord(run_id="run-1", user_id="test-user", status="failed"), 409),
+        (RunRecord(run_id="run-1", user_id="test-user", status="cancelled"), 409),
+    ]:
+        reader = FakeRunReader(record)
+        capture = FakeCapture(error=RunNotCapturable("not capturable"))
+        app.dependency_overrides.update({get_run_reader: lambda: reader, get_capture_run_as_dataset_example: lambda: capture})
+        try:
+            response = await client.post("/api/runs/run-1/capture", json={"datasetId": 7}, headers=auth_headers)
+        finally:
+            app.dependency_overrides.pop(get_capture_run_as_dataset_example, None)
+            app.dependency_overrides.pop(get_run_reader, None)
+        assert response.status_code == expected_status
+        if record is None:
+            assert capture.calls == 0
 
 
 @pytest.mark.asyncio

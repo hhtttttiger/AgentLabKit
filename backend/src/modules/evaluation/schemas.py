@@ -88,26 +88,6 @@ class RunDetailResponse(CamelModel):
     results: list[RunResultResponse]
 
 
-class CaptureRunRequest(CamelModel):
-    """Transport input for the Run -> DatasetExample action."""
-
-    dataset_id: int
-    expected_output: Any | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class CaptureRunResponse(CamelModel):
-    dataset_id: str
-    source_run_id: str
-    example_id: str
-
-
-class CaptureRunResponseEnvelope(CamelModel):
-    success: bool
-    msg: str
-    data: CaptureRunResponse
-
-
 class EvaluationResultResponse(CamelModel):
     example_id: str
     score: float | None = None

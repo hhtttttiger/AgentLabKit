@@ -4,10 +4,22 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
-from application import ReplayRun
+from application import CaptureRunAsDatasetExample, ReplayRun
 from application.execution.run_projection import RunReader, RunRecord
 from common.errors import NotFoundError
 from application_adapters.agent_runtime import AgentRuntimeExecutor, BackendAgentReader
+
+
+def get_capture_run_as_dataset_example(request: Request) -> CaptureRunAsDatasetExample:
+    use_case = getattr(request.app.state, "capture_run_as_dataset_example", None)
+    if use_case is None:
+        raise RuntimeError("CaptureRunAsDatasetExample not initialized — check lifespan wiring")
+    return use_case
+
+
+CaptureRunAsDatasetExampleDep = Annotated[
+    CaptureRunAsDatasetExample, Depends(get_capture_run_as_dataset_example)
+]
 
 
 def get_run_reader(request: Request) -> RunReader:

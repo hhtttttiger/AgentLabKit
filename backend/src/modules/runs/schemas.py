@@ -10,6 +10,26 @@ from pydantic import Field
 from common.schemas import CamelModel
 
 
+class CaptureRunRequest(CamelModel):
+    """Transport input for the Run -> DatasetExample action."""
+
+    dataset_id: int
+    expected_output: Any | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class CaptureRunResponse(CamelModel):
+    dataset_id: str
+    source_run_id: str
+    example_id: str
+
+
+class CaptureRunResponseEnvelope(CamelModel):
+    success: bool
+    msg: str
+    data: CaptureRunResponse
+
+
 class RunResponse(CamelModel):
     """Public projection of the durable Runtime Run record."""
 
