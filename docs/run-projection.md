@@ -1,6 +1,7 @@
 # Durable Run Projection Boundary
 
-**Status: durable persistence and production wiring complete.** This document is
+**Status: durable persistence, production wiring, and the public read adapter are
+complete.** `GET /api/runs/{run_id}` consumes `RunReader` directly. This document is
 based on the current source. This slice does not add an HTTP route, alter Trace
 storage, or make `AgentExecutionAudit` authoritative.
 
@@ -202,6 +203,15 @@ return map_run_response(run)
 
 No Trace lookup, status calculation, identity fallback, or Runtime invocation
 belongs in that adapter.
+
+## HTTP read adapter
+
+The backend exposes `GET /api/runs/{run_id}` as a deliberately thin adapter.
+It maps the durable `RunRecord` to `RunResponse`; it does not read Trace,
+AgentExecutionAudit, or Runtime state. The endpoint is authenticated using the
+existing coarse-grained backend policy because `RunRecord` currently has no
+authoritative ownership field. Missing Runs return 404. List Runs and Replay
+remain deferred.
 
 ## Historical Runs and readiness
 

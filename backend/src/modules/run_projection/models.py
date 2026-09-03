@@ -39,6 +39,7 @@ class RunRecordModel(Base):
     projection_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
+        Index("ix_run_records_trace_id", "trace_id"),
         Index("ix_run_records_status", "status"),
         Index("ix_run_records_started_at", "started_at"),
     )

@@ -47,6 +47,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         sf = get_session_factory()
 
+        # Durable Run reads share the composition-root store with Runtime
+        # projection when the Runtime is enabled.
+        from modules.run_projection import SqlAlchemyRunStore
+
+        run_store = SqlAlchemyRunStore(sf)
+        app.state.run_reader = run_store
+
         # ── 核心模块（始终初始化，不依赖 gateway）──
         app.state.cost_analysis_module = build_cost_analysis_module(sf)
 
@@ -79,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 memory_module=app.state.memory_module,
                 obs_module=obs_module,
                 session_factory=sf,
+                run_store=run_store,
             )
             app.state.agent_definition_loader = agent_loader
             app.state.agent_runtime = agent_rt
@@ -159,3 +167,6 @@ def _register_routers(app: FastAPI) -> None:
 
     from modules.model_usage.router import router as model_usage_router
     app.include_router(model_usage_router, prefix="/api/model-usage", tags=["model-usage"], dependencies=_auth)
+
+    from modules.runs.router import router as runs_router
+    app.include_router(runs_router, prefix="/api/runs", tags=["runs"], dependencies=_auth)

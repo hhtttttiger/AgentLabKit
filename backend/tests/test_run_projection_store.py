@@ -11,10 +11,16 @@ from modules.run_projection.models import RunProjectionEventModel, RunRecordMode
 from modules.run_projection.store import _json_safe
 
 
-def test_run_id_is_the_database_primary_key_and_trace_is_not_identity():
+def test_run_id_is_the_database_primary_key_and_trace_is_indexed_association():
     table = RunRecordModel.__table__
     assert list(table.primary_key.columns.keys()) == ["run_id"]
-    assert table.c.trace_id.index is None
+    assert table.c.trace_id.primary_key is False
+    assert table.c.trace_id.unique is not True
+    assert any(
+        index.name == "ix_run_records_trace_id"
+        and [column.name for column in index.columns] == ["trace_id"]
+        for index in table.indexes
+    )
     ddl = str(CreateTable(table).compile(dialect=postgresql.dialect()))
     assert "PRIMARY KEY (run_id)" in ddl
 

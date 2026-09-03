@@ -1,12 +1,16 @@
 # Public Execution API and Run Resource Audit
 
-**Scope:** durable Run projection slice. No public endpoint, frontend contract, or application use case was changed.
+**Scope:** durable Run projection slice and the canonical public Run read adapter.
+`GET /api/runs/{run_id}` is implemented; no frontend contract or application use case was changed.
 
 **Sources inspected:** `backend/src/main.py`, the `ai_invoke`, `agent`, `observability`, `evaluation`, and `chat` modules, plus `packages/application`, `packages/agent_runtime`, `packages/observability`, and `packages/evaluation`. Source code, rather than historical plans, is authoritative for this report.
 
 ## Verdict
 
-### A — DURABLE RUN STORE READY
+### A — BORING RUN READ API READY
+
+`GET /api/runs/{run_id}` reads the durable `RunReader` projection directly. The
+HTTP adapter does not invoke Runtime or consult Trace or AgentAudit.
 
 The Runtime contract is sufficiently clear to define a public `Run` resource. A canonical `GET /api/runs/{run_id}` or `GET /api/runs` can now be implemented as a thin adapter over the authoritative durable Run read model.
 
@@ -109,7 +113,7 @@ A future `RunDetail` may add input/output and related identifiers, subject to pr
 | Public capability | Canonical resource | Application UC | Backend direct/query | Status |
 |---|---|---|---|---|
 | Execute Agent | Run | `ExecuteAgent` | — | Existing via `/api/ai/invoke`; compatibility facade |
-| Get Run | Run | — | `RunReader` / durable Run read model | Ready for HTTP adapter |
+| Get Run | Run | — | `RunReader` / durable Run read model | Implemented: `GET /api/runs/{run_id}` |
 | List Runs | Run | — | Not in current `RunReader` contract | Deferred until list contract is defined |
 | Get Trace | Trace | — | `TraceStore` | Existing |
 | List Traces | Trace | — | `TraceStore` | Existing |
@@ -145,9 +149,24 @@ No current public/domain checkpoint contract was found that establishes whether 
 
 Intentional breaking changes: **none**.
 
-## Required next design step
+## Implemented Run read adapter
 
-Implement the intentionally boring HTTP adapter over `RunReader.get_run(run_id)`, including authorization and response mapping. It must preserve Runtime identity/status/timestamps and must not query Trace or Audit.
+`GET /api/runs/{run_id}` is the canonical AgentRun resource endpoint. It is an
+authenticated, single-row read over `RunReader.get_run(run_id)`, mapped to the
+public `RunResponse` DTO. The endpoint returns 404 when the durable Run does
+not exist. `traceId` is only the stored association; Trace and AgentAudit are
+not queried, and no status or timestamp is reconstructed.
+
+The current Run projection does not carry sufficient ownership data for
+resource-level authorization. Until an ownership model is established, the
+endpoint follows the backend's existing coarse-grained rule: any authenticated
+user may read a Run. This limitation is intentional and must be resolved before
+exposing broader payloads or user-scoped listing.
+
+## Next design step
+
+Implement resource-level ownership authorization once the authoritative
+ownership model is clarified. Do not infer it from Trace or AgentAudit.
 
 ## Deferred work
 

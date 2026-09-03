@@ -167,6 +167,7 @@ def build_agent_runtime(
     memory_module: Any | None = None,
     obs_module: Any,
     session_factory: Any,
+    run_store: Any | None = None,
 ) -> tuple[Any, Any]:
     """构造 Agent Runtime（definition-aware）。
 
@@ -213,7 +214,7 @@ def build_agent_runtime(
     # Run projection is a sibling RuntimeEvent consumer to observability.
     # Both the event skeleton and terminal Runtime snapshot use the same
     # durable adapter; neither reads Trace or AgentExecutionAudit.
-    run_store = SqlAlchemyRunStore(session_factory)
+    run_store = run_store or SqlAlchemyRunStore(session_factory)
     run_projector = RunProjector(run_store)
     agent_runtime = create_agent_runtime(
         settings=AgentSettings(enable_mcp=True),
