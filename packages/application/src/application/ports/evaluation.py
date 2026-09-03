@@ -2,6 +2,9 @@ from typing import Any, Protocol
 
 from evaluation.contracts_v2 import EvaluationContext, EvaluationResult
 
+class EvaluationConfigurationReader(Protocol):
+    async def get_configuration(self, config_id: str): ...
+
 class TraceReader(Protocol):
     async def get_spans(self, trace_id: str) -> list[Any] | None: ...
 
