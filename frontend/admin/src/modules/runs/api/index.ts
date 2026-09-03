@@ -1,8 +1,6 @@
-/**
- * Runs API — Re-exports from client.ts for backward compatibility.
- *
- * New code should import from './client' directly.
- */
-
-export { listRuns, getRun, getRunEvents, getRunCost, getRunEvaluation, replayRun } from './client';
-export type { RunListResponseDto, RunDetailDto, RunEventsResponseDto, RunCostDto, RunEvaluationDto } from './dto';
+export { getRun, replayRun, captureRun } from './client';
+export type {
+  CaptureRunRequest, CaptureRunResponse, CompareEvaluationRunsDto,
+  CompareEvaluationRunsRequest, EvaluationExampleComparisonDto,
+  EvaluationResultDto, ReplayRunDto, RunDetailDto,
+} from './dto';

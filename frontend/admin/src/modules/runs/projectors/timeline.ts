@@ -87,7 +87,9 @@ function status(event: RunEvent, kind: RunTimelineItem['type']): string {
   if (typeof value === 'string') return value;
   if (event.type === 'run.cancelled') return 'cancelled';
   if (event.type === 'guardrail.blocked') return 'blocked';
-  if (kind === 'error' || event.type.endsWith('.failed') || event.type.endsWith('_failed')) {
+  const failureEvent = EVENT_PROJECTIONS[event.type]?.kind === 'error' ||
+    event.type === 'error' || event.type === 'exception';
+  if (kind === 'error' || failureEvent) {
     return event.type === 'error' || event.type === 'exception' ? 'error' : 'failed';
   }
   return 'ok';

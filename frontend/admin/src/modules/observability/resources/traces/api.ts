@@ -29,10 +29,6 @@ export function getTraceStats(days = 7) {
   return apiRequest<TraceStatsData>('/api/traces/stats', { query: { days } });
 }
 
-export function getTraceByRun(runId: string) {
-  return apiRequest<TraceDetailResponse>(`/api/traces/by-run/${runId}`);
-}
-
 export function getIngestionHealth() {
   return apiRequest<IngestionHealth>('/api/traces/ingestion-health');
 }

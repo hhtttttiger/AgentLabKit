@@ -5,11 +5,11 @@
  * They are NOT backend domain entities.
  */
 
-export type RunStatus = 'success' | 'failed' | 'running' | 'queued' | 'cancelled' | 'unknown';
+export type RunStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'unknown';
 
 export interface RunSummary {
   id: string;
-  agentKey: string;
+  agentKey: string | null;
   agentVersion: string | null;
   status: RunStatus;
   durationMs: number | null;

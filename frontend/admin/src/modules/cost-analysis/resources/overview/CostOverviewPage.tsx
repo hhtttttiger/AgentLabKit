@@ -163,7 +163,7 @@ export function CostOverviewPage() {
                   </td>
                   <td className="py-2 text-right">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      run.status === 'success' ? 'bg-success/10 text-success' :
+                      run.status === 'completed' ? 'bg-success/10 text-success' :
                       run.status === 'failed' ? 'bg-error/10 text-error' :
                       run.status === 'running' ? 'bg-primary/10 text-primary' :
                       'bg-text-muted/10 text-text-muted'
