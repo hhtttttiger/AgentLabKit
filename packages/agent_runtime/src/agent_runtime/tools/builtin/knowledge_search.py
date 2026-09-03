@@ -99,44 +99,30 @@ class KnowledgeSearchTool:
             )
 
         try:
-            if context.knowledge_bindings is not None:
-                if not context.knowledge_bindings:
-                    return ToolResult(
-                        output=_stringify_chunks([]),
-                        structured_data={
-                            "chunks": [],
-                            "knowledge_base_ids": [],
-                            "binding_config_versions": [],
-                        },
-                        status="success",
-                    )
-                scoped_search = getattr(self._provider, "search_bound_knowledge_bases", None)
-                if scoped_search is None:
-                    return ToolResult(
-                        output="",
-                        status="error",
-                        error_message="Knowledge provider does not support scoped knowledge bindings.",
-                    )
-                raw = scoped_search(
-                    knowledge_bindings=list(context.knowledge_bindings),
+            observer = context.observers.retrieval if context.observers is not None else None
+            knowledge_base_ids = tuple(
+                binding.knowledge_base_id for binding in context.knowledge_bindings or ()
+            )
+            observation_scope = (
+                observer.observe(
                     query=query,
+                    source="knowledge",
+                    knowledge_base_ids=knowledge_base_ids,
                     top_k=top_k,
-                    agent_key=context.agent_key,
-                    agent_version=context.agent_version,
                 )
+                if observer is not None else None
+            )
+            if observation_scope is not None:
+                async with observation_scope as observation:
+                    chunks = await self._search(context, query, top_k)
+                    observation.set_results(chunks)
             else:
-                raw = self._provider.search(query, top_k)
-            if inspect.isawaitable(raw):
-                chunks: list[KnowledgeChunk] = await raw
-            else:
-                chunks = raw
+                chunks = await self._search(context, query, top_k)
             return ToolResult(
                 output=_stringify_chunks(chunks),
                 structured_data={
                     "chunks": [c.model_dump() for c in chunks],
-                    "knowledge_base_ids": [
-                        binding.knowledge_base_id for binding in context.knowledge_bindings or ()
-                    ],
+                    "knowledge_base_ids": list(knowledge_base_ids),
                     "binding_config_versions": [
                         binding.config_version for binding in context.knowledge_bindings or ()
                     ],
@@ -149,6 +135,27 @@ class KnowledgeSearchTool:
                 status="error",
                 error_message=str(exc),
             )
+
+    async def _search(self, context: ToolExecutionContext, query: str, top_k: int) -> list[KnowledgeChunk]:
+        """Run exactly one provider attempt; the observer wraps this method."""
+        if context.knowledge_bindings is not None:
+            if not context.knowledge_bindings:
+                return []
+            scoped_search = getattr(self._provider, "search_bound_knowledge_bases", None)
+            if scoped_search is None:
+                raise RuntimeError("Knowledge provider does not support scoped knowledge bindings.")
+            raw = scoped_search(
+                knowledge_bindings=list(context.knowledge_bindings),
+                query=query,
+                top_k=top_k,
+                agent_key=context.agent_key,
+                agent_version=context.agent_version,
+            )
+        else:
+            raw = self._provider.search(query, top_k)
+        if inspect.isawaitable(raw):
+            return await raw
+        return raw
 
 
 # ---------------------------------------------------------------------------

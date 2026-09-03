@@ -9,11 +9,34 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol, runtime_checkable
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, AsyncContextManager, Callable, Literal, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from llm_gateway import UsageInfo
     from agent_runtime.definition.models import KnowledgeBindingSnapshot
+    from agent_runtime.contracts.models import KnowledgeChunk
+
+
+class RetrievalObservation(Protocol):
+    def set_results(self, results: Sequence["KnowledgeChunk"]) -> None: ...
+
+
+class RetrievalObserver(Protocol):
+    def observe(
+        self,
+        *,
+        query: str,
+        source: str,
+        knowledge_base_ids: Sequence[str] = (),
+        top_k: int | None = None,
+        search_mode: str | None = None,
+    ) -> AsyncContextManager[RetrievalObservation]: ...
+
+
+@dataclass(slots=True)
+class ToolExecutionObservers:
+    retrieval: RetrievalObserver | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +120,7 @@ class ToolExecutionContext:
     customer_id: str | None = None
     locale: str | None = None
     metadata: dict[str, str] = field(default_factory=dict)
+    observers: ToolExecutionObservers | None = None
 
 
 # ---------------------------------------------------------------------------

@@ -317,9 +317,9 @@ class ToolRegistry:
         """Expose the underlying :class:`DynamicToolRegistry` for direct use."""
         return self._dynamic
 
-    def build_execution_context(self, deps: Any) -> ToolExecutionContext:
+    def build_execution_context(self, deps: Any, observers=None) -> ToolExecutionContext:
         """Build the runtime context object injected into tool handlers."""
-        return _build_execution_context_from_deps(deps)
+        return _build_execution_context_from_deps(deps, observers=observers)
 
     # ------------------------------------------------------------------
     # Registration proxy
@@ -427,6 +427,7 @@ class ToolRegistry:
         deps: Any,
         allowed_tool_names: frozenset[str] | None = None,
         tool_bindings: list[ToolBinding] | None = None,
+        observers=None,
     ) -> ToolResult:
         """Execute a tool and return the structured :class:`ToolResult`."""
         prepared = self.prepare_tool_execution(
@@ -449,7 +450,7 @@ class ToolRegistry:
             self._dynamic,
             tool_name,
             arguments,
-            self.build_execution_context(deps),
+            self.build_execution_context(deps, observers=observers),
         )
         self.record_tool_result(
             deps=deps,
@@ -468,7 +469,9 @@ class ToolRegistry:
         deps: Any,
         allowed_tool_names: frozenset[str] | None = None,
         tool_bindings: list[ToolBinding] | None = None,
-    ) -> str:
+        observers=None,
+        return_result: bool = False,
+    ) -> str | ToolResult:
         """Execute a tool by name, applying legacy ``settings`` guards.
 
         Uses :class:`ToolExecutor` internally for timeout and error isolation.
@@ -483,8 +486,9 @@ class ToolRegistry:
             deps=deps,
             allowed_tool_names=allowed_tool_names,
             tool_bindings=tool_bindings,
+            observers=observers,
         )
-        return self.unwrap_tool_result(tool_name, result)
+        return result if return_result else self.unwrap_tool_result(tool_name, result)
 
     async def search_knowledge(
         self,
@@ -561,7 +565,7 @@ class ToolRegistry:
         return result
 
 
-def _build_execution_context_from_deps(deps: Any) -> ToolExecutionContext:  # noqa: ANN401
+def _build_execution_context_from_deps(deps: Any, observers=None) -> ToolExecutionContext:  # noqa: ANN401
     """Best-effort extraction of tool execution context from runtime deps."""
     request = getattr(deps, "request", None)
     session_state = getattr(deps, "session_state", None)
@@ -613,6 +617,7 @@ def _build_execution_context_from_deps(deps: Any) -> ToolExecutionContext:  # no
             or getattr(session_state, "locale", None)
         ),
         metadata=metadata,
+        observers=observers,
     )
 
 

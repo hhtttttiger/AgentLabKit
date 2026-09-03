@@ -363,6 +363,8 @@ class KnowledgeRetrievalService(BaseRetrievalService):
                     text=seg.content,
                     source=title,
                     score=round(scores[sid], 6),
+                    document_id=doc_id,
+                    segment_id=str(seg.id),
                     metadata={
                         **(seg.extra_json.get("metadata", {}) if seg.extra_json else {}),
                         "document_id": doc_id,
@@ -418,6 +420,8 @@ class KnowledgeRetrievalService(BaseRetrievalService):
                     text=seg.content,
                     source=title,
                     score=round(score_map.get(vr.id, 0.0), 6),
+                    document_id=doc_id,
+                    segment_id=str(seg.id),
                     metadata={
                         **(seg.extra_json.get("metadata", {}) if seg.extra_json else {}),
                         "document_id": doc_id,
@@ -441,11 +445,14 @@ class KnowledgeRetrievalService(BaseRetrievalService):
         batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
         all_results: List[SearchResult] = []
-        for r in batch_results:
+        for kb_id, r in zip(kb_ids, batch_results):
             if isinstance(r, Exception):
                 logger.warning(f"Multi-KB search partial failure: {r}")
                 continue
             if isinstance(r, list):
+                for result in r:
+                    # The KB scope is authoritative and known at this boundary.
+                    result.knowledge_base_id = kb_id
                 all_results.extend(r)
 
         all_results.sort(key=lambda r: -r.score)

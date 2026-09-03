@@ -33,6 +33,9 @@ class KnowledgeChunk(BaseModel):
     title: str | None = None
     source: str | None = None
     score: float | None = None
+    knowledge_base_id: str | None = None
+    document_id: str | None = None
+    segment_id: str | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
 
 

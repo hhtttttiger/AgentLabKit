@@ -26,7 +26,7 @@ from enum import Enum  # noqa: F401 — used by QueueMode
 from typing import Any
 from uuid import uuid4
 
-from ..tools.contracts import ToolExecutionMode
+from ..tools.contracts import ToolExecutionMode, ToolExecutionObservers, ToolResult
 from ..contracts.models import AgentMessage, AgentRole
 from ..errors import AgentError, AgentErrorCode
 from ..event_bus import EventBus
@@ -129,7 +129,7 @@ def _make_semantic_emit(
         event.run_id = run_id
         event.trace_id = trace_id
         # If the event already has a span_id (set by caller), derive parent
-        if event.span_id is not None and span_ctx is not None:
+        if event.span_id is not None and span_ctx is not None and event.parent_span_id is None:
             event.parent_span_id = span_ctx.parent_span_id
         # Propagate agent_key to LLM events for CostProjector
         if agent_key and hasattr(event, "agent_key") and not event.agent_key:
@@ -223,10 +223,7 @@ class LoopConfig:
     after_tool_call: Callable[[str, dict, str, bool], Awaitable[str | None]] | None = None
 
     # Tool executor — called by the loop to execute a tool
-    tool_executor: Callable[
-        [str, dict[str, Any], str],  # (tool_name, arguments, tool_call_id)
-        Awaitable[tuple[str, bool]],  # (result_text, is_error)
-    ] | None = None
+    tool_executor: Callable[..., Awaitable[ToolResult]] | None = None
 
 
 @dataclass
@@ -697,13 +694,20 @@ async def _run_loop_body(
                 import time as _time
                 _tool_start = _time.monotonic()
                 try:
-                    result_text, is_error = await _execute_tool(
+                    from .retrieval_observer import RuntimeRetrievalObserver
+                    observers = ToolExecutionObservers(
+                        retrieval=RuntimeRetrievalObserver(semantic_emit, span_ctx)
+                    ) if semantic_emit is not None and span_ctx is not None else None
+                    tool_result = await _execute_tool(
                         tool_name=directive.tool_name,
                         arguments=directive.arguments,
                         tool_call_id=tool_call_id,
                         config=config,
                         emit=emit,
+                        observers=observers,
                     )
+                    result_text = tool_result.output
+                    is_error = tool_result.status != "success"
                 except Exception as exc:
                     # Tool invocation itself failed — emit ToolCallFailed (2.4, 3.1)
                     _tool_duration_ms = int((_time.monotonic() - _tool_start) * 1000)
@@ -921,13 +925,15 @@ async def _run_streaming_loop_body(
                     source_ref=source_ref2,
                 ))
 
-                result_text, is_error = await _execute_tool(
+                tool_result = await _execute_tool(
                     tool_name=directive.tool_name,
                     arguments=directive.arguments,
                     tool_call_id=tool_call_id,
                     config=config,
                     emit=emit,
                 )
+                result_text = tool_result.output
+                is_error = tool_result.status != "success"
 
                 await emit(ToolExecutionEndEvent(
                     tool_call_id=tool_call_id,
@@ -1003,34 +1009,45 @@ async def _execute_tool(
     tool_call_id: str,
     config: LoopConfig,
     emit: EventSink,
-) -> tuple[str, bool]:
+    observers: ToolExecutionObservers | None = None,
+) -> ToolResult:
     """Execute a single tool call.
 
     Calls ``before_tool_call`` hook, executes via ``config.tool_executor``,
     then calls ``after_tool_call`` hook.
 
     Returns:
-        ``(result_text, is_error)`` tuple.
+        The canonical typed ``ToolResult``.
     """
     # Before hook
     if config.before_tool_call is not None:
         block_reason = await config.before_tool_call(tool_name, arguments)
         if block_reason is not None:
-            return block_reason, True
+            return ToolResult(output=block_reason, status="error", error_message=block_reason)
 
     # Execute
     if config.tool_executor is None:
         return f"Tool '{tool_name}' has no executor configured.", True
 
-    result_text, is_error = await config.tool_executor(tool_name, arguments, tool_call_id)
+    try:
+        result = await config.tool_executor(tool_name, arguments, tool_call_id, observers)
+    except TypeError:
+        # Compatibility for legacy loop callers with the former 3-argument callback.
+        result = await config.tool_executor(tool_name, arguments, tool_call_id)
+
+    if not isinstance(result, ToolResult):
+        result = ToolResult(output=str(result), status="success")
+    result_text = result.output
+    is_error = result.status != "success"
 
     # After hook
     if config.after_tool_call is not None:
         override = await config.after_tool_call(tool_name, arguments, result_text, is_error)
         if override is not None:
+            result.output = override
             result_text = override
 
-    return result_text, is_error
+    return result
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

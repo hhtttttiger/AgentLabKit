@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from ..contracts.models import AgentTurnStreamEvent, ToolExecutionRecord
 from ..errors import AgentError, AgentErrorCode
-from ..tools.contracts import ToolResult
+from ..tools.contracts import ToolExecutionObservers, ToolResult
 
 if TYPE_CHECKING:
     from ..config import AgentSettings
@@ -41,7 +41,8 @@ class ToolExecution:
         allowed_tool_names: frozenset[str] | None,
         tool_bindings: list[ToolBinding] | None,
         guards_pipeline=None,
-    ) -> str:
+        observers: ToolExecutionObservers | None = None,
+    ) -> ToolResult:
         """Execute a single tool call with guard checks."""
         self._ensure_tool_allowed(tool_name, allowed_tool_names)
         guarded_arguments, blocked_output = await self._run_tool_guards(
@@ -52,16 +53,19 @@ class ToolExecution:
             guards_pipeline=guards_pipeline,
         )
         if blocked_output is not None:
-            return blocked_output
+            return ToolResult(output=blocked_output, status="error", error_message=blocked_output)
 
-        invoke = self.tool_registry.invoke_tool(
-            tool_name=tool_name,
-            arguments=guarded_arguments,
-            settings=settings,
-            deps=deps,
-            allowed_tool_names=allowed_tool_names,
-            tool_bindings=tool_bindings,
-        )
+        invoke_kwargs = {
+            "tool_name": tool_name,
+            "arguments": guarded_arguments,
+            "settings": settings,
+            "deps": deps,
+            "allowed_tool_names": allowed_tool_names,
+            "tool_bindings": tool_bindings,
+        }
+        if observers is not None:
+            invoke_kwargs.update(observers=observers, return_result=True)
+        invoke = self.tool_registry.invoke_tool(**invoke_kwargs)
 
         # Voice timeout support
         from ..channels.voice import voice_tool_timeout_seconds, voice_tool_fallback_output
@@ -69,8 +73,12 @@ class ToolExecution:
         voice_timeout = voice_tool_timeout_seconds(request)
         try:
             if voice_timeout is None:
-                return await invoke
-            return await asyncio.wait_for(invoke, timeout=voice_timeout)
+                result = await invoke
+            else:
+                result = await asyncio.wait_for(invoke, timeout=voice_timeout)
+            if isinstance(result, ToolResult):
+                return result
+            return ToolResult(output=str(result), status="success")
         except (TimeoutError, ValueError) as exc:
             if voice_timeout is None:
                 raise

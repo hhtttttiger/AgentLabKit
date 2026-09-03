@@ -55,6 +55,7 @@ from ..contracts.models import (
     HandoffTarget,
     ToolExecutionRecord,
 )
+from ..tools.contracts import ToolResult
 from ..contracts.run import AgentRun, ExecutionContext, RunError, RunStatus, RunTarget, RunUsage
 from ..definition.loader import AgentDefinitionLoader
 from ..definition.models import (
@@ -1193,6 +1194,7 @@ class AgentRuntime:
                             tool_bindings=tool_bindings,
                             guards_pipeline=self.guards_pipeline,
                         )
+                        tool_output = tool_output.output if isinstance(tool_output, ToolResult) else str(tool_output)
                         stream_usage = self._merge_usage(stream_usage, usage)
                         stream_usage = self._drain_delegation_usage(stream_usage, deps)
 
@@ -1935,7 +1937,8 @@ class AgentRuntime:
             tool_name: str,
             arguments: dict[str, Any],
             tool_call_id: str,
-        ) -> tuple[str, bool]:
+            observers=None,
+        ) -> ToolResult:
             try:
                 result = await self._tool_exec.execute_tool_call(
                     request=request,
@@ -1946,12 +1949,13 @@ class AgentRuntime:
                     allowed_tool_names=prepared.auto_tool_names,
                     tool_bindings=prepared.tool_bindings,
                     guards_pipeline=self.guards_pipeline,
+                    observers=observers,
                 )
-                return result, False
+                return result
             except AgentError as exc:
-                return exc.message, True
+                return ToolResult(output=exc.message, status="error", error_message=exc.message)
             except Exception as exc:
-                return str(exc), True
+                return ToolResult(output=str(exc), status="error", error_message=str(exc))
         return executor
 
     @staticmethod
@@ -1999,10 +2003,11 @@ class AgentRuntime:
 
     async def _execute_tool_call(self, **kwargs) -> str:
         """Backward compat proxy — delegates to ToolExecution."""
-        return await self._tool_exec.execute_tool_call(
+        result = await self._tool_exec.execute_tool_call(
             guards_pipeline=self.guards_pipeline,
             **kwargs,
         )
+        return result.output if isinstance(result, ToolResult) else str(result)
 
     async def _execute_streaming_delegate_tool_call(self, **kwargs) -> AsyncIterator[AgentTurnStreamEvent]:
         """Backward compat proxy — delegates to ToolExecution."""

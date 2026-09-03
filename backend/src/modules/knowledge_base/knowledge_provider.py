@@ -68,6 +68,9 @@ class BackendKnowledgeProvider:
                 title=r.source or None,
                 source=r.source or None,
                 score=r.score,
+                knowledge_base_id=r.knowledge_base_id,
+                document_id=r.document_id,
+                segment_id=r.segment_id,
                 metadata={
                     k: str(v)
                     for k, v in r.metadata.items()

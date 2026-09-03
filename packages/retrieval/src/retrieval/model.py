@@ -129,6 +129,10 @@ class SearchResult(BaseModel):
     text: str             # 文本内容
     source: str = ""      # 来源（文件名或 URL）
     score: float = 0.0    # 相关性评分
+    # Canonical provenance when supplied by a native backing store.
+    knowledge_base_id: str | None = None
+    document_id: str | None = None
+    segment_id: str | None = None
     metadata: dict = Field(default_factory=dict)   # 扩展元数据
 
 class GraphNode(BaseModel):

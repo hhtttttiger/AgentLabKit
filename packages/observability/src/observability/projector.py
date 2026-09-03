@@ -355,6 +355,9 @@ class TraceProjector:
         self._open_span(run_id, event, name="retrieval.query", attributes={
             "retrieval.query": str(getattr(event, "query", ""))[:200],
             "retrieval.source": getattr(event, "source", ""),
+            "retrieval.knowledge_base_ids": list(getattr(event, "knowledge_base_ids", ())),
+            "retrieval.top_k": getattr(event, "top_k", None),
+            "retrieval.search_mode": getattr(event, "search_mode", None),
         })
 
     def _handle_retrieval_completed(self, event: Any, run_id: str) -> None:
@@ -363,6 +366,18 @@ class TraceProjector:
             attrs = dict(span.attributes)
             attrs["retrieval.result_count"] = getattr(event, "result_count", 0)
             attrs["retrieval.duration_ms"] = getattr(event, "duration_ms", 0)
+            attrs["retrieval.results"] = [
+                {
+                    "knowledge_base_id": ref.knowledge_base_id,
+                    "document_id": ref.document_id,
+                    "segment_id": ref.segment_id,
+                    "score": ref.score,
+                    "title": ref.title,
+                    "source": ref.source,
+                    "content_preview": ref.content_preview,
+                }
+                for ref in getattr(event, "results", ())
+            ]
             spans = self._spans.get(run_id, [])
             for i, s in enumerate(spans):
                 if s.span_id == span.span_id:
@@ -384,7 +399,14 @@ class TraceProjector:
                     break
 
     def _handle_retrieval_failed(self, event: Any, run_id: str) -> None:
-        self._close_span_by_id(run_id, event, error=True)
+        span = self._close_span_by_id(run_id, event, error=True)
+        if span is not None:
+            self._update_completed_span(
+                run_id,
+                span.span_id,
+                attributes={"retrieval.error_message": str(getattr(event, "error_message", ""))[:500]},
+                status="error",
+            )
 
     # ── Guardrails (4.7) ────────────────────────────────────────────
 

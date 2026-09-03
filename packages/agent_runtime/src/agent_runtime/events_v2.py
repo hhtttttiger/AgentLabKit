@@ -222,12 +222,28 @@ class ToolCallFailed(RuntimeEvent):
 # ── Retrieval ───────────────────────────────────────────────────────
 
 
+@dataclass(frozen=True)
+class RetrievalResultRef:
+    """Bounded, execution-time provenance for one retrieval result."""
+
+    knowledge_base_id: str | None = None
+    document_id: str | None = None
+    segment_id: str | None = None
+    score: float | None = None
+    title: str | None = None
+    source: str | None = None
+    content_preview: str | None = None
+
+
 @dataclass
 class RetrievalStarted(RuntimeEvent):
     """Retrieval 操作开始。"""
     event_type: str = "retrieval.started"
     query: str = ""
     source: str = ""
+    knowledge_base_ids: tuple[str, ...] = ()
+    top_k: int | None = None
+    search_mode: str | None = None
 
 
 @dataclass
@@ -236,6 +252,7 @@ class RetrievalCompleted(RuntimeEvent):
     event_type: str = "retrieval.completed"
     result_count: int = 0
     duration_ms: int = 0
+    results: tuple[RetrievalResultRef, ...] = ()
 
 
 @dataclass
@@ -360,6 +377,7 @@ __all__ = [
     "ToolCallCompleted",
     "ToolCallFailed",
     # Retrieval
+    "RetrievalResultRef",
     "RetrievalStarted",
     "RetrievalCompleted",
     "RetrievalFailed",
