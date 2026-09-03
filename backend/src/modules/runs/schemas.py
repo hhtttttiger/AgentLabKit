@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from agent_runtime.contracts.run import AgentRun
+from application.execution.run_projection import RunRecord
 from pydantic import Field
 
 from common.schemas import CamelModel
@@ -49,31 +51,46 @@ class ReplayRunResponseEnvelope(CamelModel):
     data: ReplayRunResponse
 
 
-def to_run_response(record: Any) -> RunResponse:
-    """Map either a durable RunRecord or the Runtime's newly returned AgentRun."""
-    target = getattr(record, "target", None)
-    target_type = getattr(record, "target_type", None)
-    target_key = getattr(record, "target_key", None)
-    target_version = getattr(record, "target_version", None)
-    if target is not None:
-        target_type = target_type or target.type
-        target_key = target_key or target.agent_key or target.workflow_id
-        target_version = target_version or target.agent_version or target.workflow_version
-    error = getattr(record, "error", None)
+def run_record_to_response(record: RunRecord) -> RunResponse:
+    """Mechanically map the durable Run projection to its transport DTO."""
     return RunResponse(
         run_id=record.run_id,
         trace_id=record.trace_id,
-        status=record.status.value if hasattr(record.status, "value") else record.status,
-        target_type=target_type,
-        target_key=target_key,
-        target_version=target_version,
+        status=record.status,
+        target_type=record.target_type,
+        target_key=record.target_key,
+        target_version=record.target_version,
         input=record.input,
         output=record.output,
         started_at=record.started_at,
-        completed_at=getattr(record, "completed_at", None) or getattr(record, "finished_at", None),
-        duration_ms=getattr(record, "duration_ms", None),
+        completed_at=record.completed_at,
+        duration_ms=record.duration_ms,
         session_id=record.session_id,
-        error_code=getattr(record, "error_code", None) or (error.code if error else None),
-        error_message=getattr(record, "error_message", None) or (error.message if error else None),
+        error_code=record.error_code,
+        error_message=record.error_message,
         metadata=dict(record.metadata),
+    )
+
+
+def agent_run_to_response(run: AgentRun) -> RunResponse:
+    """Mechanically map a Runtime result without reading the durable store."""
+    target = run.target
+    target_key = target.agent_key if target.agent_key is not None else target.workflow_id
+    target_version = target.agent_version if target.agent_version is not None else target.workflow_version
+    return RunResponse(
+        run_id=run.run_id,
+        trace_id=run.trace_id,
+        status=run.status.value,
+        target_type=target.type,
+        target_key=target_key,
+        target_version=target_version,
+        input=run.input,
+        output=run.output,
+        started_at=run.started_at,
+        completed_at=run.finished_at,
+        duration_ms=run.duration_ms,
+        session_id=run.session_id,
+        error_code=run.error.code if run.error is not None else None,
+        error_message=run.error.message if run.error is not None else None,
+        metadata=dict(run.metadata),
     )
