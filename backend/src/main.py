@@ -21,6 +21,7 @@ from runtime.bootstrap import (
 )
 from runtime.web_modules import (
     build_agent_runtime,
+    build_capture_run_as_dataset_example,
     build_cost_analysis_module,
     build_evaluation_module,
     build_memory_module,
@@ -53,6 +54,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         run_store = SqlAlchemyRunStore(sf)
         app.state.run_reader = run_store
+        app.state.capture_run_as_dataset_example = build_capture_run_as_dataset_example(
+            session_factory=sf,
+            run_reader=run_store,
+        )
 
         # ── 核心模块（始终初始化，不依赖 gateway）──
         app.state.cost_analysis_module = build_cost_analysis_module(sf)

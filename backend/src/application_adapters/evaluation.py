@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import func, select
 
 from application import EvaluationConfiguration
+from application.ports.datasets import DatasetExampleWriter
 from evaluation.contracts import EvalCase, EvalRunConfig
 from evaluation.contracts_v2 import (
     DatasetExample,
@@ -15,6 +16,7 @@ from evaluation.contracts_v2 import (
     eval_run_result_to_evaluation_result,
 )
 from modules.evaluation.models import EvalCase as EvalCaseModel, EvalRun, EvalRunConfig as EvalRunConfigModel, EvalRunResult
+from modules.evaluation.services.dataset_service import DatasetService
 
 
 class BackendEvaluationConfigurationReader:
@@ -34,6 +36,27 @@ class BackendEvaluationConfigurationReader:
             )
 
 
+class BackendDatasetExampleWriter(DatasetExampleWriter):
+    """Mechanical adapter to the existing Evaluation DatasetService."""
+
+    def __init__(self, session_factory: Any) -> None:
+        self._factory = session_factory
+
+    async def create_example(self, *, dataset_id: str, input_text: Any,
+                             expected_output: Any | None,
+                             metadata: Any, source_run_id: str,
+                             source_trace_id: str | None):
+        async with self._factory() as session:
+            return await DatasetService(session).create_example(
+                dataset_id=dataset_id,
+                input_text=input_text,
+                expected_output=expected_output,
+                metadata=dict(metadata),
+                source_run_id=source_run_id,
+                source_trace_id=source_trace_id,
+            )
+
+
 class BackendEvaluationDatasetReader:
     def __init__(self, session_factory: Any) -> None:
         self._factory = session_factory
@@ -45,12 +68,18 @@ class BackendEvaluationDatasetReader:
                 .where(EvalCaseModel.dataset_id == int(dataset_id))
                 .order_by(EvalCaseModel.case_index)
             )
-            return [DatasetExample(
-                example_id=str(row.id), dataset_id=str(row.dataset_id),
-                input_text=row.input_text, expected_output=row.expected_output,
-                context=list(row.context_json or []), tags=list(row.tags_json or []),
-                metadata=dict(row.metadata_json or {}),
-            ) for row in result.scalars().all()]
+            examples = []
+            for row in result.scalars().all():
+                metadata = dict(row.metadata_json or {})
+                examples.append(DatasetExample(
+                    example_id=str(row.id), dataset_id=str(row.dataset_id),
+                    input_text=row.input_text, expected_output=row.expected_output,
+                    context=list(row.context_json or []), tags=list(row.tags_json or []),
+                    metadata=metadata,
+                    source_run_id=metadata.get("source_run_id"),
+                    source_trace_id=metadata.get("source_trace_id"),
+                ))
+            return examples
 
 
 class BackendEvaluationRunStore:

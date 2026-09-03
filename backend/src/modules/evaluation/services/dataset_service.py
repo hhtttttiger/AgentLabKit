@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.errors import NotFoundError
+from evaluation.contracts_v2 import DatasetExample
 from ..models import EvalDataset, EvalCase
 
 
@@ -50,6 +51,47 @@ class DatasetService:
             select(EvalCase).where(EvalCase.dataset_id == dataset_id).order_by(EvalCase.case_index)
         )
         return [self._to_case_view(c) for c in result.scalars().all()]
+
+    async def create_example(
+        self,
+        *,
+        dataset_id: str,
+        input_text,
+        expected_output=None,
+        metadata: dict | None = None,
+        source_run_id: str,
+        source_trace_id: str | None = None,
+    ) -> DatasetExample:
+        """Create one DatasetExample and let the database own its identity."""
+        result = await self._db.execute(
+            select(EvalDataset).where(EvalDataset.id == int(dataset_id), EvalDataset.is_active == True)
+        )
+        dataset = result.scalar_one_or_none()
+        if dataset is None:
+            raise NotFoundError("Dataset", str(dataset_id))
+
+        case = EvalCase(
+            dataset_id=dataset.id,
+            case_index=dataset.case_count,
+            input_text=input_text,
+            expected_output=expected_output,
+            metadata_json=dict(metadata or {}),
+        )
+        self._db.add(case)
+        dataset.case_count += 1
+        await self._db.flush()
+        await self._db.refresh(case)
+        return DatasetExample(
+            example_id=str(case.id),
+            dataset_id=str(case.dataset_id),
+            input_text=case.input_text,
+            expected_output=case.expected_output,
+            context=list(case.context_json or []),
+            tags=list(case.tags_json or []),
+            metadata=dict(case.metadata_json or {}),
+            source_run_id=source_run_id,
+            source_trace_id=source_trace_id,
+        )
 
     async def create_cases(self, dataset_id: int, cases: list[dict]) -> dict:
         result = await self._db.execute(select(EvalDataset).where(EvalDataset.id == dataset_id))

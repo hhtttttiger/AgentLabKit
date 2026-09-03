@@ -9,6 +9,17 @@ from __future__ import annotations
 from typing import Any
 
 
+def build_capture_run_as_dataset_example(*, session_factory: Any, run_reader: Any) -> Any:
+    """Compose the framework-neutral capture use case with backend capabilities."""
+    from application import CaptureRunAsDatasetExample
+    from application_adapters.evaluation import BackendDatasetExampleWriter
+
+    return CaptureRunAsDatasetExample(
+        runs=run_reader,
+        datasets=BackendDatasetExampleWriter(session_factory),
+    )
+
+
 def build_cost_analysis_module(session_factory: Any) -> Any:
     """构造 Cost Analysis 模块。"""
     from cost_analysis import create_cost_analysis_module

@@ -1,6 +1,6 @@
 from .execution import RunExecutor, RunReader
 from .agents import AgentDefinitionReader
-from .datasets import DatasetReader, DatasetWriter
+from .datasets import DatasetExampleWriter, DatasetReader, DatasetWriter
 from .evaluation import EvaluationRunStore, TraceReader
 
-__all__ = ["RunExecutor", "RunReader", "AgentDefinitionReader", "DatasetReader", "DatasetWriter", "EvaluationRunStore", "TraceReader"]
+__all__ = ["RunExecutor", "RunReader", "AgentDefinitionReader", "DatasetReader", "DatasetExampleWriter", "DatasetWriter", "EvaluationRunStore", "TraceReader"]

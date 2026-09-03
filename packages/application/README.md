@@ -39,4 +39,20 @@ Only `target_type == "agent"` uses this application path today. The
 `rag_pipeline` target remains on the legacy runner intentionally. `ReplayRun` is
 production-wired by the backend: it reads a durable Run with `RunReader`,
 resolves the exact stored agent version, and executes through `RunExecutor` and
-Runtime. Dataset capture and additional evaluation use cases remain deferred.
+Runtime.
+
+## CaptureRunAsDatasetExample
+
+`CaptureRunAsDatasetExample` is production-wired in the backend without a public
+HTTP endpoint. It reads an authoritative durable Run through `RunReader`, accepts
+only `completed` Runs, maps the Run input to a new DatasetExample, and asks the
+`DatasetExampleWriter` capability to persist it. Dataset storage generates the
+`example_id`; `run_id` is provenance and is never used as dataset identity.
+
+Capture does not copy Run metadata wholesale, treat actual Run output as golden
+expected output, mutate or replay the Run, read Trace or AgentAudit, invoke
+Runtime, or automatically evaluate the new example. Caller metadata may add
+fields, but authoritative provenance (`source_run_id`, `source_trace_id`, and
+available target identity) always wins. Repeated capture is allowed and creates
+a new Dataset-owned example each time. A public capture endpoint remains
+deferred.

@@ -2,7 +2,14 @@ from dataclasses import dataclass
 
 import pytest
 
-from application.dataset import SaveRunAsDatasetExample, SaveRunAsDatasetExampleCommand
+from application.dataset import (
+    CaptureRunAsDatasetExample,
+    CaptureRunAsDatasetExampleCommand,
+    CaptureSourceRunNotFound,
+    RunNotCapturable,
+    SaveRunAsDatasetExample,
+    SaveRunAsDatasetExampleCommand,
+)
 from application.evaluation import EvaluateDataset, EvaluateDatasetCommand
 from application.execution import (
     ExecuteAgent,
@@ -111,6 +118,105 @@ async def test_replay_does_not_fallback_when_historical_version_is_missing():
     with pytest.raises(ReplayTargetUnavailable):
         await ReplayRun(Runs(), executor, Targets()).execute(ReplayRunCommand("source-id"))
     assert executor.calls == []
+
+
+@pytest.mark.asyncio
+async def test_capture_completed_run_maps_facts_and_authoritative_provenance():
+    from evaluation.contracts_v2 import DatasetExample
+
+    source = RunRecord(
+        run_id="run-id", trace_id="trace-id", status="completed", input="",
+        output="actual", target_type="agent", target_key="support", target_version="7",
+    )
+
+    class Runs:
+        async def get_run(self, run_id): return source
+
+    class Datasets:
+        def __init__(self): self.kwargs = None
+        async def create_example(self, **kwargs):
+            self.kwargs = kwargs
+            return DatasetExample(
+                example_id="dataset-owned-id", dataset_id=kwargs["dataset_id"],
+                input_text=kwargs["input_text"], expected_output=kwargs["expected_output"],
+                metadata=dict(kwargs["metadata"]), source_run_id=kwargs["source_run_id"],
+                source_trace_id=kwargs["source_trace_id"],
+            )
+
+    datasets = Datasets()
+    result = await CaptureRunAsDatasetExample(Runs(), datasets).execute(
+        CaptureRunAsDatasetExampleCommand(
+            "dataset", "run-id", metadata={"source_run_id": "spoof", "label": "x"}
+        )
+    )
+    assert result.example.example_id != source.run_id
+    assert datasets.kwargs["input_text"] == ""
+    assert datasets.kwargs["expected_output"] is None
+    assert datasets.kwargs["metadata"]["source_run_id"] == "run-id"
+    assert datasets.kwargs["metadata"]["source_trace_id"] == "trace-id"
+    assert datasets.kwargs["metadata"]["source_target_version"] == "7"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("input_value", ["", 0, {}, [], None])
+async def test_capture_preserves_falsey_input(input_value):
+    source = RunRecord(run_id="run-id", status="completed", input=input_value)
+
+    class Runs:
+        async def get_run(self, run_id): return source
+
+    class Datasets:
+        async def create_example(self, **kwargs):
+            from evaluation.contracts_v2 import DatasetExample
+            return DatasetExample("example-id", kwargs["dataset_id"], kwargs["input_text"])
+
+    result = await CaptureRunAsDatasetExample(Runs(), Datasets()).execute(
+        CaptureRunAsDatasetExampleCommand("dataset", "run-id")
+    )
+    assert result.example.input_text is input_value
+
+
+@pytest.mark.asyncio
+async def test_capture_rejects_missing_and_non_completed_runs():
+    class Runs:
+        async def get_run(self, run_id):
+            return None if run_id == "missing" else RunRecord(run_id=run_id, status="running")
+
+    class Datasets:
+        async def create_example(self, **kwargs): raise AssertionError("not called")
+
+    uc = CaptureRunAsDatasetExample(Runs(), Datasets())
+    with pytest.raises(CaptureSourceRunNotFound):
+        await uc.execute(CaptureRunAsDatasetExampleCommand("dataset", "missing"))
+    for status in ("running", "failed", "cancelled"):
+        class StatusRuns:
+            async def get_run(self, run_id): return RunRecord(run_id=run_id, status=status)
+        with pytest.raises(RunNotCapturable):
+            await CaptureRunAsDatasetExample(StatusRuns(), Datasets()).execute(
+                CaptureRunAsDatasetExampleCommand("dataset", "run")
+            )
+
+
+@pytest.mark.asyncio
+async def test_capture_allows_duplicate_actions_and_explicit_expected_output():
+    from evaluation.contracts_v2 import DatasetExample
+    source = RunRecord(run_id="run-id", status="completed", input="hello", output="actual")
+
+    class Runs:
+        async def get_run(self, run_id): return source
+    class Datasets:
+        def __init__(self): self.calls = 0
+        async def create_example(self, **kwargs):
+            self.calls += 1
+            return DatasetExample(f"example-{self.calls}", kwargs["dataset_id"], kwargs["input_text"], kwargs["expected_output"])
+
+    datasets = Datasets()
+    uc = CaptureRunAsDatasetExample(Runs(), datasets)
+    first = await uc.execute(CaptureRunAsDatasetExampleCommand("dataset", "run-id", expected_output="golden"))
+    second = await uc.execute(CaptureRunAsDatasetExampleCommand("dataset", "run-id"))
+    assert first.example.expected_output == "golden"
+    assert second.example.expected_output is None
+    assert datasets.calls == 2
 
 
 @pytest.mark.asyncio

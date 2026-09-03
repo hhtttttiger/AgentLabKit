@@ -10,8 +10,16 @@ from .execution.replay_run import (
     ReplayTargetUnavailable,
     ReplayTargetUnsupported,
 )
-from .dataset.contracts import SaveRunAsDatasetExampleCommand, SaveRunAsDatasetExampleResult
-from .dataset.save_run_as_example import SaveRunAsDatasetExample
+from .dataset import (
+    CaptureRunAsDatasetExample,
+    CaptureRunAsDatasetExampleCommand,
+    CaptureRunAsDatasetExampleResult,
+    CaptureSourceRunNotFound,
+    RunNotCapturable,
+    SaveRunAsDatasetExample,
+    SaveRunAsDatasetExampleCommand,
+    SaveRunAsDatasetExampleResult,
+)
 from .evaluation.contracts import EvaluationConfiguration, EvaluateDatasetCommand, EvaluateDatasetResult
 from .evaluation.evaluate_dataset import EvaluateDataset
 
@@ -20,6 +28,8 @@ __all__ = [
     "ReplayRun", "ReplayRunCommand", "ReplayRunResult", "ReplayRunError",
     "ReplaySourceNotFound", "ReplayTargetUnavailable", "ReplayTargetUnsupported",
     "ReplayInputUnavailable",
+    "CaptureRunAsDatasetExample", "CaptureRunAsDatasetExampleCommand", "CaptureRunAsDatasetExampleResult",
+    "CaptureSourceRunNotFound", "RunNotCapturable",
     "SaveRunAsDatasetExample", "SaveRunAsDatasetExampleCommand", "SaveRunAsDatasetExampleResult",
     "EvaluateDataset", "EvaluationConfiguration", "EvaluateDatasetCommand", "EvaluateDatasetResult",
 ]
