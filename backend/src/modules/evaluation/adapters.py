@@ -98,23 +98,20 @@ class AgentTargetExecutor:
         ]
 
         session_id = f"eval-{uuid.uuid4().hex[:12]}"
-        trace_id = f"eval-trace-{uuid.uuid4().hex[:12]}"
-
         request = AgentTurnRequest(
             session_id=session_id,
             user_message=case.input_text,
             history=[],
             agent_key=agent_key,
             knowledge_chunks=knowledge_chunks,
-            trace_id=trace_id,
-        )
+        # Runtime.run() owns the real AgentRun, run_id, and trace_id.
+        # This legacy TargetExecutor only returns text for the legacy runner.
+        run = await self._runtime.run(request)
 
-        result = await self._runtime.run_turn(request)
+        if run.error is not None:
+            return f"[ERROR] {run.error.code}: {run.error.message}"
 
-        if result.error is not None:
-            return f"[ERROR] {result.error.code}: {result.error.message}"
-
-        return result.reply_text
+        return str(run.output or "")
 
 
 # ── RagTargetExecutor ──────────────────────────────────────────────────
