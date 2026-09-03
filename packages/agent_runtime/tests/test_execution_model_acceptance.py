@@ -39,7 +39,7 @@ from agent_runtime.events_v2 import (
 from agent_runtime.guardrails.pipeline import GuardsPipeline
 from agent_runtime.runtime import AgentRuntime
 from evaluation.contracts_v2 import RunView
-from llm_gateway import ProviderId, TextGenerateResponse, UsageInfo
+from llm_gateway import ProviderId, TextGenerateResponse, TextStreamEvent, UsageInfo
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -276,6 +276,42 @@ class TestAcceptanceStreaming:
         assert run_started[0].run_id == ctx.run_id
         assert len(run_completed) == 1
         assert run_completed[0].run_id == ctx.run_id
+
+    @pytest.mark.asyncio
+    async def test_stream_runtime_publishes_authoritative_agent_run_snapshot(self):
+        gateway = MagicMock()
+
+        async def _fake_stream(*args, **kwargs):
+            import json
+            payload = json.dumps({"kind": "final", "reply_text": "stream reply", "should_handoff": False})
+            yield TextStreamEvent(
+                event_type="completed", provider=ProviderId.OPENAI, model="gpt-4o",
+                text=payload, usage=UsageInfo(input_tokens=2, output_tokens=3),
+            )
+
+        gateway.generate_text_stream = _fake_stream
+        snapshots: list[AgentRun] = []
+
+        async def capture(run: AgentRun) -> None:
+            snapshots.append(run)
+
+        runtime = AgentRuntime(
+            settings=AgentSettings(), gateway=gateway, tool_registry=ToolRegistry(),
+            completion_sink=capture,
+        )
+        request = AgentTurnRequest(user_message="hi", session_id="s1")
+        events = []
+        async for event in runtime.stream(request):
+            events.append(event)
+
+        terminal = [event for event in events if event.event_type == "reply_completed"]
+        assert len(snapshots) == 1
+        assert snapshots[0].status is RunStatus.COMPLETED
+        assert snapshots[0].run_id == terminal[0].run_id
+        assert snapshots[0].trace_id == terminal[0].trace_id
+        assert snapshots[0].output == "stream reply"
+        assert snapshots[0].usage is not None
+        assert snapshots[0].usage.input_tokens == 2
 
 
 # ── Acceptance Test E2: Streaming Failure Terminal ───────────────────

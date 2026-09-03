@@ -27,13 +27,16 @@ ExecuteAgent.execute/stream
   -> ExecutionContext (created at the Runtime boundary)
   -> AgentRun (blocking result) + RuntimeEvent v2
   -> runtime EventBus (awaited, in-process, subscription order)
-  -> Trace/Cost listeners today; RunProjector is available but not wired
+  -> Runtime completion sink receives the terminal AgentRun snapshot
+  -> Trace/Cost listeners today; RunProjector remains an injectable application sink
 ```
 
 `run()` constructs `ExecutionContext` and an `AgentRun`; `run_turn()` emits
 `RunStarted` and the terminal event, while `run()` emits the normal terminal
-event after the turn. `stream()` creates the context and
-`stream_turn()` emits its lifecycle. The `EventBus` catches and logs listener
+event after the turn and publishes the snapshot. `stream()` creates the
+context, `stream_turn()` emits its lifecycle, and Runtime builds/publishes the
+terminal `AgentRun` after the stream completes (or with failed/cancelled status
+when it terminates exceptionally). The `EventBus` catches and logs listener
 exceptions, allowing subsequent listeners and Runtime execution to continue.
 
 The legacy `AgentEvent` bus is also used for UI/stream updates. The v2 events
@@ -80,9 +83,12 @@ The selected source model is **events plus terminal `AgentRun` snapshot**:
    to the schema.
 
 `finalize(AgentRun)` is intentionally a writer capability, not a callback into
-Runtime. Production wiring must invoke it from the Runtime boundary for
-blocking, streaming, evaluation, replay, CLI, and workflow paths. It must not
-be attached only to an HTTP/SSE adapter.
+Runtime. The Runtime owns the terminal snapshot. Its framework-neutral
+completion sink may pass that snapshot to a projector for blocking and
+streaming executions; sink/storage failures are logged as projection
+failures and never change the already-emitted Runtime terminal status. It must
+not be attached only to an HTTP/SSE adapter: SSE/backend never reconstructs an
+`AgentRun` from events.
 
 ## Run v1 model and status rules
 
@@ -95,11 +101,28 @@ remains metadata and does not become Runtime failure. `outcome` is not added
 until Runtime exposes a stable typed field.
 
 Legal lifecycle transitions are `running -> completed|failed|cancelled`.
-Duplicate starts do not reset a row. A terminal event without a start is
-quarantined/logged. A late non-terminal event has no Run v1 effect. A repeated
-terminal with the same facts is idempotent; a conflicting terminal raises a
-projection conflict for quarantine/retry handling rather than silently
-replacing the authoritative result.
+Duplicate starts do not reset a row. A terminal event without a start is quarantined/logged, but is **not** marked
+as successfully applied. Re-delivery after `RunStarted` (or an explicit retry)
+projects the same event and clears its quarantine entry. A late non-terminal
+event has no Run v1 effect. A repeated terminal with the same facts is
+idempotent; a conflicting terminal raises a projection conflict for
+quarantine/retry handling rather than silently replacing the authoritative
+result. Quarantine is a projection recovery mechanism only; it is not Runtime,
+AgentRun, or public Run API semantics.
+
+## Snapshot merge and identity rules
+
+`run_id` and `trace_id` are immutable authoritative identity. A matching value
+is accepted; a missing value may be filled when the source explicitly supplies
+it; a different value raises `RunProjectionConflict` and leaves the existing
+record untouched. Lookup and storage always use the same `run_id`.
+
+Terminal snapshots may complement the lifecycle skeleton with target type,
+target key/version, input/output, timestamps, duration, session, metadata, and
+error facts. Projection metadata (`projected_at`, `updated_at`, and version)
+is owned by the projection. Nullable facts are tested with `is None`, never
+truthiness: `0`, `0.0`, `""`, `[]`, `{}`, and `False` remain valid explicit
+values. Missing facts remain missing.
 
 ## Idempotency, ordering, and consistency
 
@@ -173,9 +196,9 @@ Runs created before this projection exists are **not supported**. No Trace or
 Audit backfill is attempted because the required facts are not authoritative
 there.
 
-`GET /api/runs/{run_id}` is **not yet safe to implement**: the semantic
-boundary and tests are stable, but no durable store, migration, Runtime
-composition wiring, retry/rebuild mechanism, or all-path terminal snapshot
-wiring exists yet. The correct verdict for this slice is:
+`GET /api/runs/{run_id}` is **not yet safe to implement**: no durable store,
+migration, or production composition wiring exists yet. The framework-neutral
+projection contract, retry semantics, and blocking/streaming Runtime snapshot
+boundary are stable. The correct verdict for this slice is:
 
-> **DESIGN STABLE, IMPLEMENTATION DEFERRED**
+> **CONTRACT STABLE, DURABLE PERSISTENCE DEFERRED**

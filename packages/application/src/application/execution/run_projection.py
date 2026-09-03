@@ -73,8 +73,8 @@ class InMemoryRunStore(RunReader, RunWriter):
 
     def __init__(self) -> None:
         self._records: dict[str, RunRecord] = {}
-        self._event_ids: set[str] = set()
-        self._quarantined: list[RuntimeEvent] = []
+        self._applied_event_ids: set[str] = set()
+        self._quarantined: dict[str, RuntimeEvent] = {}
 
     async def get_run(self, run_id: str) -> RunRecord | None:
         return self._records.get(run_id)
@@ -84,15 +84,25 @@ class InMemoryRunStore(RunReader, RunWriter):
         if not event_id or not event.run_id:
             logger.warning("run_projection.malformed_event event_type=%s", getattr(event, "event_type", None))
             return
-        if event_id in self._event_ids:
+        if event_id in self._applied_event_ids:
             return
 
         if isinstance(event, RunStarted):
             self._project_started(event)
+            # A terminal can be delivered before its start.  Quarantine is a
+            # retryable projection state, not successful application.
+            for orphan_id, orphan in tuple(self._quarantined.items()):
+                if orphan.run_id != event.run_id:
+                    continue
+                self._project_terminal(orphan)
+                self._quarantined.pop(orphan_id, None)
+                self._applied_event_ids.add(orphan_id)
         elif isinstance(event, (RunCompleted, RunFailed, RunCancelled)):
-            self._project_terminal(event)
-        # Non-lifecycle events do not add facts to Run v1.
-        self._event_ids.add(event_id)
+            if not self._project_terminal(event):
+                return
+        # Non-lifecycle events do not add facts to Run v1.  Only a successful
+        # projection is marked applied; conflicts and orphans remain retryable.
+        self._applied_event_ids.add(event_id)
 
     def _project_started(self, event: RunStarted) -> None:
         existing = self._records.get(event.run_id)
@@ -116,16 +126,20 @@ class InMemoryRunStore(RunReader, RunWriter):
             updated_at=event.timestamp,
         )
 
-    def _project_terminal(self, event: RunCompleted | RunFailed | RunCancelled) -> None:
+    def _project_terminal(self, event: RunCompleted | RunFailed | RunCancelled) -> bool:
         record = self._records.get(event.run_id)
         if record is None:
-            self._quarantined.append(event)
+            self._quarantined.setdefault(event.event_id, event)
             logger.warning("run_projection.orphan_terminal run_id=%s", event.run_id)
-            return
+            return False
+        if record.trace_id and event.trace_id and record.trace_id != event.trace_id:
+            raise RunProjectionConflict(f"run_id {event.run_id} has conflicting trace_id")
+        if record.trace_id is None and event.trace_id:
+            record.trace_id = event.trace_id
         if record.status != "running":
             if self._terminal_fingerprint(record) != self._event_fingerprint(event):
                 raise RunProjectionConflict(f"run_id {event.run_id} has conflicting terminal facts")
-            return
+            return True
 
         record.updated_at = event.timestamp
         record.completed_at = event.timestamp
@@ -134,7 +148,7 @@ class InMemoryRunStore(RunReader, RunWriter):
             # Empty output is a valid authoritative value.
             record.output = event.output_text
             record.metadata.update(event.attributes)
-            record.duration_ms = event.total_duration_ms if event.total_duration_ms else None
+            record.duration_ms = event.total_duration_ms
         elif isinstance(event, RunFailed):
             record.status = "failed"
             record.error_code = event.error_code or None
@@ -144,6 +158,7 @@ class InMemoryRunStore(RunReader, RunWriter):
             record.metadata.update(event.attributes)
             if event.reason:
                 record.metadata["cancel_reason"] = event.reason
+        return True
 
     @staticmethod
     def _terminal_fingerprint(record: RunRecord) -> tuple[Any, ...]:
@@ -165,26 +180,39 @@ class InMemoryRunStore(RunReader, RunWriter):
             return
         if record.status != "running" and record.status != run.status.value:
             raise RunProjectionConflict(f"run_id {run.run_id} snapshot changes terminal status")
+        if record.trace_id and run.trace_id and record.trace_id != run.trace_id:
+            raise RunProjectionConflict(f"run_id {run.run_id} has conflicting trace_id")
         record.status = run.status.value
-        record.trace_id = run.trace_id
-        record.target_type = run.target.type
-        record.target_key = run.target.agent_key or run.target.workflow_id
-        record.target_version = run.target.agent_version or run.target.workflow_version
+        if record.trace_id is None and run.trace_id is not None:
+            record.trace_id = run.trace_id
+        record.target_type = run.target.type if run.target.type is not None else record.target_type
+        snapshot_key = run.target.agent_key if run.target.agent_key is not None else run.target.workflow_id
+        snapshot_version = run.target.agent_version if run.target.agent_version is not None else run.target.workflow_version
+        if snapshot_key is not None:
+            record.target_key = snapshot_key
+        if snapshot_version is not None:
+            record.target_version = snapshot_version
         record.input = run.input
         record.output = run.output
         record.started_at = run.started_at
         record.completed_at = run.finished_at
         record.duration_ms = run.duration_ms
-        record.session_id = run.session_id or None
+        record.session_id = run.session_id if run.session_id is not None else record.session_id
         record.metadata = dict(run.metadata)
+        record.error_code = None
+        record.error_message = None
         if run.error is not None:
-            record.error_code = run.error.code or None
-            record.error_message = run.error.message or None
-        record.updated_at = run.finished_at or record.updated_at
+            record.error_code = run.error.code
+            record.error_message = run.error.message
+        record.updated_at = run.finished_at if run.finished_at is not None else record.updated_at
 
     @property
     def quarantined_events(self) -> tuple[RuntimeEvent, ...]:
-        return tuple(self._quarantined)
+        return tuple(self._quarantined.values())
+
+    @property
+    def applied_event_ids(self) -> frozenset[str]:
+        return frozenset(self._applied_event_ids)
 
 
 class RunProjector:

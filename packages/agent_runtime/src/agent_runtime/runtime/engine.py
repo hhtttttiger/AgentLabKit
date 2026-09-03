@@ -21,7 +21,7 @@ while preserving the same public API.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
@@ -256,6 +256,7 @@ class AgentRuntime:
         tracer: Tracer | None = None,
         observability_bridge_factory: Any | None = None,
         memory_module: Any | None = None,
+        completion_sink: Callable[[AgentRun], Awaitable[None]] | None = None,
     ) -> None:
         self.settings = settings
         self.gateway = gateway
@@ -268,6 +269,9 @@ class AgentRuntime:
         self._tracer = tracer
         self._observability_bridge_factory = observability_bridge_factory
         self._memory_module = memory_module
+        # Framework-neutral hook: Runtime owns and creates the final snapshot;
+        # an application projection may observe it without Runtime importing it.
+        self._completion_sink = completion_sink
 
         # ── Global guardrails state ──────────────────────────────────────
         self.active_global_guardrails_snapshot: GlobalGuardrailsSnapshot | None = None
@@ -381,6 +385,65 @@ class AgentRuntime:
     def subscribe(self, listener) -> callable:
         """Subscribe to agent lifecycle events. Returns an unsubscribe callable."""
         return self._event_bus.subscribe(listener)
+
+    async def _publish_completion(self, run: AgentRun) -> None:
+        """Notify projection after Runtime has produced the authoritative snapshot.
+
+        A projection/storage failure is deliberately not an execution failure:
+        the terminal RuntimeEvent and returned AgentRun remain the truth.
+        """
+        if self._completion_sink is None:
+            return
+        try:
+            await self._completion_sink(run)
+        except Exception:
+            logger.exception("run_projection.completion_sink_failed run_id=%s", run.run_id)
+
+    @staticmethod
+    def _stream_snapshot(
+        context: ExecutionContext,
+        request: AgentTurnRequest,
+        terminal_event: AgentTurnStreamEvent | None,
+        *,
+        status: RunStatus = RunStatus.COMPLETED,
+        error: Exception | None = None,
+    ) -> AgentRun:
+        run = AgentRun(
+            run_id=context.run_id,
+            trace_id=context.trace_id,
+            input=request.user_message,
+            session_id=context.session_id,
+            target=context.target,
+            started_at=context.started_at,
+            metadata=dict(context.metadata),
+        )
+        if status is RunStatus.CANCELLED:
+            run.mark_cancelled("stream_cancelled")
+        elif status is RunStatus.FAILED:
+            run.mark_failed(error_code="RUNTIME_ERROR", error_message=str(error or "stream failed"))
+        else:
+            output = ""
+            usage = None
+            if terminal_event is not None:
+                output = terminal_event.reply_text or ""
+                raw_usage = terminal_event.usage
+                if raw_usage is not None:
+                    usage = RunUsage(
+                        input_tokens=getattr(raw_usage, "input_tokens", 0) or 0,
+                        output_tokens=getattr(raw_usage, "output_tokens", 0) or 0,
+                        total_tokens=getattr(raw_usage, "total_tokens", 0) or 0,
+                        cache_write_tokens=getattr(raw_usage, "cache_write_tokens", 0) or 0,
+                        cache_read_tokens=getattr(raw_usage, "cache_read_tokens", 0) or 0,
+                        estimated_cost=float(getattr(raw_usage, "estimated_cost", 0) or 0),
+                    )
+            run.mark_completed(output=output, usage=usage)
+            if terminal_event is not None:
+                run.applied_skills = [skill.skill_key for skill in terminal_event.applied_skills]
+                if terminal_event.event_type == "handoff":
+                    run.action = "handoff_human"
+                    if terminal_event.handoff_target is not None:
+                        run.handoff_target_agent = terminal_event.handoff_target.target_agent_key
+        return run
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # Public API: run_turn / stream_turn
@@ -697,6 +760,7 @@ class AgentRuntime:
                 reason="run_cancelled",
             ))
             run.mark_cancelled("run_cancelled")
+            await self._publish_completion(run)
             return run
         except Exception as exc:
             # Emit RunFailed (P0: terminal invariant — exactly one terminal)
@@ -716,6 +780,7 @@ class AgentRuntime:
                 message=error_message,
             )
             run.finished_at = datetime.now(timezone.utc)
+            await self._publish_completion(run)
             return run
 
         # run_turn owns the terminal for an early guardrail completion;
@@ -759,6 +824,7 @@ class AgentRuntime:
             )
         else:
             run.mark_completed(output=result.reply_text, usage=usage)
+        await self._publish_completion(run)
 
         return run
 
@@ -783,15 +849,31 @@ class AgentRuntime:
             agent_key=target.agent_key,
             agent_version=target.agent_version,
             target=target,
+            metadata=dict(getattr(request, "metadata", {}) or {}),
         )
         request = request.model_copy(update={"trace_id": context.trace_id})
-        async for event in self.stream_turn(
-            request, cancel_token=cancel_token, execution_context=context,
-        ):
-            event.run_id = context.run_id
-            # The context is authoritative even if request preparation cloned data.
-            event.trace_id = context.trace_id
-            yield event
+        terminal_event: AgentTurnStreamEvent | None = None
+        try:
+            async for event in self.stream_turn(
+                request, cancel_token=cancel_token, execution_context=context,
+            ):
+                event.run_id = context.run_id
+                # The context is authoritative even if request preparation cloned data.
+                event.trace_id = context.trace_id
+                if event.event_type in {"reply_completed", "handoff"}:
+                    terminal_event = event
+                yield event
+        except asyncio.CancelledError:
+            run = self._stream_snapshot(context, request, terminal_event, status=RunStatus.CANCELLED)
+            await self._publish_completion(run)
+            raise
+        except Exception as exc:
+            run = self._stream_snapshot(context, request, terminal_event, status=RunStatus.FAILED, error=exc)
+            await self._publish_completion(run)
+            raise
+        else:
+            run = self._stream_snapshot(context, request, terminal_event)
+            await self._publish_completion(run)
 
     async def stream_turn(
         self,

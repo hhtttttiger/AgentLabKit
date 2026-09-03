@@ -40,7 +40,7 @@ async def test_lifecycle_is_idempotent_and_preserves_distinct_identity(ids):
     assert record.trace_id == "trace-1"
     assert record.status == "completed"
     assert record.output == ""  # empty is a real Runtime fact
-    assert record.duration_ms is None  # zero means unavailable, never inferred
+    assert record.duration_ms == 0  # explicit zero is a real Runtime fact
 
 
 @pytest.mark.asyncio
@@ -84,15 +84,66 @@ async def test_snapshot_is_authoritative_and_preserves_zero_values(ids):
 
 
 @pytest.mark.asyncio
-async def test_orphan_and_conflicting_terminal_are_not_silent():
+async def test_orphan_terminal_is_retryable_and_not_marked_applied():
     store = InMemoryRunStore()
-    orphan = RunCompleted(event_id="orphan", run_id="missing", trace_id="t", output_text="x")
+    orphan = RunCompleted(event_id="orphan", run_id="r", trace_id="t", output_text="x")
     await store.project_event(orphan)
     assert store.quarantined_events == (orphan,)
+    assert "orphan" not in store.applied_event_ids
 
+    await store.project_event(RunStarted(event_id="s", run_id="r", trace_id="t"))
+    record = await store.get_run("r")
+    assert record.status == "completed"
+    assert record.output == "x"
+    assert store.quarantined_events == ()
+    assert "orphan" in store.applied_event_ids
+
+
+@pytest.mark.asyncio
+async def test_trace_id_conflict_preserves_record():
+    store = InMemoryRunStore()
+    await store.project_event(RunStarted(event_id="s", run_id="r", trace_id="t1"))
+    terminal = RunCompleted(event_id="d", run_id="r", trace_id="t2", output_text="new")
+    with pytest.raises(RunProjectionConflict):
+        await store.project_event(terminal)
+    record = await store.get_run("r")
+    assert record.status == "running"
+    assert record.trace_id == "t1"
+    assert "d" not in store.applied_event_ids
+
+
+@pytest.mark.asyncio
+async def test_snapshot_trace_conflict_preserves_record():
+    store = InMemoryRunStore()
+    await store.project_event(RunStarted(event_id="s", run_id="r", trace_id="t1"))
+    run = AgentRun(run_id="r", trace_id="t2", target=RunTarget(type="agent", agent_key="a"))
+    run.mark_completed(output="x")
+    with pytest.raises(RunProjectionConflict):
+        await store.finalize(run)
+    record = await store.get_run("r")
+    assert record.trace_id == "t1"
+    assert record.status == "running"
+
+
+@pytest.mark.asyncio
+async def test_missing_trace_id_can_be_filled_by_snapshot():
+    store = InMemoryRunStore()
+    await store.project_event(RunStarted(event_id="s", run_id="r"))
+    run = AgentRun(run_id="r", trace_id="t", target=RunTarget(type="agent", agent_key="a"))
+    run.mark_completed(output="")
+    await store.finalize(run)
+    record = await store.get_run("r")
+    assert record.trace_id == "t"
+    assert record.output == ""
+
+
+@pytest.mark.asyncio
+async def test_conflicting_terminal_is_not_applied():
+    store = InMemoryRunStore()
     await store.project_event(RunStarted(event_id="s", run_id="r", trace_id="t"))
     first = RunCompleted(event_id="d1", run_id="r", trace_id="t", output_text="x")
     second = RunFailed(event_id="d2", run_id="r", trace_id="t", error_message="late")
     await store.project_event(first)
     with pytest.raises(RunProjectionConflict):
         await store.project_event(second)
+    assert "d2" not in store.applied_event_ids
