@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from application import ReplayRunCommand
+from application import ReplayRunCommand, CaptureRunAsDatasetExampleCommand
+from application.dataset.save_run_as_example import CaptureSourceRunNotFound, RunNotCapturable
+from modules.evaluation.dependencies import CaptureRunAsDatasetExampleDep
+from modules.evaluation.schemas import (
+    CaptureRunRequest,
+    CaptureRunResponse,
+    CaptureRunResponseEnvelope,
+)
 from application.execution.replay_run import (
     ReplayInputUnavailable,
     ReplaySourceNotFound,
@@ -24,6 +31,38 @@ from .schemas import (
 )
 
 router = APIRouter()
+
+
+@router.post(
+    "/{run_id}/capture",
+    response_model=CaptureRunResponseEnvelope,
+    responses={404: {"description": "Run or Dataset not found"}, 409: {"description": "Run is not capturable"}},
+)
+async def capture_run(
+    run_id: str,
+    body: CaptureRunRequest,
+    capture: CaptureRunAsDatasetExampleDep,
+    reader: RunReaderDep,
+    current_user: CurrentUser,
+):
+    source = await reader.get_run(run_id)
+    if source is None:
+        raise NotFoundError("Run", run_id)
+    ensure_run_access(source, current_user)
+    try:
+        result = await capture.execute(CaptureRunAsDatasetExampleCommand(
+            dataset_id=str(body.dataset_id), run_id=run_id,
+            expected_output=body.expected_output, metadata=body.metadata,
+        ))
+    except CaptureSourceRunNotFound:
+        raise NotFoundError("Run", run_id)
+    except RunNotCapturable as exc:
+        raise ConflictError(str(exc))
+    return ok(CaptureRunResponse(
+        dataset_id=result.dataset_id,
+        source_run_id=result.source_run_id,
+        example_id=result.example_id,
+    ).model_dump())
 
 
 @router.get(

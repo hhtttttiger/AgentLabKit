@@ -86,3 +86,60 @@ class RunResultResponse(CamelModel):
 class RunDetailResponse(CamelModel):
     run: RunResponse
     results: list[RunResultResponse]
+
+
+class CaptureRunRequest(CamelModel):
+    """Transport input for the Run -> DatasetExample action."""
+
+    dataset_id: int
+    expected_output: Any | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class CaptureRunResponse(CamelModel):
+    dataset_id: str
+    source_run_id: str
+    example_id: str
+
+
+class CaptureRunResponseEnvelope(CamelModel):
+    success: bool
+    msg: str
+    data: CaptureRunResponse
+
+
+class EvaluationResultResponse(CamelModel):
+    example_id: str
+    score: float | None = None
+    passed: bool | None = None
+    message: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
+    duration_ms: int = 0
+
+
+class EvaluationExampleComparisonResponse(CamelModel):
+    example_id: str
+    classification: str
+    left: EvaluationResultResponse | None = None
+    right: EvaluationResultResponse | None = None
+
+
+class CompareEvaluationRunsRequest(CamelModel):
+    left_run_id: str
+    right_run_id: str
+
+
+class CompareEvaluationRunsResponse(CamelModel):
+    left_run_id: str
+    right_run_id: str
+    dataset_id: str
+    matched_count: int
+    left_only_count: int
+    right_only_count: int
+    examples: list[EvaluationExampleComparisonResponse]
+
+
+class CompareEvaluationRunsResponseEnvelope(CamelModel):
+    success: bool
+    msg: str
+    data: CompareEvaluationRunsResponse
