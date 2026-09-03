@@ -49,11 +49,12 @@ export function useAgentMutations() {
     mutationFn: ({ agentKey, model }: { agentKey: string; model: PublishAgentRequest }) =>
       publishAgent(agentKey, model),
     onSuccess: async (_, variables) => {
-      await invalidate();
-      // Also invalidate version list cache
-      queryClient.invalidateQueries({
-        queryKey: agentManagementQueryKeys.versionsRoot(variables.agentKey),
-      });
+      await Promise.all([
+        invalidate(),
+        queryClient.invalidateQueries({
+          queryKey: agentManagementQueryKeys.versionsRoot(variables.agentKey),
+        }),
+      ]);
     },
   });
 

@@ -91,6 +91,10 @@ export function AgentDetailPage() {
     setActiveTab(getTab(searchParams));
   }, [searchParams]);
 
+  useEffect(() => {
+    if (activeTab !== 'build') setPublishSuccess(false);
+  }, [activeTab]);
+
   const versionLaunchAction = useMemo(() => getLaunchAction(searchParams), [searchParams]);
 
   const handleTabChange = useCallback(
@@ -168,6 +172,12 @@ export function AgentDetailPage() {
     }
   };
 
+  const buildVersionsQuery = useVersionList(agent.agentKey, { page: 1, pageSize: 100 });
+  const hasPublished = agent.publishedVersionNumber !== null;
+  const hasDraft = (buildVersionsQuery.data?.items ?? []).some((row) => row.versionStatus === 'draft');
+  const canTestPublished = hasPublished;
+  const testLabel = hasDraft ? `${am}agents.detail.testPublished` : `${am}agents.detail.test`;
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'build', label: t(`${am}agents.detail.tabBuild`) },
     { key: 'runs', label: t(`${am}agents.detail.tabRuns`) },
@@ -197,11 +207,11 @@ export function AgentDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {activeTab === 'build' && agent.publishedVersionNumber !== null && (
-              <Button variant="secondary" onClick={testAgent}><Play size={16} />{t(`${am}agents.detail.test`)}</Button>
+            {activeTab === 'build' && canTestPublished && (
+              <Button variant="secondary" onClick={testAgent}><Play size={16} />{t(testLabel)}</Button>
             )}
             {activeTab === 'versions' && (
-              <Button onClick={() => setCreateVersionTrigger((n) => n + 1)}>
+              <Button onClick={() => { setPublishSuccess(false); setCreateVersionTrigger((n) => n + 1); }}>
                 <Plus size={16} />
                 {t(`${am}agents.detail.createVersion`)}
               </Button>
@@ -326,11 +336,14 @@ export function AgentDetailPage() {
               <AgentBuildTab
                 agent={agent}
                 onEdit={(version, seed) => {
+                  setPublishSuccess(false);
                   setBuildEditVersion(version);
                   setBuildSeed(seed);
                   setBuildEditOpen(true);
                 }}
                 onPublish={(version) => setPublishVersion({ versionNumber: version.versionNumber, rowVersion: version.rowVersion })}
+                canTestPublished={canTestPublished}
+                testLabel={testLabel}
               />
             )}
             {activeTab === 'versions' && (
@@ -401,10 +414,14 @@ function AgentBuildTab({
   agent,
   onEdit,
   onPublish,
+  canTestPublished,
+  testLabel,
 }: {
   agent: AgentDetailPageAgent;
   onEdit: (version: VersionDetailView | null, seed: VersionDetailView | null) => void;
   onPublish: (version: VersionDetailView) => void;
+  canTestPublished: boolean;
+  testLabel: string;
 }) {
   const { t } = useTranslation(['common', 'agentManagement']);
   const navigate = useNavigate();
@@ -440,11 +457,21 @@ function AgentBuildTab({
   return (
     <div className="space-y-4 p-6">
       {!isEditable && <InlineMessage tone="info">{t(`${am}agents.detail.publishedReadonlyInfo`)}</InlineMessage>}
+      {isEditable && canTestPublished && <InlineMessage tone="info">{t(`${am}agents.detail.draftChangesNotPublished`)}</InlineMessage>}
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><div className="text-xs text-text-muted">{t(`${am}agents.detail.versionLabel`)}</div><div className="mt-1 font-mono text-sm text-text">v{version.versionNumber} · {version.modelKey || t(`${am}agents.detail.notConfigured`)}</div></div>
+        <div>
+          <div className="text-xs text-text-muted">{t(`${am}agents.detail.versionLabel`)}</div>
+          <div className="mt-1 font-mono text-sm text-text">
+            {isEditable && !canTestPublished
+              ? t(`${am}agents.detail.draftNotPublished`, { versionNumber: version.versionNumber })
+              : `v${version.versionNumber} · ${version.modelKey || t(`${am}agents.detail.notConfigured`)}`}
+          </div>
+        </div>
         <div className="flex gap-2">
           {isEditable ? <Button onClick={() => onPublish(version)}>{t(`${am}agents.detail.publishDraft`)}</Button> : <Button onClick={() => onEdit(null, version)}><Pencil size={14} />{t(`${am}agents.detail.editAgent`)}</Button>}
-          <Button variant="secondary" onClick={() => navigate(`/playground?agent=${encodeURIComponent(agent.agentKey)}`)}><Play size={14} />{t(`${am}agents.detail.test`)}</Button>
+          {canTestPublished && (
+            <Button variant="secondary" onClick={() => navigate(`/playground?agent=${encodeURIComponent(agent.agentKey)}`)}><Play size={14} />{t(testLabel)}</Button>
+          )}
         </div>
       </div>
       <BuildSummary title={t(`${am}agents.detail.model`)} value={version.modelKey || t(`${am}agents.detail.notConfigured`)} />

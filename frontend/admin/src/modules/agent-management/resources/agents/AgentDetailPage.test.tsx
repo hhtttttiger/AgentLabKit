@@ -1,8 +1,8 @@
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithQueryClient } from '@/shared/test/render';
-import type { AgentDetailView, ExecutionAuditView, AgentVersionSummaryView } from '../../lib/contracts';
+import type { AgentDetailView, ExecutionAuditView, AgentVersionSummaryView, VersionDetailView } from '../../lib/contracts';
 import { AgentDetailPage } from './AgentDetailPage';
 
 const navigateMock = vi.fn();
@@ -70,6 +70,29 @@ const versionRows: AgentVersionSummaryView[] = [
   },
 ];
 
+const draftRow: AgentVersionSummaryView = {
+  ...versionRows[0],
+  versionNumber: 4,
+  versionStatus: 'draft',
+  versionLabel: 'next',
+  publishedAtUtc: null,
+  createdAtUtc: '2026-04-09T00:00:00Z',
+};
+
+const publishedDetail: VersionDetailView = {
+  ...versionRows[0],
+  systemPromptTemplate: 'You are a documentation assistant.',
+  defaultLocale: 'en-US',
+  runtimeOptions: {},
+  handoffPolicy: {},
+  responsePolicy: {},
+  guardrailsPolicy: {},
+  toolBindings: [],
+  knowledgeBaseBindings: [],
+  mcpBindings: [],
+  skillBindings: [],
+};
+
 const auditRows: ExecutionAuditView[] = [
   {
     id: '1',
@@ -116,13 +139,13 @@ describe('AgentDetailPage', () => {
       getMutationMessage: (error: unknown) => String(error),
     });
     useVersionListMock.mockReturnValue({
-      data: versionRows,
+      data: { items: versionRows, totalCount: versionRows.length, page: 1, pageSize: 100 },
       isLoading: false,
       isError: false,
     });
     useVersionDetailMock.mockReturnValue({
-      isSuccess: false,
-      data: undefined,
+      isSuccess: true,
+      data: publishedDetail,
     });
     useAuditListMock.mockReturnValue({
       data: {
@@ -134,6 +157,83 @@ describe('AgentDetailPage', () => {
       isLoading: false,
       isError: false,
     });
+  });
+
+  const renderBuild = () => {
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/agent-management/agents/agent.docs?tab=build']}>
+        <Routes>
+          <Route path="/agent-management/agents/:agentKey" element={<AgentDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  };
+
+  it('hides Test when the agent only has a draft', () => {
+    useAgentMock.mockReturnValue({
+      data: { ...agent, status: 'draft', publishedVersionNumber: null, publishedVersion: null },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+    useVersionListMock.mockReturnValue({
+      data: { items: [draftRow], totalCount: 1, page: 1, pageSize: 100 },
+      isLoading: false,
+      isError: false,
+    });
+
+    renderBuild();
+
+    expect(screen.getByRole('button', { name: '发布草稿' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^测试$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^测试已发布版本$/ })).not.toBeInTheDocument();
+  });
+
+  it('shows Test and navigates with the agent context for a published-only agent', () => {
+    renderBuild();
+
+    const testButton = screen.getAllByRole('button', { name: /^测试$/ })[0];
+    fireEvent.click(testButton);
+
+    expect(navigateMock).toHaveBeenCalledWith('/playground?agent=agent.docs');
+    expect(screen.queryByRole('button', { name: /^测试已发布版本$/ })).not.toBeInTheDocument();
+  });
+
+  it('labels the CTA Test Published when a draft is shown over a published version', () => {
+    useVersionListMock.mockReturnValue({
+      data: { items: [versionRows[0], draftRow], totalCount: 2, page: 1, pageSize: 100 },
+      isLoading: false,
+      isError: false,
+    });
+
+    renderBuild();
+
+    const testButtons = screen.getAllByRole('button', { name: /^测试已发布版本$/ });
+    expect(testButtons).toHaveLength(2);
+    expect(screen.getByText('草稿变更尚未发布。测试将使用已发布版本。')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^测试$/ })).not.toBeInTheDocument();
+
+    fireEvent.click(testButtons[0]);
+    expect(navigateMock).toHaveBeenCalledWith('/playground?agent=agent.docs');
+  });
+
+  it('keeps the publish success CTA and clears it when leaving Build', async () => {
+    useVersionListMock.mockReturnValue({
+      data: { items: [versionRows[0], draftRow], totalCount: 2, page: 1, pageSize: 100 },
+      isLoading: false,
+      isError: false,
+    });
+
+    renderBuild();
+    fireEvent.click(screen.getByRole('button', { name: '发布草稿' }));
+    fireEvent.click(screen.getByRole('button', { name: '确认发布' }));
+
+    await waitFor(() => expect(screen.getByText('发布成功。')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: '在 Playground 中测试' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: '版本管理' }));
+    fireEvent.click(screen.getByRole('tab', { name: '构建' }));
+    expect(screen.queryByText('发布成功。')).not.toBeInTheDocument();
   });
 
   it('renders a plain title row with boxed metadata and shared tab work area', () => {
