@@ -36,6 +36,7 @@ from modules.glossary.models import GlossaryCategory, GlossaryTerm, KnowledgeBas
 from modules.files.models import StoredFile  # noqa: F401
 from modules.cost_analysis.models import CostBudget, CostAlert  # noqa: F401
 from modules.observability.models import TraceRecordOrm, TraceSpanOrm  # noqa: F401
+from modules.run_projection.models import RunRecordModel, RunProjectionEventModel  # noqa: F401
 from modules.memory.models import MemoryRecordOrm, MemoryEmbeddingOrm  # noqa: F401
 from modules.evaluation.models import (  # noqa: F401
     EvalDataset, EvalCase, EvalRunConfig, EvalRun, EvalRunResult,
