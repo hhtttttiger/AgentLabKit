@@ -1,10 +1,11 @@
+<!-- Parent: ../../AGENTS.md -->
 # Runtime session memory
 
-This subtree manages single-session context: token-aware trimming, optional summarization, message priority, and session snapshots. It is distinct from the cross-session `packages/memory` package.
+此 subtree 管理 single-session context：token-aware trimming、optional summarization、message priority 和 session snapshots。它不同于 cross-session 的 `packages/memory` package。
 
-- Keep context preparation as a pre-execution layer; it must not own execution identity.
-- Preserve the disabled-memory fallback behavior and summary metadata markers.
-- Add durable stores behind the `SessionStore` protocol; do not make the in-memory implementation depend on database infrastructure.
-- Use `llm_gateway` through its protocol for summarization.
+- 将 context preparation 保持为 pre-execution layer；它不得拥有 execution identity。
+- 保留 disabled-memory fallback behavior 和 summary metadata markers。
+- 在 `SessionStore` protocol 后面增加 durable stores；不要让 in-memory implementation 依赖 database infrastructure。
+- 通过 protocol 使用 `llm_gateway` 进行 summarization。
 
-Run the relevant memory and runtime tests under `packages/agent_runtime/tests/`. See [agent_runtime instructions](../../../AGENTS.md).
+在 `packages/agent_runtime/tests/` 下运行相关 memory 和 runtime tests。参见 [agent_runtime instructions](../../../AGENTS.md)。

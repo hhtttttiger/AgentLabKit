@@ -1,46 +1,46 @@
 # AgentLabKit
 
-## Scope
+## 适用范围
 
-Repository-wide instructions. A nearer `AGENTS.md` may add local constraints for its subtree; it must not contradict these rules.
+仓库级 instructions。更近的 `AGENTS.md` 可以为其子树增加约束，但不得与本规则冲突。
 
-## Architecture invariants
+## 架构不变量
 
-- Runtime owns execution facts and identity (`run_id`, `trace_id`, spans, lifecycle events).
-- `Run != Trace`: Trace is an observability projection of a real Run.
-- Projectors, Replay, Evaluation, HTTP adapters, and the frontend must not invent execution facts or IDs.
-- `run_id` is never a stable DatasetExample `example_id`.
-- Application Use Case v1 is sealed: `ExecuteAgent`, `ReplayRun`, `CaptureRunAsDatasetExample`, `EvaluateDataset`, and `CompareEvaluationRuns`.
-- FastAPI is an adapter, not the platform business layer. Platform actions delegate to Application Use Cases; resource APIs use Module Services; reads use Readers/Stores/Projections.
-- `llm_gateway` is the only LLM API entrypoint. `retrieval` is the only document/embedding/vector-retrieval engine.
-- Backend web indexing enqueues work; `backend/src/worker.py` consumes the queue.
+- Runtime 拥有 execution facts 与 identity（`run_id`、`trace_id`、spans、lifecycle events）。
+- `Run != Trace`：Trace 是真实 Run 的 Observability projection。
+- Projectors、Replay、Evaluation、HTTP adapters 和 Frontend 不得创建 execution facts 或 IDs。
+- `run_id` 永远不是稳定的 DatasetExample `example_id`。
+- Application Use Case v1 已封版：`ExecuteAgent`、`ReplayRun`、`CaptureRunAsDatasetExample`、`EvaluateDataset` 和 `CompareEvaluationRuns`。
+- FastAPI 是 adapter，不是平台业务层。Platform actions 委托给 Application Use Cases；resource APIs 使用 Module Services；读取使用 Readers/Stores/Projections。
+- `llm_gateway` 是唯一的 LLM API entrypoint。`retrieval` 是唯一的 document/embedding/vector-retrieval engine。
+- Backend web indexing 只入队；`backend/src/worker.py` 消费队列。
 
-These boundaries are stable. Change them only for a concrete correctness or product requirement and update the authoritative architecture reference.
+这些边界是稳定的。只有出于具体的正确性或产品需求才可修改，并同步更新权威架构说明。
 
-## Repository map
+## 仓库结构
 
-- `packages/application` — framework-neutral platform use cases.
-- `packages/agent_runtime` — Runtime, events, tools, guardrails, memory, and workflows.
-- `packages/llm_gateway` / `packages/retrieval` — foundational LLM and RAG capabilities.
-- `packages/evaluation`, `packages/observability`, `packages/cost_analysis`, `packages/memory` — platform projections and services.
-- `packages/db` / `packages/infra` — shared database and infrastructure primitives.
-- `backend` — FastAPI transport, composition root, module services, and worker.
-- `frontend/admin` — React client of the public HTTP/SSE contract.
-- `desktop` — standalone PySide6 client.
-- `docs/architecture` — long-form architecture decisions.
+- `packages/application` — framework-neutral platform use cases。
+- `packages/agent_runtime` — Runtime、events、tools、guardrails、memory 和 workflows。
+- `packages/llm_gateway` / `packages/retrieval` — 基础 LLM 与 RAG 能力。
+- `packages/evaluation`、`packages/observability`、`packages/cost_analysis`、`packages/memory` — 平台 projections 和 services。
+- `packages/db` / `packages/infra` — 共享数据库与基础设施 primitives。
+- `backend` — FastAPI transport、composition root、module services 和 worker。
+- `frontend/admin` — public HTTP/SSE contract 的 React client。
+- `desktop` — standalone PySide6 client。
+- `docs/architecture` — 长篇架构决策。
 
-## Change rules
+## 修改规则
 
-- Keep routes thin and use the existing ownership boundary; do not add generic Controller, Facade, Manager, or command-bus layers.
-- Do not change sealed contracts to preserve stale documentation. Update documentation to match source truth.
-- Keep provider-specific integrations behind package protocols/adapters.
-- Preserve explicit identity and ownership fields; never infer them from ordering, names, or fallback IDs.
+- 保持 routes 简单并使用现有 ownership boundary；不要新增通用的 Controller、Facade、Manager 或 command-bus 层。
+- 不要为了保留过时文档而修改已封版的 contracts。更新文档以匹配 source truth。
+- 将 provider-specific integrations 保持在 package protocols/adapters 后面。
+- 保留明确的 identity 和 ownership fields；不要从排序、名称或 fallback IDs 推断。
 
-## Verification
+## 验证
 
-Use the nearest package guidance for targeted tests. For documentation-only changes, verify links and paths, search for stale architecture terms, and confirm every documented command/script exists. Frontend contract changes use `npm run check`, `npm run test`, and `npm run build` from `frontend/admin`.
+使用最近的 package guidance 执行 targeted tests。仅修改文档时，验证 links 和 paths，搜索过时的架构术语，并确认文档中的每个 command/script 都存在。Frontend contract 变更需在 `frontend/admin` 运行 `npm run check`、`npm run test` 和 `npm run build`。
 
-## References
+## 参考
 
 - [Execution Model v2](docs/architecture/execution-model-v2.md)
 - [FastAPI adapter boundary](docs/architecture/fastapi-adapter-boundary.md)

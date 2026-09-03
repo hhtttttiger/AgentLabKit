@@ -1,10 +1,11 @@
+<!-- Parent: ../../AGENTS.md -->
 # Runtime workflows
 
-This subtree implements deterministic multi-step workflow execution. `WorkflowGenerator` may use the LLM to create a definition; `WorkflowEngine` executes that definition without making new LLM routing decisions.
+此 subtree 实现 deterministic multi-step workflow execution。`WorkflowGenerator` 可以使用 LLM 创建 definition；`WorkflowEngine` 执行该 definition，不作出新的 LLM routing decisions。
 
-- Reuse the shared `ToolExecutor` and `SubAgentExecutor`; do not duplicate tool or Agent Loop behavior.
-- Pass step data through explicit `InputRef` values (`$user_input`, `$steps.*`, `$const:*`).
-- Preserve condition branching, failure policies, human-gate checkpoints, resume behavior, and public stream events.
-- Keep generation and execution separate, and keep workflow code independent of backend transport.
+- 复用 shared `ToolExecutor` 和 `SubAgentExecutor`；不要重复实现 tool 或 Agent Loop behavior。
+- 通过显式 `InputRef` values（`$user_input`、`$steps.*`、`$const:*`）传递 step data。
+- 保留 condition branching、failure policies、human-gate checkpoints、resume behavior 和 public stream events。
+- 分离 generation 与 execution，并保持 workflow code 独立于 backend transport。
 
-Run the workflow tests under `packages/agent_runtime/tests/` after changes. See the parent [agent_runtime instructions](../../../AGENTS.md).
+变更后运行 `packages/agent_runtime/tests/` 下的 workflow tests。参见 parent [agent_runtime instructions](../../../AGENTS.md)。

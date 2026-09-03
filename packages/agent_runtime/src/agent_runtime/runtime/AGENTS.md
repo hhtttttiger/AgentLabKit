@@ -1,11 +1,12 @@
+<!-- Parent: ../../AGENTS.md -->
 # Runtime execution engine
 
-This subtree implements the core `AgentRuntime` execution paths (`run_turn`, `stream_turn`, and workflow entrypoints). Runtime owns execution identity, lifecycle, and semantic event emission; lower-level helpers must propagate the supplied context rather than create unrelated IDs.
+此 subtree 实现核心 `AgentRuntime` execution paths（`run_turn`、`stream_turn` 和 workflow entrypoints）。Runtime 拥有 execution identity、lifecycle 和 semantic event emission；lower-level helpers 必须传递 supplied context，而不是创建无关 IDs。
 
-- Keep preparation, guards, tool execution, loop, and post-processing as explicit collaborators.
-- Preserve exactly one terminal event for every started execution.
-- Keep streaming on the public stream contract; internal events are not automatically API events.
-- Workflow execution is deterministic after definition generation and reuses the shared tool/sub-agent executors.
-- Do not make Runtime depend on Evaluation or backend modules.
+- 将 preparation、guards、tool execution、loop 和 post-processing 保持为显式 collaborators。
+- 每个 started execution 必须恰好产生一个 terminal event。
+- 保持 streaming 遵循 public stream contract；internal events 不会自动成为 API events。
+- Definition generation 后，workflow execution 是 deterministic，并复用 shared tool/sub-agent executors。
+- 不要让 Runtime 依赖 Evaluation 或 backend modules。
 
-Verify runtime changes with the relevant tests under `packages/agent_runtime/tests/`, especially lifecycle, event, streaming, and architecture-invariant tests. See the parent [agent_runtime instructions](../../../AGENTS.md) and [Execution Model v2](../../../../../docs/architecture/execution-model-v2.md).
+Runtime 变更使用 `packages/agent_runtime/tests/` 下的相关 tests 验证，尤其是 lifecycle、event、streaming 和 architecture-invariant tests。参见 parent [agent_runtime instructions](../../../AGENTS.md) 和 [Execution Model v2](../../../../../docs/architecture/execution-model-v2.md)。

@@ -1,10 +1,10 @@
 # Infrastructure package
 
-`packages/infra` is the lowest-level Redis, cache, and queue package. It must not depend on application, backend, Runtime, or other project packages.
+`packages/infra` 是最低层的 Redis、cache 和 queue package。它不得依赖 application、backend、Runtime 或其他 project packages。
 
-- Keep Redis lifecycle, cache backends, and queue protocols behind this package’s interfaces.
-- Use `InMemoryCache`/`InMemoryQueue` for tests; keep Redis-specific behavior in Redis implementations.
-- Queue consumers own ack/nack/retry behavior; document payload schemas in their calling module, not here.
-- Do not place business orchestration or HTTP behavior in infrastructure.
+- 将 Redis lifecycle、cache backends 和 queue protocols 保持在此 package 的 interfaces 后面。
+- 测试使用 `InMemoryCache`/`InMemoryQueue`；将 Redis-specific behavior 保持在 Redis implementations 中。
+- Queue consumers 负责 ack/nack/retry behavior；payload schemas 应由调用它们的 module 记录，而不是放在这里。
+- 不要在 infrastructure 中放置 business orchestration 或 HTTP behavior。
 
-Run the relevant tests under `packages/infra/tests/` after changes. See [root instructions](../../AGENTS.md).
+修改后运行 `packages/infra/tests/` 下的相关 tests。参见 [根目录 instructions](../../AGENTS.md)。

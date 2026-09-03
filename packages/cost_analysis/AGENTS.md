@@ -2,11 +2,11 @@
 
 # cost_analysis
 
-## Purpose
+## 目的
 
-Cost analysis is a projection of execution facts. It records and aggregates usage/cost information without executing agents or reconstructing Runs.
+Cost analysis 是 execution facts 的 projection。它记录并聚合 usage/cost information，不执行 agents，也不重建 Runs。
 
-## Responsibilities
+## 职责
 
 ```text
 LLMCallCompleted / LLMCallFailed
@@ -16,20 +16,20 @@ LLMCallCompleted / LLMCallFailed
          CostRecord
 ```
 
-`CostProjector` consumes RuntimeEvents and publishes one cost record for each relevant LLM operation, including Runtime identity, model/provider, usage, timestamps, and errors. Aggregators and budget managers query these records and manage budget policy.
+`CostProjector` 消费 RuntimeEvents，并为每个相关 LLM operation 发布一条 cost record，其中包括 Runtime identity、model/provider、usage、timestamps 和 errors。Aggregators 和 budget managers 查询这些 records 并管理 budget policy。
 
-## Ownership and boundaries
+## Ownership 和边界
 
-`run_id`, `trace_id`, and `span_id` on a `CostRecord` must come from the RuntimeEvent. Cost analysis must not generate IDs, infer spans, or use database request-log ordering as execution identity. It does not own `AgentRun` or `Trace`.
+`CostRecord` 中的 `run_id`、`trace_id` 和 `span_id` 必须来自 RuntimeEvent。Cost analysis 不得生成 IDs、推断 spans，或使用 database request-log ordering 作为 execution identity。它不拥有 `AgentRun` 或 `Trace`。
 
-The package may aggregate by run, agent, workflow, model, or time period, but aggregation must preserve the source execution identity. It must not depend on Evaluation or make evaluation decisions.
+Package 可以按 run、agent、workflow、model 或 time period 聚合，但聚合必须保留 source execution identity。它不得依赖 Evaluation 或作出 evaluation decisions。
 
 ## Dependency rules
 
-- Consume RuntimeEvent contracts through the projector boundary.
-- Keep Runtime and LLM Gateway implementations out of the cost projection layer.
-- Database persistence and HTTP routes remain behind package interfaces and backend adapters.
+- 通过 projector boundary 消费 RuntimeEvent contracts。
+- 不要将 Runtime 和 LLM Gateway implementations 放入 cost projection layer。
+- Database persistence 和 HTTP routes 保持在 package interfaces 与 backend adapters 后面。
 
 ## Testing expectations
 
-Verify `LLMCallCompleted` and failed calls preserve all identity and usage fields, produce correct timestamps, and do not fabricate missing execution identity. Also test aggregation, budgets, alerts, and malformed events. See `tests/test_projector.py` and `tests/test_contracts.py`.
+验证 `LLMCallCompleted` 和 failed calls 保留全部 identity 与 usage fields，产生正确 timestamps，并且不伪造缺失的 execution identity。同时测试 aggregation、budgets、alerts 和 malformed events。参见 `tests/test_projector.py` 和 `tests/test_contracts.py`。

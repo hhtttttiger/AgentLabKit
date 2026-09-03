@@ -1,7 +1,7 @@
 # Desktop tools
 
-Desktop tools are registered through `create_desktop_tool_registry()` and use the `agent_runtime` tool protocols (`ToolSpec`, handler, and result). Keep tool definitions separate from the runtime and register new tools in `registry.py`.
+Desktop tools 通过 `create_desktop_tool_registry()` 注册，并使用 `agent_runtime` tool protocols（`ToolSpec`、handler 和 result）。保持 tool definitions 与 Runtime 分离，并在 `registry.py` 注册新 tools。
 
-Preserve the filesystem safety boundary: file operations are restricted to the user home directory. Shell execution is opt-in and must remain disabled by default. Tool handlers should return structured `ToolResult` values and avoid depending on desktop UI components.
+保留 filesystem safety boundary：file operations 限制在 user home directory。Shell execution 必须 opt-in，且默认保持 disabled。Tool handlers 应返回结构化的 `ToolResult` values，避免依赖 desktop UI components。
 
-See [desktop instructions](../AGENTS.md) and [Agent Runtime](../../packages/agent_runtime/AGENTS.md).
+参见 [desktop instructions](../AGENTS.md) 和 [Agent Runtime](../../packages/agent_runtime/AGENTS.md)。

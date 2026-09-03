@@ -1,10 +1,10 @@
 # LLM Gateway
 
-`llm_gateway` is the only package permitted to call provider LLM APIs. It owns provider adapters, model resolution, routing/failover, credentials, usage extraction, and gateway-level resilience.
+`llm_gateway` 是唯一允许调用 provider LLM APIs 的 package。它负责 provider adapters、model resolution、routing/failover、credentials、usage extraction 和 gateway-level resilience。
 
-- Consumers depend on `GatewayProtocol` and request models, not provider SDKs or `GatewayService` internals.
-- Use `ModelRef` for explicit model selection; preserve default binding behavior when no model is supplied.
-- Keep provider-specific behavior in `providers/`; do not duplicate API calls in backend, Runtime, retrieval, memory, or desktop modules.
-- Preserve usage and execution identity supplied by callers; the gateway must not become an execution/run owner.
+- Consumers 依赖 `GatewayProtocol` 和 request models，而不是 provider SDKs 或 `GatewayService` internals。
+- 使用 `ModelRef` 进行显式 model selection；未提供 model 时保留 default binding behavior。
+- 将 provider-specific behavior 保持在 `providers/`；不要在 backend、Runtime、retrieval、memory 或 desktop modules 中重复 API calls。
+- 保留 callers 提供的 usage 和 execution identity；gateway 不得成为 execution/run owner。
 
-See [root instructions](../../AGENTS.md) and run the targeted gateway tests under `packages/llm_gateway/tests/`.
+参见 [根目录 instructions](../../AGENTS.md)，并运行 `packages/llm_gateway/tests/` 下的 targeted gateway tests。

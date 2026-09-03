@@ -1,39 +1,39 @@
 # Backend
 
-## Role
+## 职责
 
-`backend` is the FastAPI transport and composition layer. It exposes the public HTTP/SSE contract, wires package capabilities, owns module resource services, and runs the indexing worker. It is not the platform orchestration layer.
+`backend` 是 FastAPI transport 与 composition layer。它暴露 public HTTP/SSE contract，连接 package capabilities，拥有 module resource services，并运行 indexing worker。它不是平台 orchestration layer。
 
 ## Endpoint ownership
 
-- **Platform action → Application Use Case**: agent turn/replay/capture and agent-target evaluation/compare.
-- **Resource API → Module Service**: authentication, agents, model catalog, knowledge bases, chat, files, glossary, memories, datasets, budgets, and definitions.
-- **Projection/query → Reader, Store, or aggregator**: Runs, traces, costs, model usage, and evaluation-run reads.
+- **Platform action → Application Use Case**：agent turn/replay/capture，以及 agent-target evaluation/compare。
+- **Resource API → Module Service**：authentication、agents、model catalog、knowledge bases、chat、files、glossary、memories、datasets、budgets 和 definitions。
+- **Projection/query → Reader、Store 或 aggregator**：Runs、traces、costs、model usage 和 evaluation-run reads。
 
-Use the existing boundary in [`docs/architecture/fastapi-adapter-boundary.md`](../docs/architecture/fastapi-adapter-boundary.md). The `runs` module is the HTTP adapter for Run reads, replay, and capture; it does not own Runtime identity.
+使用 [`docs/architecture/fastapi-adapter-boundary.md`](../docs/architecture/fastapi-adapter-boundary.md) 中的现有边界。`runs` module 是 Run reads、replay 和 capture 的 HTTP adapter；它不拥有 Runtime identity。
 
-## Rules
+## 规则
 
-- Keep routes thin: validate HTTP input, authenticate/authorize, map DTOs, delegate, and adapt the result to HTTP or SSE.
-- Do not construct `AgentRun`, generate execution IDs, calculate evaluation verdicts, or reconstruct Trace from Run data in routes/services.
-- Keep application orchestration in `packages/application`; keep CRUD/resource behavior in the owning module service.
-- Preserve the public envelope and SSE contract; internal `RuntimeEvent` values are not automatically public API.
-- Web indexing only enqueues work. `src/worker.py` consumes it in a separate process.
+- 保持 routes 简单：验证 HTTP input、认证/授权、映射 DTO、委托调用，并将结果适配为 HTTP 或 SSE。
+- 不要在 routes/services 中构造 `AgentRun`、生成 execution IDs、计算 evaluation verdicts，或根据 Run data 重建 Trace。
+- 将 application orchestration 保持在 `packages/application`；将 CRUD/resource behavior 保持在所属 module service。
+- 保留 public envelope 和 SSE contract；内部 `RuntimeEvent` values 不会自动成为 public API。
+- Web indexing 只入队。`src/worker.py` 在独立进程中消费队列。
 
-## Key paths
+## 关键路径
 
-- `src/main.py` — app factory, lifespan, composition root, router registration.
-- `src/runtime/` — package adapters and application wiring.
-- `src/modules/` — HTTP modules and resource services.
-- `src/modules/runs/` — Run reader and Application Use Case adapters.
-- `alembic/` — database migrations.
+- `src/main.py` — app factory、lifespan、composition root、router registration。
+- `src/runtime/` — package adapters 和 application wiring。
+- `src/modules/` — HTTP modules 和 resource services。
+- `src/modules/runs/` — Run reader 和 Application Use Case adapters。
+- `alembic/` — database migrations。
 
-## Verification
+## 验证
 
-From `backend/`, run targeted tests for the changed module. For runtime/application boundary changes, also run the relevant package tests under `packages/*/tests`. Validate imports with `PYTHONPATH=src` when invoking backend modules.
+从 `backend/` 运行变更模块的 targeted tests。对于 runtime/application boundary 变更，同时运行 `packages/*/tests` 下的相关 package tests。调用 backend modules 时，使用 `PYTHONPATH=src` 验证 imports。
 
-## References
+## 参考
 
-- [Root instructions](../AGENTS.md)
+- [根目录 instructions](../AGENTS.md)
 - [FastAPI adapter boundary](../docs/architecture/fastapi-adapter-boundary.md)
 - [Execution Model v2](../docs/architecture/execution-model-v2.md)
