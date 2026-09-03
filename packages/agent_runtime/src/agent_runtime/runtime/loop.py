@@ -18,6 +18,7 @@ directly for LLM interactions.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from collections.abc import AsyncIterator, Callable, Awaitable, Sequence
 from dataclasses import dataclass, field
@@ -26,7 +27,7 @@ from enum import Enum  # noqa: F401 — used by QueueMode
 from typing import Any
 from uuid import uuid4
 
-from ..tools.contracts import ToolExecutionMode, ToolExecutionObservers, ToolResult
+from ..tools.contracts import ToolExecutionCallback, ToolExecutionMode, ToolExecutionObservers, ToolResult
 from ..contracts.models import AgentMessage, AgentRole
 from ..errors import AgentError, AgentErrorCode
 from ..event_bus import EventBus
@@ -222,8 +223,36 @@ class LoopConfig:
     before_tool_call: Callable[[str, dict], Awaitable[str | None]] | None = None
     after_tool_call: Callable[[str, dict, str, bool], Awaitable[str | None]] | None = None
 
-    # Tool executor — called by the loop to execute a tool
-    tool_executor: Callable[..., Awaitable[ToolResult]] | None = None
+    # Tool executor — canonical callback; legacy 3-argument callbacks are
+    # adapted once when the loop configuration is constructed.
+    tool_executor: ToolExecutionCallback | None = None
+
+    def __post_init__(self) -> None:
+        if self.tool_executor is None:
+            return
+        try:
+            signature = inspect.signature(self.tool_executor)
+        except (TypeError, ValueError):
+            # A callable that cannot be inspected is treated as canonical. It
+            # must fail normally; execution never retries on TypeError.
+            return
+        try:
+            signature.bind("", {}, "", None)
+        except TypeError:
+            legacy = self.tool_executor
+
+            async def adapted(
+                tool_name: str,
+                arguments: dict[str, Any],
+                tool_call_id: str,
+                observers: ToolExecutionObservers | None,
+            ) -> ToolResult:
+                del observers
+                return normalize_tool_executor_result(
+                    await legacy(tool_name, arguments, tool_call_id),
+                )
+
+            self.tool_executor = adapted
 
 
 @dataclass
@@ -1027,16 +1056,13 @@ async def _execute_tool(
 
     # Execute
     if config.tool_executor is None:
-        return f"Tool '{tool_name}' has no executor configured.", True
+        message = f"Tool '{tool_name}' has no executor configured."
+        return ToolResult(output=message, status="error", error_message=message)
 
-    try:
-        result = await config.tool_executor(tool_name, arguments, tool_call_id, observers)
-    except TypeError:
-        # Compatibility for legacy loop callers with the former 3-argument callback.
-        result = await config.tool_executor(tool_name, arguments, tool_call_id)
-
-    if not isinstance(result, ToolResult):
-        result = ToolResult(output=str(result), status="success")
+    # Signature compatibility is resolved by LoopConfig.__post_init__. A
+    # callback's TypeError is an execution error, never evidence to retry it.
+    result = await config.tool_executor(tool_name, arguments, tool_call_id, observers)
+    result = normalize_tool_executor_result(result)
     result_text = result.output
     is_error = result.status != "success"
 
@@ -1051,6 +1077,21 @@ async def _execute_tool(
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
+
+def normalize_tool_executor_result(result: Any) -> ToolResult:
+    """Normalize the narrow set of historical executor return shapes."""
+    if isinstance(result, ToolResult):
+        return result
+    if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], bool):
+        output, succeeded = result
+        message = str(output)
+        return ToolResult(
+            output=message,
+            status="success" if succeeded else "error",
+            error_message=None if succeeded else message,
+        )
+    return ToolResult(output=str(result), status="success")
 
 
 def _messages_to_conversation(

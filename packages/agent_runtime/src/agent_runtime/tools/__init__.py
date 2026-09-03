@@ -27,6 +27,7 @@ from .builtin import CalculatorTool, KnowledgeSearchTool, TimeNowTool
 from .catalog_syncer import DbBackedExternalToolLoader, ToolCatalogSyncer
 from .contracts import (
     ToolBinding,
+    ToolExecutionCallback,
     ToolExecutionContext,
     ToolExecutionMode,
     ToolHandler,
@@ -60,6 +61,7 @@ __all__ = [
     "ToolSpec",
     "ToolBinding",
     "ToolExecutionMode",
+    "ToolExecutionCallback",
     "ToolHandler",
     "ToolResult",
     "ToolExecutionContext",

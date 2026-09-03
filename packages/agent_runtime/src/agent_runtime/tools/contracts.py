@@ -39,6 +39,18 @@ class ToolExecutionObservers:
     retrieval: RetrievalObserver | None = None
 
 
+class ToolExecutionCallback(Protocol):
+    """Canonical callback used by the runtime loop to execute a tool."""
+
+    async def __call__(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        tool_call_id: str,
+        observers: ToolExecutionObservers | None,
+    ) -> ToolResult: ...
+
+
 # ---------------------------------------------------------------------------
 # ToolExecutionMode — parallel vs sequential tool calls
 # ---------------------------------------------------------------------------

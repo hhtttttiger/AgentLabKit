@@ -55,7 +55,7 @@ from ..contracts.models import (
     HandoffTarget,
     ToolExecutionRecord,
 )
-from ..tools.contracts import ToolResult
+from ..tools.contracts import ToolExecutionObservers, ToolResult
 from ..contracts.run import AgentRun, ExecutionContext, RunError, RunStatus, RunTarget, RunUsage
 from ..definition.loader import AgentDefinitionLoader
 from ..definition.models import (
@@ -79,6 +79,8 @@ from ..events_v2 import (
     RunCompleted,
     RunFailed,
     RunStarted,
+    ToolCallCompleted,
+    ToolCallStarted,
 )
 from ..guardrails import (
     GuardsPipeline,
@@ -98,6 +100,8 @@ from ..prompts import build_system_prompt
 from ..skills import SkillRegistry, SkillComposer
 from ..skills.builtin import register_builtin_skills
 from ..tools import ToolBinding, ToolRegistry
+from .retrieval_observer import RuntimeRetrievalObserver
+from .loop import _SpanContext, _make_semantic_emit
 
 from .cancel import CancelToken
 from .llm_adapter import FinalDirective, LlmAdapter, ReplyTextStreamParser, ToolDirective, ToolSchema
@@ -918,6 +922,18 @@ class AgentRuntime:
         )
         _run_started = False
         _terminal_emitted = False
+        # Streaming uses the same runtime-owned semantic span hierarchy as the
+        # blocking loop. OTel spans remain an independent export concern.
+        _stream_span_ctx = _SpanContext()
+        _stream_semantic_emit = (
+            _make_semantic_emit(
+                self._event_bus, _run_id, _trace_id, _stream_span_ctx,
+                agent_key=getattr(prepared.resolved_request, "agent_key", "") or "",
+            )
+            if execution_context else None
+        )
+        if execution_context:
+            _stream_span_ctx.push(execution_context.root_span_id)
 
         async def _emit_run_terminal(*, status: str = "completed", **kwargs) -> None:
             """Emit the terminal v2 event for the run (exactly once)."""
@@ -1157,9 +1173,19 @@ class AgentRuntime:
                             args=dict(directive.arguments),
                         ))
                     _tool_span = _span_mgr.start_tool_span(directive.tool_name) if _span_mgr else None
+                    _semantic_tool_span_id = uuid4().hex[:16] if _stream_semantic_emit else None
+                    if _semantic_tool_span_id is not None:
+                        await _stream_semantic_emit(ToolCallStarted(
+                            tool_name=directive.tool_name,
+                            arguments=dict(directive.arguments),
+                            span_id=_semantic_tool_span_id,
+                            parent_span_id=execution_context.root_span_id,
+                        ))
+                        _stream_span_ctx.push(_semantic_tool_span_id)
                     recorded_before = len(deps.tool_events)
 
                     # Streaming delegation
+                    tool_is_error = False
                     delegate_handler = self.tool_registry.dynamic_registry.get_handler(
                         directive.tool_name
                     )
@@ -1184,7 +1210,7 @@ class AgentRuntime:
                         stream_usage = self._merge_usage(stream_usage, usage)
                         stream_usage = self._drain_delegation_usage(stream_usage, deps)
                     else:
-                        tool_output = await self._tool_exec.execute_tool_call(
+                        tool_result = await self._tool_exec.execute_tool_call(
                             request=resolved_request,
                             settings=effective_settings,
                             deps=deps,
@@ -1193,8 +1219,17 @@ class AgentRuntime:
                             allowed_tool_names=auto_tool_names,
                             tool_bindings=tool_bindings,
                             guards_pipeline=self.guards_pipeline,
+                            observers=(
+                                ToolExecutionObservers(
+                                    retrieval=RuntimeRetrievalObserver(
+                                        _stream_semantic_emit, _stream_span_ctx,
+                                    ),
+                                )
+                                if _stream_semantic_emit is not None else None
+                            ),
                         )
-                        tool_output = tool_output.output if isinstance(tool_output, ToolResult) else str(tool_output)
+                        tool_output = tool_result.output if isinstance(tool_result, ToolResult) else str(tool_result)
+                        tool_is_error = isinstance(tool_result, ToolResult) and tool_result.status != "success"
                         stream_usage = self._merge_usage(stream_usage, usage)
                         stream_usage = self._drain_delegation_usage(stream_usage, deps)
 
@@ -1202,8 +1237,18 @@ class AgentRuntime:
                         await self._event_bus.emit(ToolExecutionEndEvent(
                             tool_name=directive.tool_name,
                             result=tool_output[:200] if tool_output else "",
-                            is_error=False,
+                            is_error=tool_is_error,
                         ))
+                    if _stream_semantic_emit is not None and _semantic_tool_span_id is not None:
+                        await _stream_semantic_emit(ToolCallCompleted(
+                            tool_name=directive.tool_name,
+                            result=tool_output[:500] if tool_output else "",
+                            duration_ms=0,
+                            is_error=tool_is_error,
+                            span_id=_semantic_tool_span_id,
+                            parent_span_id=execution_context.root_span_id,
+                        ))
+                        _stream_span_ctx.pop()
                     if _tool_span is not None:
                         _tool_span.end()
 
