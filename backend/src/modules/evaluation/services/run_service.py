@@ -58,19 +58,24 @@ class RunService:
             (c for c in run_configs if str(c["id"]) == str(config_id)), None
         )
 
+        # Agent evaluations use the v2 Application use case. Keep the legacy
+        # runner for rag_pipeline until its target contract is migrated too.
+        runtime = getattr(request_app_state, "agent_runtime", None)
+        if config and config["target_type"] == "agent" and runtime is not None:
+            background_tasks.add_task(
+                self.execute_application_run, run["id"], config_id, eval_mod, runtime
+            )
+            return run
+
         target_executor = None
         if config:
             target_executor = create_target_executor(
-                target_type=config["target_type"],
-                target_key=config["target_key"],
-                agent_runtime=getattr(request_app_state, "agent_runtime", None),
+                target_type=config["target_type"], target_key=config["target_key"],
+                agent_runtime=runtime,
                 retrieval_service=getattr(request_app_state, "retrieval_service", None),
                 gateway_service=getattr(request_app_state, "gateway_service", None),
             )
-
-        background_tasks.add_task(
-            self.execute_run, run["id"], config_id, eval_mod, target_executor
-        )
+        background_tasks.add_task(self.execute_run, run["id"], config_id, eval_mod, target_executor)
         return run
 
     async def list_runs(self, *, limit: int) -> list[dict]:
@@ -90,6 +95,34 @@ class RunService:
             "run": self._to_run_view(run),
             "results": [self._to_run_result_view(r) for r in results],
         }
+
+    @staticmethod
+    async def execute_application_run(run_id: int, config_id: int, eval_mod, runtime) -> None:
+        from alkit_db.engine import get_session_factory
+        from application import EvaluateDataset, EvaluateDatasetCommand
+        from application_adapters.agent_runtime import AgentRuntimeExecutor, BackendAgentReader
+        from application_adapters.evaluation import (
+            BackendEvaluationConfigurationReader, BackendEvaluationDatasetReader,
+            BackendEvaluationEvaluator, BackendEvaluationRunStore,
+        )
+
+        session_factory = get_session_factory()
+        config_reader = BackendEvaluationConfigurationReader(session_factory)
+        configuration = await config_reader.get_configuration(str(config_id))
+        loader = getattr(runtime, "definition_loader", None)
+        if loader is None:
+            raise RuntimeError("AgentRuntime definition loader is unavailable")
+        use_case = EvaluateDataset(
+            BackendEvaluationDatasetReader(session_factory),
+            BackendAgentReader(loader),
+            AgentRuntimeExecutor(runtime),
+            BackendEvaluationEvaluator(eval_mod.runner, configuration),
+            BackendEvaluationRunStore(session_factory, existing_run_id=run_id),
+            configurations=config_reader,
+        )
+        await use_case.execute(EvaluateDatasetCommand(
+            evaluation_config_id=str(config_id), configuration=configuration,
+        ))
 
     @staticmethod
     async def execute_run(run_id: int, config_id: int, eval_mod, target_executor=None) -> None:

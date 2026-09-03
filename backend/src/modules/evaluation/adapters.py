@@ -104,6 +104,7 @@ class AgentTargetExecutor:
             history=[],
             agent_key=agent_key,
             knowledge_chunks=knowledge_chunks,
+        )
         # Runtime.run() owns the real AgentRun, run_id, and trace_id.
         # This legacy TargetExecutor only returns text for the legacy runner.
         run = await self._runtime.run(request)
