@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-import uuid
 from typing import Any, AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -247,9 +246,11 @@ async def run_agent_turn_stream(
     ``error`` event so the frontend's ``onError``/terminal handling still fires
     cleanly. One ``AgentExecutionAudit`` row is written in ``finally``.
     """
-    run_id = str(uuid.uuid4())
-    trace_id = str(uuid.uuid4())
-    effective_session_id = session_id or run_id
+    # Compatibility helper only: real production streaming uses ExecuteAgent.
+    # It deliberately does not invent execution identity.
+    run_id = ""
+    trace_id = ""
+    effective_session_id = session_id or ""
 
     request = AgentTurnRequest(
         session_id=effective_session_id,

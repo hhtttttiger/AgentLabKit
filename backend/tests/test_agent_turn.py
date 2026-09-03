@@ -223,8 +223,9 @@ async def test_stream_happy_path_emits_context_deltas_completed_then_done():
     payloads = _parse_sse_lines(lines)
     assert [p["type"] for p in payloads] == ["context", "reply_delta", "reply_delta", "completed"]
     assert lines[-1] == "data: [DONE]\n\n"
-    # every payload carries the run id
-    assert all(p["runId"] for p in payloads)
+    # This compatibility helper does not manufacture identity; the production
+    # ExecuteAgent adapter supplies Runtime-owned runId values.
+    assert all("runId" in p for p in payloads)
 
     # audit written once, success, with aggregated reply text
     assert len(sf.session.added) == 1
