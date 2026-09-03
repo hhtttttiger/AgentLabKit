@@ -762,6 +762,37 @@ class AgentRuntime:
 
         return run
 
+    async def stream(
+        self,
+        request: AgentTurnRequest,
+        *,
+        cancel_token: CancelToken | None = None,
+    ) -> AsyncIterator[AgentTurnStreamEvent]:
+        """Stream one real execution with Runtime-owned identity.
+
+        This is the v2 streaming boundary.  ``stream_turn`` remains the lower
+        level compatibility API; callers that need an execution boundary use
+        this method so they never manufacture ``run_id``/``trace_id``.
+        """
+        target = RunTarget(
+            type="agent", agent_key=request.agent_key,
+            agent_version=str(request.agent_version) if request.agent_version else None,
+        )
+        context = ExecutionContext(
+            session_id=request.session_id or "",
+            agent_key=target.agent_key,
+            agent_version=target.agent_version,
+            target=target,
+        )
+        request = request.model_copy(update={"trace_id": context.trace_id})
+        async for event in self.stream_turn(
+            request, cancel_token=cancel_token, execution_context=context,
+        ):
+            event.run_id = context.run_id
+            # The context is authoritative even if request preparation cloned data.
+            event.trace_id = context.trace_id
+            yield event
+
     async def stream_turn(
         self,
         request: AgentTurnRequest,

@@ -148,6 +148,8 @@ class AgentTurnStreamEvent(BaseModel):
     ]
     session_id: str
     trace_id: str
+    # Set by the v2 runtime streaming boundary; empty for legacy stream_turn callers.
+    run_id: str = ""
     delta: str | None = None
     reply_text: str | None = None
     tool_name: str | None = None

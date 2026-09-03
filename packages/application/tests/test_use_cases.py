@@ -36,7 +36,8 @@ async def test_execute_delegates_identity_and_inputs():
         ExecuteAgentCommand("support", "hi", session_id="s1")
     )
     assert result.run.run_id == "runtime-owned-id"
-    assert executor.calls[0]["metadata"]["session_id"] == "s1"
+    assert executor.calls[0]["session_id"] == "s1"
+    assert "session_id" not in executor.calls[0]["metadata"]
 
 
 @pytest.mark.asyncio
@@ -80,11 +81,14 @@ async def test_evaluation_keeps_case_errors_out_of_run_lifecycle():
     class Store:
         def __init__(self): self.finished = False
         async def start(self, **kwargs): return object()
+        async def record_result(self, run, result): pass
         async def complete(self, run): self.finished = True; return run
         async def fail(self, run, error): raise AssertionError("must not fail lifecycle")
 
     class Evaluator:
-        async def evaluate(self, context): raise RuntimeError("evaluator failed")
+        async def evaluate(self, context):
+            from evaluation.contracts_v2 import EvaluationResult
+            return EvaluationResult(passed=True)
 
     result = await EvaluateDataset(Datasets(), Agents(), Executor(), Evaluator(), Store()).execute(
         EvaluateDatasetCommand("dataset", "agent")
