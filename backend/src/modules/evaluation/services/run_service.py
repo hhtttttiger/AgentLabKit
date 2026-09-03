@@ -43,11 +43,13 @@ class RunService:
         background_tasks,
         request_app_state,
     ) -> dict:
-        """Trigger a run and schedule its execution via background tasks.
+        """Create the pending record and schedule the platform operation.
 
-        Encapsulates the full orchestration: create the run record,
-        resolve the TargetExecutor from runtime services, and schedule
-        execute_run as a background task.
+        The module service owns the HTTP-compatible pending record and
+        transport scheduling only.  For agent targets, the scheduled
+        ``EvaluateDataset`` use case owns execution/evaluation orchestration
+        and all subsequent run lifecycle transitions.  ``rag_pipeline`` stays
+        on the legacy path until its target contract is stabilized.
         """
         run = await self.trigger_run(config_id)
 

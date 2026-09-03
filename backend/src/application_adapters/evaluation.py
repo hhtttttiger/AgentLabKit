@@ -9,7 +9,11 @@ from sqlalchemy import func, select
 
 from application import EvaluationConfiguration
 from evaluation.contracts import EvalCase, EvalRunConfig
-from evaluation.contracts_v2 import DatasetExample, EvaluationResult
+from evaluation.contracts_v2 import (
+    DatasetExample,
+    EvaluationResult,
+    eval_run_result_to_evaluation_result,
+)
 from modules.evaluation.models import EvalCase as EvalCaseModel, EvalRun, EvalRunConfig as EvalRunConfigModel, EvalRunResult
 
 
@@ -82,8 +86,19 @@ class BackendEvaluationRunStore:
     async def complete(self, evaluation_run: EvalRun) -> EvalRun:
         async with self._factory() as session:
             run = await session.get(EvalRun, self._existing_run_id)
+            if run is None:
+                raise LookupError(f"evaluation run {self._existing_run_id} not found")
+            result_rows = (await session.execute(
+                select(EvalRunResult).where(EvalRunResult.run_id == self._existing_run_id)
+            )).scalars().all()
+            scores = [row.overall_score for row in result_rows]
             run.status = "completed"
             run.completed_at_utc = func.now()
+            run.summary_json = {
+                "total_cases": len(result_rows),
+                "avg_score": round(sum(scores) / len(scores), 4) if scores else 0,
+                "error_count": sum(1 for row in result_rows if row.error_message),
+            }
             await session.commit()
             return run
 
@@ -122,20 +137,26 @@ class BackendEvaluationEvaluator:
             metric_configs=[dict(m) for m in self._configuration.metric_configs],
             judge_model_key=self._configuration.judge_model_key,
         )
-        # The runner owns metric/judge semantics; this adapter only supplies the
-        # already-produced Runtime output and translates the result contract.
-        legacy = await self._runner._run_with_legacy(case, actual, config, started)
-        metrics = [{
-            "metric_name": metric.metric_name, "score": metric.score,
-            "reasoning": metric.reasoning, "passed": metric.passed,
-        } for metric in legacy.metric_results]
-        return EvaluationResult(
-            evaluator_name=self.name, example_id=example.example_id,
-            run_id=getattr(context.run, "run_id", None), passed=legacy.overall_score >= 0.5,
-            score=legacy.overall_score, message=legacy.error_message,
-            duration_ms=legacy.duration_ms,
-            details={"actual_output": actual, "metric_results": metrics},
+        # The Evaluation package owns metric/judge semantics and the v1 -> v2
+        # conversion.  The backend only supplies Runtime output and identity.
+        legacy = await self._runner.evaluate_case(
+            case, actual, config, started_at=started,
         )
+        converted = eval_run_result_to_evaluation_result(
+            legacy,
+            run_id=getattr(context.run, "run_id", None),
+            example_id=example.example_id,
+        )
+        return replace(converted, details={
+            **converted.details,
+            "actual_output": actual,
+            "metric_results": [{
+                "metric_name": metric.metric_name,
+                "score": metric.score,
+                "reasoning": metric.reasoning,
+                "passed": metric.passed,
+            } for metric in legacy.metric_results],
+        })
 
 
 def build_evaluate_dataset(*, session_factory: Any, eval_module: Any,

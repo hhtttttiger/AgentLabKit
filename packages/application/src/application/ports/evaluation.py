@@ -1,15 +1,12 @@
 from typing import Any, Protocol
 
-from evaluation.contracts_v2 import EvaluationContext, EvaluationResult
+from evaluation.contracts_v2 import EvaluationResult
 
 class EvaluationConfigurationReader(Protocol):
     async def get_configuration(self, config_id: str): ...
 
 class TraceReader(Protocol):
     async def get_spans(self, trace_id: str) -> list[Any] | None: ...
-
-class EvaluationRunner(Protocol):
-    async def evaluate(self, context: EvaluationContext) -> EvaluationResult: ...
 
 class EvaluationRunStore(Protocol):
     async def start(self, *, dataset_id: str, agent_key: str, total_examples: int) -> Any: ...

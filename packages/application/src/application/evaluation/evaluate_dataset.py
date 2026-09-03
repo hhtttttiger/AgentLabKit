@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from evaluation.contracts_v2 import EvaluationContext
+from evaluation.contracts_v2 import EvaluationContext, Evaluator
 
 from ..ports.agents import AgentDefinitionReader
 from ..ports.datasets import DatasetReader
 from ..ports.evaluation import (
-    EvaluationConfigurationReader, EvaluationRunStore, EvaluationRunner, TraceReader,
+    EvaluationConfigurationReader, EvaluationRunStore, TraceReader,
 )
 from ..ports.execution import RunExecutor
 from .contracts import EvaluateDatasetCommand, EvaluateDatasetResult
@@ -16,7 +16,7 @@ from .contracts import EvaluateDatasetCommand, EvaluateDatasetResult
 class EvaluateDataset:
     """Coordinate evaluation-run lifecycle; judging remains in Evaluation."""
     def __init__(self, datasets: DatasetReader, agents: AgentDefinitionReader,
-                 executor: RunExecutor, evaluator: EvaluationRunner,
+                 executor: RunExecutor, evaluator: Evaluator,
                  runs: EvaluationRunStore, traces: TraceReader | None = None,
                  configurations: EvaluationConfigurationReader | None = None) -> None:
         self._datasets, self._agents = datasets, agents

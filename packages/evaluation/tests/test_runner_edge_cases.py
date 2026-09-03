@@ -32,6 +32,24 @@ def _config(**kwargs) -> EvalRunConfig:
 # ── target_executor 调用 ───────────────────────────────────────────
 
 
+class TestPublicCaseSeam:
+    @pytest.mark.asyncio
+    async def test_evaluate_case_evaluates_supplied_runtime_output(self) -> None:
+        class _ConstMetric:
+            async def evaluate(self, **kwargs):
+                assert kwargs["actual_output"] == "runtime output"
+                return EvalMetricResult(metric_name="m", score=0.8, passed=True)
+
+        runner = EvaluationRunner(judge=MagicMock())
+        runner._resolve_legacy_metrics = lambda config: [_ConstMetric()]
+        result = await runner.evaluate_case(
+            _case(), "runtime output", _config(),
+        )
+
+        assert result.actual_output == "runtime output"
+        assert result.overall_score == 0.8
+
+
 class TestTargetExecutor:
     @pytest.mark.asyncio
     async def test_executor_called_with_case_and_config(self) -> None:

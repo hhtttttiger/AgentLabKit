@@ -96,7 +96,7 @@ class EvaluationRunner:
             if provider is not None:
                 return await self._run_with_provider(case, config, provider, start)
 
-            return await self._run_with_legacy(case, actual_output, config, start)
+            return await self.evaluate_case(case, actual_output, config, started_at=start)
 
         except Exception as e:
             return EvalRunResult(
@@ -104,6 +104,26 @@ class EvaluationRunner:
                 error_message=str(e),
                 duration_ms=int((time.monotonic() - start) * 1000),
             )
+
+    async def evaluate_case(
+        self,
+        case: EvalCase,
+        actual_output: str,
+        config: EvalRunConfig,
+        *,
+        started_at: float | None = None,
+    ) -> EvalRunResult:
+        """Evaluate one already-executed case through the public domain seam.
+
+        Execution is intentionally outside this method.  The evaluation
+        package owns provider/metric/judge semantics; Runtime or another
+        target domain owns producing ``actual_output``.
+        """
+        start = time.monotonic() if started_at is None else started_at
+        provider = self._get_provider()
+        if provider is not None:
+            return await self._run_with_provider(case, config, provider, start)
+        return await self._run_with_legacy(case, actual_output, config, start)
 
     async def run_batch(
         self,
