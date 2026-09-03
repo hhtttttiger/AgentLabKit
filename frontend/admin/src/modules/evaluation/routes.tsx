@@ -7,7 +7,7 @@ const DatasetsPage = lazyRoute(() => import('./resources/datasets/DatasetsPage')
 const DatasetDetailPage = lazyRoute(() => import('./resources/datasets/DatasetDetailPage'), 'DatasetDetailPage');
 const RunsPage = lazyRoute(() => import('./resources/runs/RunsPage'), 'RunsPage');
 const RunDetailPage = lazyRoute(() => import('./resources/runs/RunDetailPage'), 'RunDetailPage');
-const RunComparePage = lazyRoute(() => import('@/modules/runs/pages/RunComparePage'), 'RunComparePage');
+const RunComparePage = lazyRoute(() => import('./resources/runs/RunComparePage'), 'RunComparePage');
 
 export const evaluationRoutes: RouteObject[] = [
   {

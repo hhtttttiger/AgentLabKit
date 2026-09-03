@@ -15,11 +15,14 @@ export function useRunTrace(traceId: string | null) {
   return useQuery({ queryKey: runKeys.trace(traceId ?? ''), queryFn: async () => mapTraceToAgentExecution(await getTraceDetail(traceId as string)), enabled: !!traceId });
 }
 
-export function useRunList(_filters?: RunFilters) {
+export function useRunList(options: RunFilters & { limit?: number; offset?: number } = {}) {
+  const limit = options.limit ?? 20;
+  const offset = options.offset ?? 0;
+
   return useQuery({
-    queryKey: [...runKeys.all, 'list'],
+    queryKey: [...runKeys.all, 'list', limit, offset],
     queryFn: async () => {
-      const result = await listRuns();
+      const result = await listRuns(limit, offset);
       return { ...result, items: result.items.map(mapRunDetail) };
     },
   });

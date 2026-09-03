@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -7,10 +8,17 @@ import { SkeletonRows } from '@/shared/ui/Skeleton';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
 import type { RunSummary } from '../types';
 
+const PAGE_SIZE = 20;
+
 export function RunsListPage() {
   const { t } = useTranslation(['common', 'runs']);
-  const { data, isLoading, error } = useRunList();
+  const [page, setPage] = useState(0);
+  const offset = page * PAGE_SIZE;
+  const { data, isLoading, isFetching, error } = useRunList({ limit: PAGE_SIZE, offset });
   const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const hasPrevious = offset > 0;
+  const hasNext = offset + items.length < total;
 
   if (isLoading) return <div className="p-6"><SkeletonRows columns={5} rows={6} /></div>;
   if (error) return <div role="alert" className="p-6 text-sm text-error">{t('common:states.loadingFailed')}</div>;
@@ -18,7 +26,14 @@ export function RunsListPage() {
 
   return <div className="flex flex-col gap-4 p-6">
     <div><h1 className="text-lg font-semibold text-text">{t('runs:title')}</h1><p className="mt-1 text-sm text-text-secondary">Recent durable Runs owned by your account.</p></div>
-    <div className="overflow-x-auto border border-border bg-surface"><table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-text-muted"><th className="px-4 py-3 font-medium">Run ID</th><th className="px-4 py-3 font-medium">Target</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 font-medium">Started</th><th className="px-4 py-3 text-right font-medium">Duration</th></tr></thead><tbody>{items.map((run) => <RunRow key={run.id} run={run} />)}</tbody></table></div>
+    <div className="overflow-x-auto border border-border bg-surface" aria-busy={isFetching}>
+      <table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-text-muted"><th className="px-4 py-3 font-medium">Run ID</th><th className="px-4 py-3 font-medium">Target</th><th className="px-4 py-3 font-medium">Status</th><th className="px-4 py-3 font-medium">Started</th><th className="px-4 py-3 text-right font-medium">Duration</th></tr></thead><tbody>{items.map((run) => <RunRow key={run.id} run={run} />)}</tbody></table>
+    </div>
+    <nav className="flex items-center justify-between text-sm" aria-label="Run list pagination">
+      <button type="button" onClick={() => setPage((current) => current - 1)} disabled={!hasPrevious || isFetching} className="border border-border px-3 py-1.5 text-text-secondary hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+      <span className="text-text-secondary" aria-live="polite">Page {page + 1}</span>
+      <button type="button" onClick={() => setPage((current) => current + 1)} disabled={!hasNext || isFetching} className="border border-border px-3 py-1.5 text-text-secondary hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+    </nav>
   </div>;
 }
 
