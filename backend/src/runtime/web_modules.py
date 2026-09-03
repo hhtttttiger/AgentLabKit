@@ -181,6 +181,8 @@ def build_agent_runtime(
     """
     from agent_runtime import create_agent_runtime
     from agent_runtime.config.agent import AgentSettings
+    from application.execution.run_projection import RunProjector
+    from modules.run_projection import SqlAlchemyRunStore
     from agent_runtime.tools.registry import ToolRegistry
     from modules.agent.definition_loader import BackendAgentDefinitionLoader
 
@@ -208,6 +210,11 @@ def build_agent_runtime(
 
     agent_definition_loader = BackendAgentDefinitionLoader(session_factory)
 
+    # Run projection is a sibling RuntimeEvent consumer to observability.
+    # Both the event skeleton and terminal Runtime snapshot use the same
+    # durable adapter; neither reads Trace or AgentExecutionAudit.
+    run_store = SqlAlchemyRunStore(session_factory)
+    run_projector = RunProjector(run_store)
     agent_runtime = create_agent_runtime(
         settings=AgentSettings(enable_mcp=True),
         gateway=gateway_service,
@@ -215,7 +222,9 @@ def build_agent_runtime(
         definition_loader=agent_definition_loader,
         memory_module=memory_module,
         tracer=obs_module.get_tracer("agent_runtime"),
+        completion_sink=run_store.finalize,
     )
+    agent_runtime.subscribe(run_projector.handle)
 
     return agent_runtime, agent_definition_loader
 

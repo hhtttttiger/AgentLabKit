@@ -1,18 +1,19 @@
 # Durable Run Projection Boundary
 
-**Status: design stable, implementation deliberately incomplete.** This document is
-based on `72a684f` and the current source, not on the earlier public API plan.
-This change does not add an HTTP route, alter Trace storage, or make
-`AgentExecutionAudit` authoritative.
+**Status: durable persistence and production wiring complete.** This document is
+based on the current source. This slice does not add an HTTP route, alter Trace
+storage, or make `AgentExecutionAudit` authoritative.
 
 ## Ownership
 
 Run projection belongs to an **execution projection boundary** in the
 framework-neutral `application.execution.run_projection` module. It is a
 read-side capability, not Runtime semantics and not Observability semantics.
-The module currently provides the small `RunRecord`, `RunReader`, `RunWriter`,
-`RunProjector`, and reference `InMemoryRunStore` contracts. A backend-owned
-Postgres adapter and composition-root wiring are intentionally deferred.
+The module provides the small `RunRecord`, `RunReader`, `RunWriter`,
+`RunProjector`, and reference `InMemoryRunStore` contracts. The SQLAlchemy
+implementation is in `backend/src/modules/run_projection/` (`RunRecordModel`,
+`RunProjectionEventModel`, and `SqlAlchemyRunStore`). Migration `0020` creates
+`run_records` and the durable event-id ledger `run_projection_events`.
 
 Runtime remains the only owner of execution facts and identity. The projector
 never generates `run_id`, `trace_id`, span IDs, status, timestamps, or terminal
@@ -28,7 +29,8 @@ ExecuteAgent.execute/stream
   -> AgentRun (blocking result) + RuntimeEvent v2
   -> runtime EventBus (awaited, in-process, subscription order)
   -> Runtime completion sink receives the terminal AgentRun snapshot
-  -> Trace/Cost listeners today; RunProjector remains an injectable application sink
+  -> sibling RunProjector listener and Trace/Cost consumers
+  -> durable RunRecord row; completion sink finalizes the same row
 ```
 
 `run()` constructs `ExecutionContext` and an `AgentRun`; `run_turn()` emits
@@ -139,22 +141,33 @@ quarantine/retry a terminal-before-start delivery.
 
 Runtime completion is independent of projection persistence. The current bus
 logs listener failures; a durable adapter must add retry/replay/dead-letter
-handling rather than silently discard failed writes. Until that adapter exists,
-there is no rebuild guarantee and the in-memory proof is not authoritative.
+handling rather than silently discard failed writes. The current adapter logs
+failures and leaves Runtime truth unchanged; there is no distributed rebuild
+or replay guarantee.
 
-The intended production read consistency is synchronous enough that the Runtime
-boundary projects/finalizes before its execution result is considered visible
-to the application. This is a future wiring decision; the current proof is
-not wired and therefore provides no GET-after-execute guarantee.
+Production wiring is in `backend/src/runtime/web_modules.py`: the same
+`SqlAlchemyRunStore` is subscribed to the Runtime EventBus and its `finalize`
+method is injected as the Runtime completion sink. Event listeners are awaited
+in the current in-process bus, while the Runtime deliberately catches and logs
+projection failures. Therefore successful projection is synchronously readable
+after execution returns, but the overall guarantee is **best-effort synchronous
+side effect**, not exactly-once delivery or a guarantee during database outage.
+Runtime status and SSE terminal truth are never changed by projection failure.
+The stable `RuntimeEvent.event_id` is persisted for durable redelivery
+idempotency. There is no durable orphan quarantine table: production delivery is
+ordered in-process; an orphan is surfaced/logged and its transaction rolls back.
 
 ## Storage boundary
 
-The future table must be separate from `trace_records` and
-`agent_execution_audits`, with `run_id` as the primary key, separately indexed
-`trace_id`, typed status, target columns, JSON input/output/metadata, lifecycle
- timestamps, and error columns. JSON is an opaque durable payload contract,
-not a place to pickle arbitrary Runtime objects. Retention/redaction of user
-input and model output must be decided before production persistence.
+The durable `run_records` table is separate from `trace_records` and
+`agent_execution_audits`. `run_id` is its primary key; `trace_id` is only an
+indexed association. It stores canonical status, target columns, JSONB
+input/output/metadata, lifecycle timestamps, duration, and error fields.
+`run_projection_events.event_id` is the durable idempotency key. Payloads are
+normalized to JSON-safe values and unknown objects fail loudly; no pickle,
+repr, or exception object is stored. RunStore contains user/model execution
+payloads. Existing application database lifecycle is the current retention
+policy; no additional redaction or TTL subsystem exists yet.
 
 ### Run vs Trace vs Audit
 
@@ -169,7 +182,7 @@ input and model output must be decided before production persistence.
 A Run is never constructed from Trace, and `run_id` is never replaced with
 `trace_id`. `AgentExecutionAudit` is not used by this boundary.
 
-## Reader contract and future adapter
+## Reader contract and HTTP adapter
 
 The narrow contract is:
 
@@ -178,7 +191,7 @@ class RunReader(Protocol):
     async def get_run(self, run_id: str) -> RunRecord | None: ...
 ```
 
-A future route can consequently be deliberately boring:
+A route can consequently be deliberately boring:
 
 ```python
 run = await reader.get_run(run_id)
@@ -196,9 +209,8 @@ Runs created before this projection exists are **not supported**. No Trace or
 Audit backfill is attempted because the required facts are not authoritative
 there.
 
-`GET /api/runs/{run_id}` is **not yet safe to implement**: no durable store,
-migration, or production composition wiring exists yet. The framework-neutral
-projection contract, retry semantics, and blocking/streaming Runtime snapshot
-boundary are stable. The correct verdict for this slice is:
-
-> **CONTRACT STABLE, DURABLE PERSISTENCE DEFERRED**
+`GET /api/runs/{run_id}` is now safe to implement as a thin HTTP adapter:
+the migration, durable reader, EventBus wiring, completion wiring, and Runtime
+projection tests are in place. Historical runs before migration/wiring are not
+backfilled and are not guaranteed. The boring adapter only needs
+`RunReader.get_run(run_id)`; it must not read Trace or Audit.

@@ -1,17 +1,14 @@
 # Public Execution API and Run Resource Audit
 
-**Starting HEAD:** `cb26389` (`cb26389 fix(evaluation): preserve verdict and score semantics`)  
-**Final HEAD:** `cb26389`  
-**Commits created:** none  
-**Scope:** design audit only. No public endpoint, frontend contract, or application use case was changed.
+**Scope:** durable Run projection slice. No public endpoint, frontend contract, or application use case was changed.
 
 **Sources inspected:** `backend/src/main.py`, the `ai_invoke`, `agent`, `observability`, `evaluation`, and `chat` modules, plus `packages/application`, `packages/agent_runtime`, `packages/observability`, and `packages/evaluation`. Source code, rather than historical plans, is authoritative for this report.
 
 ## Verdict
 
-### B — RUN API DESIGN READY, STORAGE DEFERRED
+### A — DURABLE RUN STORE READY
 
-The Runtime contract is sufficiently clear to define a public `Run` resource. A canonical `GET /api/runs/{run_id}` or `GET /api/runs` must **not** be implemented yet: the repository has no authoritative durable Run read model.
+The Runtime contract is sufficiently clear to define a public `Run` resource. A canonical `GET /api/runs/{run_id}` or `GET /api/runs` can now be implemented as a thin adapter over the authoritative durable Run read model.
 
 `AgentRun` exists in Runtime memory and is returned by `AgentRuntime.run()`. The durable stores currently available are projections with different ownership:
 
@@ -112,8 +109,8 @@ A future `RunDetail` may add input/output and related identifiers, subject to pr
 | Public capability | Canonical resource | Application UC | Backend direct/query | Status |
 |---|---|---|---|---|
 | Execute Agent | Run | `ExecuteAgent` | — | Existing via `/api/ai/invoke`; compatibility facade |
-| Get Run | Run | — | Future `RunReader` / Run read model | Proposed; storage blocked |
-| List Runs | Run | — | Future `RunReader` / Run read model | Proposed; storage blocked |
+| Get Run | Run | — | `RunReader` / durable Run read model | Ready for HTTP adapter |
+| List Runs | Run | — | Not in current `RunReader` contract | Deferred until list contract is defined |
 | Get Trace | Trace | — | `TraceStore` | Existing |
 | List Traces | Trace | — | `TraceStore` | Existing |
 | Execute Dataset Evaluation | EvaluationRun + AgentRuns | `EvaluateDataset` | Evaluation adapter/store | Existing for agent target |
@@ -143,14 +140,14 @@ No current public/domain checkpoint contract was found that establishes whether 
 2. Add a durable Runtime-event-fed Run projection/read model first, with explicit retention, authorization, privacy, and idempotency rules.
 3. Add canonical Run reads/actions only after that store is authoritative. Prefer `/api/runs` over `/api/agent-runs` because Runtime targets already include agents, workflows, and evaluation targets.
 4. Gradually migrate frontend reads/actions to the canonical surface. Existing invoke routes remain compatibility aliases/facades; no deprecation is proposed in this audit.
-5. Keep `/api/traces` independent: `GET Run` is an execution summary and `GET Trace` is diagnostic detail.
+5. Keep `/api/traces` independent: `GET Run` is an execution summary and `GET Trace` is diagnostic detail. Run projection is durably stored in `run_records` and is not reconstructed from Trace.
 6. Keep `/api/eval/runs` explicitly in the EvaluationRun namespace; do not overload it with AgentRun.
 
 Intentional breaking changes: **none**.
 
 ## Required next design step
 
-Define and implement a Run projection/persistence boundary that consumes `RuntimeEvent` facts and can answer `get_run(run_id)` and `list_runs(...)` without depending on Trace reconstruction. The projection must preserve Runtime identity, terminal status/outcome semantics, target snapshot, lifecycle timestamps, and authorized input/output/error summaries. Only after that design is accepted should the backend HTTP adapter expose canonical Run endpoints.
+Implement the intentionally boring HTTP adapter over `RunReader.get_run(run_id)`, including authorization and response mapping. It must preserve Runtime identity/status/timestamps and must not query Trace or Audit.
 
 ## Deferred work
 

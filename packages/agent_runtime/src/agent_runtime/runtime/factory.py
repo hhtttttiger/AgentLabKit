@@ -110,6 +110,7 @@ def create_agent_runtime(
     tracer: Tracer | None = None,
     observability_bridge_factory: Any | None = None,
     memory_module: Any | None = None,
+    completion_sink: Any | None = None,
 ) -> AgentRuntime:
     """Factory function — creates a fully wired :class:`AgentRuntime`.
 
@@ -139,4 +140,5 @@ def create_agent_runtime(
         tracer=tracer,
         observability_bridge_factory=observability_bridge_factory,
         memory_module=memory_module,
+        completion_sink=completion_sink,
     )
