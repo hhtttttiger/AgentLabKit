@@ -35,6 +35,15 @@ export const evaluation = {
           delete: '删除'
         }
       },
+      form: {
+        advanced: '高级设置',
+        configurationName: '配置名称',
+        targetMode: '目标模式',
+        judgeBinding: 'Judge 模型绑定（可选）',
+        dataset: '数据集',
+        agent: 'Agent',
+        ragPipeline: 'RAG Pipeline',
+      },
       runs: {
         title: '评估运行',
         description: '查看评估运行记录和结果。',

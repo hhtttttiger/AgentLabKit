@@ -35,6 +35,15 @@ export const evaluation = {
       delete: 'Delete'
     }
   },
+  form: {
+    advanced: 'Advanced',
+    configurationName: 'Configuration Name',
+    targetMode: 'Target Mode',
+    judgeBinding: 'Judge Binding (optional)',
+    dataset: 'Dataset',
+    agent: 'Agent',
+    ragPipeline: 'RAG Pipeline',
+  },
   runs: {
     title: 'Evaluation runs',
     description: 'View evaluation run records and results.',
