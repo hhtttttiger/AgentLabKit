@@ -68,5 +68,25 @@ export const aiChat = {
     sendMessage: 'Send message',
     stopGeneration: 'Stop generation'
   },
+  inspector: {
+    tabs: {
+      run: 'Run',
+      trace: 'Trace',
+      tools: 'Tools',
+      context: 'Context',
+      cost: 'Cost',
+      eval: 'Eval',
+    },
+    notAvailable: {
+      run: 'Run details not available for this session',
+      tools: 'Tool details not available for this session',
+      context: 'Context details not available for this session',
+      cost: 'Cost details not available for this session',
+      eval: 'Evaluation not available for this session',
+    },
+    noRunId: 'No run ID available. Send a message to create a run.',
+    runAvailable: 'Run created successfully',
+    openRunDetail: 'Open Run Detail',
+  },
   loading: 'Loading...'
 } as const;

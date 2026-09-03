@@ -16,6 +16,7 @@ import { Pagination } from '@/shared/ui/Pagination';
 import { TextField, SelectField } from '@/shared/ui/FormFields';
 import { useToast } from '@/shared/ui/Toast';
 import { getErrorMessage } from '@/shared/api/errors';
+import { formatAdminDateTime } from '@/shared/i18n/formatters';
 import {
   listUsers,
   createUser,
@@ -280,7 +281,7 @@ export function UsersPage() {
     {
       key: 'lastLoginAtUtc',
       header: t('userManagement:columns.lastLogin'),
-      render: (row) => row.lastLoginAtUtc ? new Date(row.lastLoginAtUtc).toLocaleString() : '—',
+      render: (row) => formatAdminDateTime(row.lastLoginAtUtc),
     },
     {
       key: 'actions',

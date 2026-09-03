@@ -31,7 +31,7 @@ export function DatasetDetailPage() {
 
   return (
     <div className="flex flex-col gap-4 p-6">
-      <button onClick={() => navigate('/evaluation')} className="text-sm text-text-secondary hover:text-primary">← 返回数据集</button>
+      <button onClick={() => navigate('/evaluation/datasets')} className="text-sm text-text-secondary hover:text-primary">← 返回数据集</button>
       <h2 className="text-lg font-semibold text-text">数据集 #{id} — 测试用例</h2>
 
       <div className="flex gap-3">

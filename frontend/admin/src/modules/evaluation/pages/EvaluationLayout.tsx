@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 export function EvaluationLayout() {
   const { t } = useTranslation(['common', 'evaluation']);
   const sections = [
-    { key: 'datasets', label: t('evaluation:sections.datasets'), path: '/evaluation' },
+    { key: 'overview', label: t('evaluation:sections.overview'), path: '/evaluation/overview' },
+    { key: 'datasets', label: t('evaluation:sections.datasets'), path: '/evaluation/datasets' },
     { key: 'runs', label: t('evaluation:sections.runs'), path: '/evaluation/runs' },
   ];
 

@@ -68,5 +68,25 @@ export const aiChat = {
         sendMessage: '发送消息',
         stopGeneration: '停止生成'
       },
+      inspector: {
+        tabs: {
+          run: '运行',
+          trace: 'Trace',
+          tools: '工具',
+          context: '上下文',
+          cost: '成本',
+          eval: '评估',
+        },
+        notAvailable: {
+          run: '此会话的运行详情不可用',
+          tools: '此会话的工具详情不可用',
+          context: '此会话的上下文详情不可用',
+          cost: '此会话的成本详情不可用',
+          eval: '此会话的评估不可用',
+        },
+        noRunId: '没有可用的运行 ID。发送消息以创建运行。',
+        runAvailable: '运行创建成功',
+        openRunDetail: '打开运行详情',
+      },
       loading: '加载中...'
     } as const;

@@ -1,5 +1,6 @@
 import { apiRequest } from '@/shared/api/client';
 import type { RunConfigData, RunData, RunDetailData } from '../../lib/contracts';
+import type { CompareEvaluationRunsDto, CompareEvaluationRunsRequest } from '@/modules/runs/api/dto';
 
 export function listRunConfigs() {
   return apiRequest<RunConfigData[]>('/api/eval/run-configs');
@@ -19,4 +20,8 @@ export function listRuns() {
 
 export function getRunDetail(runId: string) {
   return apiRequest<RunDetailData>(`/api/eval/runs/${runId}`);
+}
+
+export function compareEvaluationRuns(body: CompareEvaluationRunsRequest) {
+  return apiRequest<CompareEvaluationRunsDto>('/api/eval/runs/compare', { method: 'POST', body });
 }

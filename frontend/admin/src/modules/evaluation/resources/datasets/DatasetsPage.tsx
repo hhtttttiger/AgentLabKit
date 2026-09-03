@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { SkeletonRows } from '@/shared/ui/Skeleton';
 import { useToast } from '@/shared/ui/Toast';
+import { formatAdminDateTime } from '@/shared/i18n/formatters';
 
 export function DatasetsPage() {
   const { t } = useTranslation(['common', 'evaluation']);
@@ -66,7 +67,7 @@ export function DatasetsPage() {
                 <td className="py-2 font-medium text-text">{ds.name}</td>
                 <td className="py-2 text-text-secondary">{ds.description || '—'}</td>
                 <td className="py-2 text-center text-text-secondary">{ds.caseCount}</td>
-                <td className="py-2 text-text-secondary">{new Date(ds.createdAtUtc).toLocaleString()}</td>
+                <td className="py-2 text-text-secondary">{formatAdminDateTime(ds.createdAtUtc)}</td>
                 <td className="py-2 text-right">
                   <button onClick={() => navigate(`/evaluation/dataset/${ds.id}`)} className="mr-3 text-xs text-primary hover:underline">查看</button>
                   <button onClick={() => deleteMutation.mutate(ds.id, { onSuccess: () => toast(t('toast.deleted')) })} className="text-xs text-error hover:underline">删除</button>

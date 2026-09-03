@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
 import { lazyRoute, routeElement } from '@/app/route-lazy';
 
 const KnowledgeBaseLayout = lazyRoute(() => import('./pages/KnowledgeBaseLayout'), 'KnowledgeBaseLayout');
@@ -9,8 +9,9 @@ const KbSearchTab = lazyRoute(() => import('./pages/tabs/KbSearchTab'), 'KbSearc
 const KbGlossaryTab = lazyRoute(() => import('./pages/tabs/KbGlossaryTab'), 'KbGlossaryTab');
 
 export const knowledgeBaseRoutes: RouteObject[] = [
+  // New primary route
   {
-    path: 'knowledge-base',
+    path: 'knowledge',
     children: [
       { index: true, element: routeElement(KnowledgeBaseListPage) },
       {
@@ -24,5 +25,14 @@ export const knowledgeBaseRoutes: RouteObject[] = [
         ],
       },
     ],
+  },
+  // Legacy route alias
+  {
+    path: 'knowledge-base',
+    element: <Navigate replace to="/knowledge" />,
+  },
+  {
+    path: 'knowledge-base/*',
+    element: <Navigate replace to="/knowledge" />,
   },
 ];

@@ -8,13 +8,15 @@ import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 import { Skeleton } from '@/shared/ui/Skeleton';
-import { formatAdminDateTime } from '@/shared/i18n/formatters';
+import { StatusBadge } from '@/shared/ui/StatusBadge';
+import { formatAdminDateTime, formatAdminRelativeTime } from '@/shared/i18n/formatters';
 import { useAdminLocale } from '@/shared/i18n/useAdminLocale';
 import { useAgent, useAgentMutations } from './hooks';
+import { useRunList } from '@/modules/runs/hooks';
 import { VersionList, type VersionLaunchAction } from '../versions/VersionList';
 import { AuditList } from '../audits/AuditList';
 
-type Tab = 'versions' | 'audits';
+type Tab = 'overview' | 'prompt' | 'capabilities' | 'knowledge' | 'runs' | 'evaluation' | 'versions' | 'audits';
 
 const am = 'agentManagement:';
 
@@ -25,7 +27,9 @@ const statusTone: Record<string, 'success' | 'warning' | 'neutral'> = {
 };
 
 function getTab(searchParams: URLSearchParams): Tab {
-  return searchParams.get('tab') === 'audits' ? 'audits' : 'versions';
+  const tab = searchParams.get('tab');
+  const validTabs: Tab[] = ['overview', 'prompt', 'capabilities', 'knowledge', 'runs', 'evaluation', 'versions', 'audits'];
+  return validTabs.includes(tab as Tab) ? (tab as Tab) : 'versions';
 }
 
 function getLaunchAction(searchParams: URLSearchParams): VersionLaunchAction | null {
@@ -155,7 +159,11 @@ export function AgentDetailPage() {
   };
 
   const tabs: { key: Tab; label: string }[] = [
+    { key: 'overview', label: t(`${am}agents.detail.tabOverview`) },
     { key: 'versions', label: t(`${am}agents.detail.tabVersions`) },
+    { key: 'runs', label: t(`${am}agents.detail.tabRuns`) },
+    { key: 'evaluation', label: t(`${am}agents.detail.tabEvaluation`) },
+    { key: 'capabilities', label: t(`${am}agents.detail.tabCapabilities`) },
     { key: 'audits', label: t(`${am}agents.detail.tabAudits`) },
   ];
 
@@ -166,7 +174,7 @@ export function AgentDetailPage() {
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={() => navigate('/agent-management/agents')}
+              onClick={() => navigate('/agents')}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition hover:bg-state-hover hover:text-text"
               title={t(`${am}agents.detail.backTitle`)}
             >
@@ -295,6 +303,7 @@ export function AgentDetailPage() {
 
           {/* Scrollable: Tab content */}
           <div className="flex-1 overflow-y-auto">
+            {activeTab === 'overview' && <AgentOverviewTab agent={agent} />}
             {activeTab === 'versions' && (
               <VersionList
                 agentKey={agentKey!}
@@ -305,6 +314,9 @@ export function AgentDetailPage() {
                 }
               />
             )}
+            {activeTab === 'runs' && <AgentRunsTab agentKey={agentKey!} />}
+            {activeTab === 'evaluation' && <AgentEvaluationTab agentKey={agentKey!} />}
+            {activeTab === 'capabilities' && <AgentCapabilitiesTab agentKey={agentKey!} />}
             {activeTab === 'audits' && <AuditList agentKey={agentKey!} />}
           </div>
         </div>
@@ -342,6 +354,175 @@ export function AgentDetailPage() {
         }}
         onConfirm={handleDisable}
       />
+    </div>
+  );
+}
+
+function AgentOverviewTab({ agent }: { agent: { agentKey: string; status: string; publishedVersionNumber: number | null } }) {
+  const { t } = useTranslation(['agentManagement', 'common']);
+  const navigate = useNavigate();
+  const { data, isLoading, error } = useRunList({ agentKey: agent.agentKey });
+  const recentRuns = data?.items.slice(0, 5) ?? [];
+
+  return (
+    <div className="p-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label={t('agentManagement:agents.detail.metrics.status')}
+          value={agent.status}
+        />
+        <MetricCard
+          label={t('agentManagement:agents.detail.metrics.version')}
+          value={agent.publishedVersionNumber !== null ? `v${agent.publishedVersionNumber}` : '—'}
+        />
+        <MetricCard
+          label={t('agentManagement:agents.detail.metrics.successRate')}
+          value="—"
+        />
+        <MetricCard
+          label={t('agentManagement:agents.detail.metrics.avgCost')}
+          value="—"
+        />
+      </div>
+
+      <div className="mt-6">
+        <h3 className="mb-3 text-sm font-semibold text-text">
+          {t('agentManagement:agents.detail.metrics.recentRuns')}
+        </h3>
+        {isLoading && <p className="text-sm text-text-muted">{t('common:states.loading')}</p>}
+        {error && <p className="text-sm text-error">{t('common:states.loadingFailed')}</p>}
+        {!isLoading && !error && recentRuns.length === 0 && <div className="rounded-[2px] border border-border bg-surface-subtle p-4"><p className="text-sm text-text-muted">{t('agentManagement:agents.detail.metrics.noRuns')}</p></div>}
+        {!isLoading && !error && recentRuns.length > 0 && <div className="space-y-2">{recentRuns.map((run) => (
+          <button key={run.id} type="button" onClick={() => navigate(`/runs/${run.id}`)} className="flex w-full items-center justify-between rounded-[2px] border border-border bg-surface p-3 text-left hover:bg-surface-hover">
+            <span className="flex items-center gap-2"><StatusBadge status={run.status} /><span className="font-mono text-xs text-text-muted">{run.id.slice(0, 8)}</span></span>
+            <span className="text-xs text-text-muted">{formatAdminRelativeTime(run.startedAt)}</span>
+          </button>
+        ))}</div>}
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[2px] border border-border bg-surface p-4">
+      <p className="text-xs text-text-muted">{label}</p>
+      <p className="mt-1 text-xl font-bold text-text">{value}</p>
+    </div>
+  );
+}
+
+function AgentRunsTab({ agentKey }: { agentKey: string }) {
+  const { t } = useTranslation(['common', 'agentManagement', 'runs']);
+  const navigate = useNavigate();
+  const { data, isLoading, error } = useRunList({ agentKey });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-sm text-text-muted">{t('common:states.loading')}</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-sm text-error">{t('common:states.loadingFailed')}</div>
+      </div>
+    );
+  }
+
+  const runs = data?.items ?? [];
+
+  if (runs.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-sm text-text-muted">{t('agentManagement:agents.detail.noRuns')}</p>
+        <button
+          type="button"
+          onClick={() => navigate('/playground')}
+          className="mt-3 text-sm font-medium text-primary hover:underline"
+        >
+          {t('runs:empty.openPlayground')}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="space-y-2">
+        {runs.map((run) => (
+          <button
+            key={run.id}
+            type="button"
+            onClick={() => navigate(`/runs/${run.id}`)}
+            className="flex w-full items-center justify-between rounded-[2px] border border-border bg-surface p-4 text-left transition hover:bg-surface-hover"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <StatusBadge status={run.status} />
+                <span className="font-mono text-xs text-text-muted">{run.id.slice(0, 8)}</span>
+              </div>
+              {run.durationMs != null && (
+                <span className="mt-1 text-xs text-text-muted">
+                  {run.durationMs < 1000 ? `${run.durationMs}ms` : `${(run.durationMs / 1000).toFixed(2)}s`}
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-text-muted">
+              {formatAdminDateTime(run.startedAt)}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AgentEvaluationTab({ agentKey: _agentKey }: { agentKey: string }) {
+  const { t } = useTranslation(['agentManagement']);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-12">
+      <p className="text-sm text-text-muted">{t('agentManagement:agents.detail.evaluationUnavailable')}</p>
+    </div>
+  );
+}
+
+function AgentCapabilitiesTab({ agentKey: _agentKey }: { agentKey: string }) {
+  const { t } = useTranslation(['agentManagement']);
+  const navigate = useNavigate();
+
+  return (
+    <div className="p-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => navigate('/capabilities/tools')}
+          className="flex flex-col items-center gap-2 rounded-[2px] border border-border bg-surface p-6 transition hover:bg-surface-hover"
+        >
+          <span className="text-lg font-semibold text-text">{t('agentManagement:agents.detail.tools')}</span>
+          <span className="text-xs text-text-muted">{t('agentManagement:agents.detail.manageTools')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/capabilities/skills')}
+          className="flex flex-col items-center gap-2 rounded-[2px] border border-border bg-surface p-6 transition hover:bg-surface-hover"
+        >
+          <span className="text-lg font-semibold text-text">{t('agentManagement:agents.detail.skills')}</span>
+          <span className="text-xs text-text-muted">{t('agentManagement:agents.detail.manageSkills')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/capabilities/mcp')}
+          className="flex flex-col items-center gap-2 rounded-[2px] border border-border bg-surface p-6 transition hover:bg-surface-hover"
+        >
+          <span className="text-lg font-semibold text-text">{t('agentManagement:agents.detail.mcpServers')}</span>
+          <span className="text-xs text-text-muted">{t('agentManagement:agents.detail.manageMcpServers')}</span>
+        </button>
+      </div>
     </div>
   );
 }

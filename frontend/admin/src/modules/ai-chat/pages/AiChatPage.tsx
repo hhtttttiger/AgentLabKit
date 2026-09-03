@@ -10,17 +10,12 @@
  *      a flag is set, and the *next* sendMessage creates a new session.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { AgentTraceView } from '@/shared/agent-trace/AgentTraceView';
-import { cn } from '@/shared/lib/cn';
 import type { ChatSession, ModelOption } from '../lib/contracts';
 import { buildSessionTitle } from '../lib/session-title';
 import { useChatSession } from '../hooks/useChatSession';
 import { useChatStream } from '../hooks/useChatStream';
 import { useTracePanel } from '../hooks/useTracePanel';
-import { ChatInputArea } from '../components/ChatInputArea';
-import { ChatMessagePanel } from '../components/ChatMessagePanel';
-import { SessionList } from '../components/SessionList';
+import { PlaygroundShell } from '../components/PlaygroundShell';
 
 type AiChatPageProps = {
   agentOptions: ModelOption[];
@@ -28,8 +23,6 @@ type AiChatPageProps = {
 };
 
 export function AiChatPage({ agentOptions, modelOptions }: AiChatPageProps) {
-  const { t } = useTranslation(['common', 'aiChat']);
-
   // ── Model selection ────────────────────────────────────────────────
 
   const defaultModel = useMemo<ModelOption | null>(() => {
@@ -127,62 +120,24 @@ export function AiChatPage({ agentOptions, modelOptions }: AiChatPageProps) {
   // ── Render ─────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full min-h-0 gap-5 overflow-hidden bg-transparent p-5">
-      <SessionList
-        sessions={sessions}
-        currentSessionId={currentSession?.id ?? null}
-        onSelect={handleSelectSession}
-        onDelete={(id) => deleteSession(id)}
-        onNewChat={handleNewChat}
-      />
-
-      <div className="flex min-h-0 min-w-0 flex-1 gap-5">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[2px] border border-border bg-surface dark:bg-surface">
-          <ChatMessagePanel
-            messages={currentSession?.messages ?? []}
-            isLoading={isLoadingMessages}
-            selectedTraceMessageId={selectedTraceMessageId}
-            onSelectTrace={toggleTrace}
-            onRegenerate={regenerateReply}
-          />
-          <ChatInputArea
-            onSend={sendMessage}
-            onStop={abort}
-            disabled={!selectedModel}
-            isStreaming={isStreaming}
-            agentOptions={agentOptions}
-            modelOptions={modelOptions}
-            selectedModel={selectedModel}
-            onSelectModel={handleSelectModel}
-          />
-        </div>
-
-        {/* Trace panel */}
-        <div
-          className={cn(
-            'min-h-0 shrink-0 overflow-hidden transition-all duration-300',
-            selectedTraceMessageId ? 'w-[420px]' : 'w-0',
-          )}
-        >
-          <div className="h-full overflow-hidden rounded-[2px] border border-border bg-surface dark:bg-surface">
-            <div className="min-w-[360px] h-full">
-              <AgentTraceView
-                trace={currentSession?.modelType === 'agent' ? currentTrace : null}
-                emptyTitle={
-                  currentSession?.modelType === 'model'
-                    ? t('aiChat:trace.cardModeTitle')
-                    : t('aiChat:trace.emptyTitle')
-                }
-                emptyDescription={
-                  currentSession?.modelType === 'model'
-                    ? t('aiChat:trace.cardModeDescription')
-                    : t('aiChat:trace.noTraceDescription')
-                }
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <PlaygroundShell
+      sessions={sessions}
+      currentSession={currentSession}
+      isLoadingMessages={isLoadingMessages}
+      selectedTraceMessageId={selectedTraceMessageId}
+      agentOptions={agentOptions}
+      modelOptions={modelOptions}
+      selectedModel={selectedModel}
+      isStreaming={isStreaming}
+      onSelectSession={handleSelectSession}
+      onDeleteSession={deleteSession}
+      onNewChat={handleNewChat}
+      onSelectTrace={toggleTrace}
+      onRegenerate={regenerateReply}
+      onSend={sendMessage}
+      onStop={abort}
+      onSelectModel={handleSelectModel}
+      currentTrace={currentSession?.modelType === 'agent' ? currentTrace : null}
+    />
   );
 }

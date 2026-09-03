@@ -17,6 +17,8 @@ export const costAnalysis = {
     costTrend: 'Cost trend',
     modelDistribution: 'Model distribution',
     topModels: 'Top models',
+    recentRunsCost: 'Recent Runs Cost',
+    viewAllRuns: 'View all runs',
     error: 'Failed to load cost overview. Please try again.'
   },
   budgets: {

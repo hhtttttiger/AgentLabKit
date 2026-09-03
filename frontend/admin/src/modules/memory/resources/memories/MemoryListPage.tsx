@@ -8,6 +8,7 @@ import { InlineMessage } from '@/shared/ui/InlineMessage';
 import { useToast } from '@/shared/ui/Toast';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/auth';
+import { formatAdminDateTime } from '@/shared/i18n/formatters';
 
 const TYPE_STYLES: Record<string, string> = {
   episodic: 'bg-blue-500/10 text-blue-500',
@@ -134,7 +135,7 @@ export function MemoryListPage() {
                     <div className="mt-2 flex items-center gap-3 text-xs text-text-muted">
                       <span>{t('memory:list.accessCount', { count: m.accessCount })}</span>
                       <span>{t('memory:list.relevance', { score: m.relevanceScore.toFixed(2) })}</span>
-                      <span>{new Date(m.createdAtUtc).toLocaleString()}</span>
+                      <span>{formatAdminDateTime(m.createdAtUtc)}</span>
                     </div>
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-1">
