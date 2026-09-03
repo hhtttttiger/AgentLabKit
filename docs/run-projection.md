@@ -207,11 +207,13 @@ belongs in that adapter.
 ## HTTP read adapter
 
 The backend exposes `GET /api/runs/{run_id}` as a deliberately thin adapter.
-It maps the durable `RunRecord` to `RunResponse`; it does not read Trace,
-AgentExecutionAudit, or Runtime state. The endpoint is authenticated using the
-existing coarse-grained backend policy because `RunRecord` currently has no
-authoritative ownership field. Missing Runs return 404. List Runs and Replay
-remain deferred.
+It maps the durable `RunRecord` through the explicit `run_record_to_response()`
+mapper; Runtime results use the separate `agent_run_to_response()` mapper. The
+mappers do not read Trace, AgentExecutionAudit, or Runtime state. The endpoint
+authorizes against persisted `RunRecord.user_id` only: the owner may read,
+while missing or mismatched ownership returns 404. Legacy null-owner rows remain
+inaccessible. List Runs remains deferred; Replay applies the same source-run
+check before execution.
 
 ## Historical Runs and readiness
 
@@ -219,8 +221,9 @@ Runs created before this projection exists are **not supported**. No Trace or
 Audit backfill is attempted because the required facts are not authoritative
 there.
 
-`GET /api/runs/{run_id}` is now safe to implement as a thin HTTP adapter:
-the migration, durable reader, EventBus wiring, completion wiring, and Runtime
-projection tests are in place. Historical runs before migration/wiring are not
-backfilled and are not guaranteed. The boring adapter only needs
-`RunReader.get_run(run_id)`; it must not read Trace or Audit.
+`GET /api/runs/{run_id}` is implemented as a thin HTTP adapter. The ownership
+migration is additive and does not backfill historical rows; null-owner rows are
+denied by default. Runtime supplies `user_id` through `ExecutionContext` and
+`AgentRun`, and terminal projection persists it. The adapter only needs
+`RunReader.get_run(run_id)` plus the shared access check; it must not read Trace
+or Audit.

@@ -13,13 +13,14 @@ from common.auth import CurrentUser
 from common.errors import BusinessError, ConflictError, NotFoundError
 from common.response import ok
 
-from .dependencies import ReplayRunDep, RunReaderDep
+from .dependencies import ReplayRunDep, RunReaderDep, ensure_run_access
 from .schemas import (
+    agent_run_to_response,
+    run_record_to_response,
     ReplayRunRequest,
     ReplayRunResponse,
     ReplayRunResponseEnvelope,
     RunResponseEnvelope,
-    to_run_response,
 )
 
 router = APIRouter()
@@ -30,11 +31,12 @@ router = APIRouter()
     response_model=RunResponseEnvelope,
     responses={404: {"description": "Run not found"}},
 )
-async def get_run(run_id: str, reader: RunReaderDep):
+async def get_run(run_id: str, reader: RunReaderDep, current_user: CurrentUser):
     run = await reader.get_run(run_id)
     if run is None:
         raise NotFoundError("Run", run_id)
-    return ok(to_run_response(run).model_dump())
+    ensure_run_access(run, current_user)
+    return ok(run_record_to_response(run).model_dump())
 
 
 @router.post(
@@ -45,9 +47,15 @@ async def get_run(run_id: str, reader: RunReaderDep):
 async def replay_run(
     run_id: str,
     replay: ReplayRunDep,
+    reader: RunReaderDep,
     current_user: CurrentUser,
     body: ReplayRunRequest | None = None,
 ):
+    source = await reader.get_run(run_id)
+    if source is None:
+        raise NotFoundError("Run", run_id)
+    ensure_run_access(source, current_user)
+
     try:
         result = await replay.execute(ReplayRunCommand(
             source_run_id=run_id,
@@ -65,5 +73,5 @@ async def replay_run(
 
     return ok(ReplayRunResponse(
         source_run_id=result.source_run_id,
-        run=to_run_response(result.run),
+        run=agent_run_to_response(result.run),
     ).model_dump())

@@ -12,7 +12,7 @@
 `GET /api/runs/{run_id}` reads the durable `RunReader` projection directly. The
 HTTP adapter does not invoke Runtime or consult Trace or AgentAudit.
 
-The Runtime contract is sufficiently clear to define a public `Run` resource. A canonical `GET /api/runs/{run_id}` or `GET /api/runs` can now be implemented as a thin adapter over the authoritative durable Run read model.
+The Runtime contract is sufficiently clear to define a public `Run` resource. The canonical `GET /api/runs/{run_id}` is implemented as a thin adapter over the authoritative durable Run read model.
 
 `AgentRun` exists in Runtime memory and is returned by `AgentRuntime.run()`. The durable stores currently available are projections with different ownership:
 
@@ -159,27 +159,23 @@ public `RunResponse` DTO. The endpoint returns 404 when the durable Run does
 not exist. `traceId` is only the stored association; Trace and AgentAudit are
 not queried, and no status or timestamp is reconstructed.
 
-`POST /api/runs/{run_id}/replay` is authenticated with the same coarse-grained
-rule: any authenticated user may currently read/replay a Run because the Run
-projection has no ownership field. It returns the canonical new Run plus
-`sourceRunId` after synchronous execution. Runtime owns the new `runId` and
-`traceId`; the existing Runtime completion/projection wiring stores the new Run
-in the durable RunStore, including failed and guardrail-blocked outcomes.
+`POST /api/runs/{run_id}/replay` uses the same Run ownership check before
+execution. The authenticated caller must own the source Run (`run.user_id ==
+current_user.id`); missing or mismatched ownership returns 404. A null owner,
+including legacy rows, is denied. The replay caller is passed to Runtime and
+becomes the new Run's owner; source ownership is not copied. It returns the
+canonical new Run plus `sourceRunId` after synchronous execution. Runtime owns
+the new `runId` and `traceId`; the completion/projection wiring stores the new
+Run, including failed and guardrail-blocked outcomes.
 
-The current Run projection does not carry sufficient ownership data for
-resource-level authorization. Until an ownership model is established, the
-endpoint follows the backend's existing coarse-grained rule: any authenticated
-user may read a Run. This limitation is intentional and must be resolved before
-exposing broader payloads or user-scoped listing.
-
-## Next design step
-
-Implement resource-level ownership authorization once the authoritative
-ownership model is clarified. Do not infer it from Trace or AgentAudit.
+`GET /api/runs/{run_id}` applies the same ownership rule. Authorization uses the
+persisted `run_records.user_id` fact only. Trace and AgentAudit are never
+queried for authorization. `userId` remains an internal ownership field and is
+not exposed in `RunResponse`.
 
 ## Deferred work
 
-- resource-level ownership authorization for Run reads and replay;
+- user-scoped Run listing;
 - production wiring for `SaveRunAsDatasetExample`;
 - `CompareEvaluationRuns`;
 - `CancelRun`;

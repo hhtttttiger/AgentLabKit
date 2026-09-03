@@ -5,7 +5,8 @@ from typing import Annotated
 from fastapi import Depends, Request
 
 from application import ReplayRun
-from application.execution.run_projection import RunReader
+from application.execution.run_projection import RunReader, RunRecord
+from common.errors import NotFoundError
 from application_adapters.agent_runtime import AgentRuntimeExecutor, BackendAgentReader
 
 
@@ -17,6 +18,16 @@ def get_run_reader(request: Request) -> RunReader:
 
 
 RunReaderDep = Annotated[RunReader, Depends(get_run_reader)]
+
+
+def ensure_run_access(run: RunRecord, current_user: dict) -> None:
+    """Enforce the Run resource boundary using only persisted Run ownership.
+
+    Null ownership is deliberately denied, including legacy rows.  This helper
+    returns 404 for mismatches to avoid disclosing another user's run.
+    """
+    if run.user_id is None or run.user_id != current_user["user_id"]:
+        raise NotFoundError("Run", run.run_id)
 
 
 def get_replay_run(request: Request) -> ReplayRun:
