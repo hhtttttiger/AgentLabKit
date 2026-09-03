@@ -1,6 +1,6 @@
 # FastAPI adapter boundary
 
-Application Use Case v1 is sealed at commit `75d6c41`.
+Application Use Case v1 is a stable boundary.
 
 Current core:
 
