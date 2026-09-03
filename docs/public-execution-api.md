@@ -1,7 +1,7 @@
 # Public Execution API and Run Resource Audit
 
-**Scope:** durable Run projection slice and the canonical public Run read adapter.
-`GET /api/runs/{run_id}` is implemented; no frontend contract or application use case was changed.
+**Scope:** durable Run projection slice, canonical Run read adapter, and Run replay action.
+`GET /api/runs/{run_id}` and `POST /api/runs/{run_id}/replay` are implemented; no frontend contract was changed.
 
 **Sources inspected:** `backend/src/main.py`, the `ai_invoke`, `agent`, `observability`, `evaluation`, and `chat` modules, plus `packages/application`, `packages/agent_runtime`, `packages/observability`, and `packages/evaluation`. Source code, rather than historical plans, is authoritative for this report.
 
@@ -118,7 +118,7 @@ A future `RunDetail` may add input/output and related identifiers, subject to pr
 | Get Trace | Trace | — | `TraceStore` | Existing |
 | List Traces | Trace | — | `TraceStore` | Existing |
 | Execute Dataset Evaluation | EvaluationRun + AgentRuns | `EvaluateDataset` | Evaluation adapter/store | Existing for agent target |
-| Replay Run | new Run linked to source Run | `ReplayRun` | — | Application scaffold; production wiring forbidden this round |
+| Replay Run | new Run linked to source Run | `ReplayRun` | `RunReader` + `RunExecutor` | Implemented: `POST /api/runs/{run_id}/replay` (agent targets with exact historical version) |
 | Capture Run as Dataset Example | DatasetExample | `SaveRunAsDatasetExample` | — | Application scaffold; production wiring forbidden this round |
 | Cancel Run | Run | Future capability, likely UC | Runtime cancellation/active registry | Deferred; HTTP reliability not established |
 | Resume | Workflow/checkpoint (not assumed Run) | Future UC | Workflow runtime | Deferred; current identity/capability not established |
@@ -128,7 +128,9 @@ Resource CRUD for agents, datasets, examples, budgets, chats, and memories remai
 
 ## Replay and capture design direction
 
-Replay should be source-Run oriented (`POST /runs/{run_id}/replay` is a candidate), but it must call Runtime through `ReplayRun`/`RunExecutor`. The client may provide only supported overrides and metadata; it may never submit `run_id` or `trace_id`. Runtime creates both identities for the new execution, and the source id is provenance metadata.
+Replay is source-Run oriented: `POST /api/runs/{run_id}/replay`. It reads the authoritative durable Run through `RunReader`, resolves the stored agent key and exact historical version through the definition loader, then calls Runtime through `ReplayRun`/`RunExecutor`. The request body is optional and supports metadata only; `run_id`, `trace_id`, target, session, and prompt overrides are not accepted. Runtime creates both identities for the new execution, and `replay_of_run_id` is authoritative lineage metadata.
+
+Replay creates a new Run and never mutates the source. It does not read Trace or AgentAudit, and it does not reconstruct missing historical Runs. Replay v1 uses no source session and does not copy source metadata or history. It is re-execution from stored input and target identity, not bit-for-bit deterministic replay: model nondeterminism, external tools, retrieval changes, memory state, provider changes, and time-dependent data may affect the result. A missing historical agent version is rejected explicitly (409); unsupported target types are rejected (422).
 
 Capture should preserve ownership boundaries: the source is a Run, the destination is a Dataset, and Dataset creates `example_id`. Candidate shapes include a Dataset-owned action (`POST /datasets/{dataset_id}/examples:from-run`) or a Run action (`POST /runs/{run_id}/capture`), but neither may equate `example_id` with `run_id`.
 
@@ -157,6 +159,13 @@ public `RunResponse` DTO. The endpoint returns 404 when the durable Run does
 not exist. `traceId` is only the stored association; Trace and AgentAudit are
 not queried, and no status or timestamp is reconstructed.
 
+`POST /api/runs/{run_id}/replay` is authenticated with the same coarse-grained
+rule: any authenticated user may currently read/replay a Run because the Run
+projection has no ownership field. It returns the canonical new Run plus
+`sourceRunId` after synchronous execution. Runtime owns the new `runId` and
+`traceId`; the existing Runtime completion/projection wiring stores the new Run
+in the durable RunStore, including failed and guardrail-blocked outcomes.
+
 The current Run projection does not carry sufficient ownership data for
 resource-level authorization. Until an ownership model is established, the
 endpoint follows the backend's existing coarse-grained rule: any authenticated
@@ -170,7 +179,7 @@ ownership model is clarified. Do not infer it from Trace or AgentAudit.
 
 ## Deferred work
 
-- production wiring for `ReplayRun`;
+- resource-level ownership authorization for Run reads and replay;
 - production wiring for `SaveRunAsDatasetExample`;
 - `CompareEvaluationRuns`;
 - `CancelRun`;

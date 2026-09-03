@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 from application.execution.run_projection import RunRecord
-from modules.runs.dependencies import get_run_reader
+from modules.runs.dependencies import get_replay_run, get_run_reader
+
+
+class FakeReplay:
+    def __init__(self, result):
+        self.result = result
+        self.command = None
+
+    async def execute(self, command):
+        self.command = command
+        return self.result
 
 
 class FakeRunReader:
@@ -35,6 +45,37 @@ async def test_get_run_contract(app, client, auth_headers):
     assert data["durationMs"] is None
     assert data["metadata"] == {}
     assert reader.requested == ["run-1"]
+
+
+@pytest.mark.asyncio
+async def test_replay_endpoint_is_thin_and_returns_new_run(app, client, auth_headers):
+    from agent_runtime.contracts.run import AgentRun, RunStatus, RunTarget
+    from application.execution import ReplayRunResult
+
+    replay = FakeReplay(ReplayRunResult(
+        source_run_id="source-1",
+        new_run_id="new-1",
+        run=AgentRun(
+            run_id="new-1", trace_id="trace-new", input={}, output="ok",
+            status=RunStatus.COMPLETED,
+            target=RunTarget(type="agent", agent_key="support", agent_version="3"),
+        ),
+    ))
+    app.dependency_overrides[get_replay_run] = lambda: replay
+    try:
+        response = await client.post(
+            "/api/runs/source-1/replay",
+            json={"metadata": {"request_id": "r1"}},
+            headers=auth_headers,
+        )
+    finally:
+        app.dependency_overrides.pop(get_replay_run, None)
+    assert response.status_code == 200
+    assert response.json()["data"]["sourceRunId"] == "source-1"
+    assert response.json()["data"]["run"]["runId"] == "new-1"
+    assert replay.command.source_run_id == "source-1"
+    assert replay.command.user_id == "test-user"
+    assert replay.command.metadata == {"request_id": "r1"}
 
 
 @pytest.mark.asyncio

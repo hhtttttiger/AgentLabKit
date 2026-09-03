@@ -34,23 +34,46 @@ class RunResponseEnvelope(CamelModel):
     data: RunResponse
 
 
-def to_run_response(record: Any) -> RunResponse:
-    """Map the internal RunRecord explicitly; no fallback or reconstruction."""
+class ReplayRunRequest(CamelModel):
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
+
+class ReplayRunResponse(CamelModel):
+    source_run_id: str
+    run: RunResponse
+
+
+class ReplayRunResponseEnvelope(CamelModel):
+    success: bool
+    msg: str
+    data: ReplayRunResponse
+
+
+def to_run_response(record: Any) -> RunResponse:
+    """Map either a durable RunRecord or the Runtime's newly returned AgentRun."""
+    target = getattr(record, "target", None)
+    target_type = getattr(record, "target_type", None)
+    target_key = getattr(record, "target_key", None)
+    target_version = getattr(record, "target_version", None)
+    if target is not None:
+        target_type = target_type or target.type
+        target_key = target_key or target.agent_key or target.workflow_id
+        target_version = target_version or target.agent_version or target.workflow_version
+    error = getattr(record, "error", None)
     return RunResponse(
         run_id=record.run_id,
         trace_id=record.trace_id,
-        status=record.status,
-        target_type=record.target_type,
-        target_key=record.target_key,
-        target_version=record.target_version,
+        status=record.status.value if hasattr(record.status, "value") else record.status,
+        target_type=target_type,
+        target_key=target_key,
+        target_version=target_version,
         input=record.input,
         output=record.output,
         started_at=record.started_at,
-        completed_at=record.completed_at,
-        duration_ms=record.duration_ms,
+        completed_at=getattr(record, "completed_at", None) or getattr(record, "finished_at", None),
+        duration_ms=getattr(record, "duration_ms", None),
         session_id=record.session_id,
-        error_code=record.error_code,
-        error_message=record.error_message,
+        error_code=getattr(record, "error_code", None) or (error.code if error else None),
+        error_message=getattr(record, "error_message", None) or (error.message if error else None),
         metadata=dict(record.metadata),
     )

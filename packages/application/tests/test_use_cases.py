@@ -4,7 +4,14 @@ import pytest
 
 from application.dataset import SaveRunAsDatasetExample, SaveRunAsDatasetExampleCommand
 from application.evaluation import EvaluateDataset, EvaluateDatasetCommand
-from application.execution import ExecuteAgent, ExecuteAgentCommand, ReplayRun, ReplayRunCommand
+from application.execution import (
+    ExecuteAgent,
+    ExecuteAgentCommand,
+    ReplayRun,
+    ReplayRunCommand,
+    ReplayTargetUnavailable,
+)
+from application.execution.run_projection import RunRecord
 
 
 @dataclass
@@ -52,6 +59,58 @@ async def test_replay_requests_new_runtime_run_without_copying_source():
     result = await ReplayRun(Runs(), executor).execute(ReplayRunCommand("source-id"))
     assert result.new_run_id != result.source_run_id
     assert executor.calls[0]["metadata"]["replay_of_run_id"] == "source-id"
+
+
+@pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_replay_resolves_exact_target_version_and_preserves_source():
+    executor = Executor()
+    source = RunRecord(
+        run_id="source-id", input={}, status="completed", target_type="agent",
+        target_key="support", target_version="3", metadata={"secret": "no-copy"},
+    )
+
+    class Runs:
+        async def get_run(self, run_id):
+            return source
+
+    class Targets:
+        def __init__(self): self.calls = []
+        async def resolve(self, key, version=None):
+            self.calls.append((key, version))
+            return f"resolved:{key}:{version}"
+
+    targets = Targets()
+    result = await ReplayRun(Runs(), executor, targets).execute(
+        ReplayRunCommand("source-id", user_id="caller", metadata={"replay_of_run_id": "spoof", "x": 1})
+    )
+    assert targets.calls == [("support", "3")]
+    assert executor.calls[0]["input"] == {}
+    assert executor.calls[0]["session_id"] is None
+    assert executor.calls[0]["user_id"] == "caller"
+    assert executor.calls[0]["history"] == ()
+    assert executor.calls[0]["metadata"] == {"replay_of_run_id": "source-id", "x": 1}
+    assert source.metadata == {"secret": "no-copy"}
+    assert result.source_run_id == "source-id"
+
+
+@pytest.mark.asyncio
+async def test_replay_does_not_fallback_when_historical_version_is_missing():
+    source = RunRecord(
+        run_id="source-id", input="hello", status="completed", target_type="agent",
+        target_key="support", target_version="3",
+    )
+
+    class Runs:
+        async def get_run(self, run_id): return source
+
+    class Targets:
+        async def resolve(self, key, version=None): return None
+
+    executor = Executor()
+    with pytest.raises(ReplayTargetUnavailable):
+        await ReplayRun(Runs(), executor, Targets()).execute(ReplayRunCommand("source-id"))
+    assert executor.calls == []
 
 
 @pytest.mark.asyncio

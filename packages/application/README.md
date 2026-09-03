@@ -36,6 +36,7 @@ capabilities and persist projections. Runtime remains the owner of execution
 facts and identity.
 
 Only `target_type == "agent"` uses this application path today. The
-`rag_pipeline` target remains on the legacy runner intentionally. Replay, dataset
-capture, and additional evaluation use cases are scaffolds/deferred work, not
-part of this integration.
+`rag_pipeline` target remains on the legacy runner intentionally. `ReplayRun` is
+production-wired by the backend: it reads a durable Run with `RunReader`,
+resolves the exact stored agent version, and executes through `RunExecutor` and
+Runtime. Dataset capture and additional evaluation use cases remain deferred.

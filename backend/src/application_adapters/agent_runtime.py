@@ -14,8 +14,12 @@ class BackendAgentReader:
     def __init__(self, loader: Any) -> None:
         self._loader = loader
 
-    async def resolve(self, agent_key: str) -> RunTarget:
-        snapshot = await self._loader.load(agent_key)
+    async def resolve(self, agent_key: str, version: str | None = None) -> RunTarget:
+        try:
+            requested_version = int(version) if version is not None else None
+        except (TypeError, ValueError) as exc:
+            raise LookupError(f"agent {agent_key} has invalid version {version!r}") from exc
+        snapshot = await self._loader.load(agent_key, requested_version)
         if snapshot is None:
             raise LookupError(f"agent {agent_key} not found or not published")
         return RunTarget(type="agent", agent_key=agent_key, agent_version=str(snapshot.version_number))

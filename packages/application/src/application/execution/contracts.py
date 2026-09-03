@@ -28,11 +28,11 @@ class ExecuteAgentUpdate:
 @dataclass(frozen=True)
 class ReplayRunCommand:
     source_run_id: str
-    target: Any | None = None
+    user_id: str | None = None
     metadata: Mapping[str, object] = field(default_factory=dict)
 
 @dataclass(frozen=True)
 class ReplayRunResult:
     source_run_id: str
     new_run_id: str
-    run: Any
+    run: AgentRun
