@@ -64,7 +64,9 @@ export function ensureKnowledgeUsable({
 
   const existingToolBinding = toolBindings.find((binding) => binding.toolName === KNOWLEDGE_SEARCH_TOOL);
   const updatedToolBindings: ToolBindingWriteModel[] = existingToolBinding
-    ? toolBindings.map((binding) => binding === existingToolBinding
+    ? toolBindings
+      .filter((binding) => binding.toolName !== KNOWLEDGE_SEARCH_TOOL || binding === existingToolBinding)
+      .map((binding) => binding === existingToolBinding
         ? {
             ...binding,
             isEnabled: true,

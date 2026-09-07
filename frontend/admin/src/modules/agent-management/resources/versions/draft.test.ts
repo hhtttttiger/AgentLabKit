@@ -89,6 +89,29 @@ describe('version draft helpers', () => {
     expect(result.knowledgeBaseBindings).toHaveLength(1);
   });
 
+  it('collapses duplicate knowledge search bindings while preserving the first binding config', () => {
+    const result = ensureKnowledgeUsable({
+      toolBindings: [
+        {
+          toolName: 'knowledge_search', displayName: 'Custom Search', description: 'Keep this',
+          invocationMode: 'manual_only', isRequired: true, config: { topK: 7 }, sortOrder: 2, isEnabled: true,
+        },
+        {
+          toolName: 'knowledge_search', displayName: 'Duplicate', description: null,
+          invocationMode: 'auto', isRequired: false, config: { topK: 1 }, sortOrder: 3, isEnabled: true,
+        },
+      ],
+      knowledgeBaseBindings: [],
+      knowledgeBaseId: 'kb-1',
+    });
+
+    expect(result.toolBindings.filter((binding) => binding.toolName === 'knowledge_search')).toHaveLength(1);
+    expect(result.toolBindings[0]).toMatchObject({
+      displayName: 'Custom Search', description: 'Keep this', invocationMode: 'manual_only',
+      isRequired: true, config: { topK: 7 },
+    });
+  });
+
   it('repairs disabled bindings without resetting unrelated fields', () => {
     const result = ensureKnowledgeUsable({
       toolBindings: [{ toolName: 'knowledge_search', displayName: 'Search', description: null, invocationMode: 'disabled', isRequired: true, config: { topK: 5 }, sortOrder: 2, isEnabled: false }],
