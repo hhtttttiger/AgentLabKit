@@ -23,7 +23,7 @@ docker compose down --rmi local --remove-orphans  # 清除所有痕迹
 |------|------|
 | 前端 | http://localhost:3000/admin/ |
 | 后端 API | http://localhost:8000/health |
-| 数据库 | localhost:5432 (app/devpassword/agentlabkit) |
+| 数据库 | localhost:15432 (app/devpassword/agentlabkit) |
 | Redis | localhost:6379 |
 
 默认账号：`admin / admin`

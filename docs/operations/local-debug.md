@@ -1,6 +1,6 @@
 # 本地调试指南
 
-基础设施用 Docker，后端和前端在本地运行，改代码即时生效，不需要 rebuild 镜像。
+基础设施用 Docker，后端、worker 和前端在本地运行，改代码即时生效，不需要 rebuild 镜像。PostgreSQL 宿主机端口为 15432。
 
 ## 架构
 
@@ -19,7 +19,7 @@
                         ┌──────▼──────┐
                         │   Docker    │
                         ├─────────────┤
-                        │ PostgreSQL  │ :5432
+                        │ PostgreSQL  │ :15432 (host → container :5432)
                         │ Redis       │ :6379
                         └─────────────┘
 ```
@@ -101,7 +101,7 @@ curl http://localhost:8000/health
 
 ### 2.5 启动 Worker
 
-后端只 enqueue 文档处理消息;独立 worker 进程消费队列,运行索引 pipeline(分块 + embedding + 向量存储)。没有 worker,新建的文档会一直停在 `Pending`。在另一个终端启动:
+worker 是独立的通用队列进程；web 只 enqueue 文档处理消息，worker 消费队列并运行索引 pipeline（分块 + embedding + 向量存储）。没有 worker，新建文档会一直停在 `Pending`。在另一个终端启动：
 
 ```bash
 cd backend
@@ -109,12 +109,8 @@ source .venv/bin/activate
 PYTHONPATH=src:../packages/llm_gateway/src:../packages/agent_runtime/src python -m worker
 ```
 
-验证日志显示:
-
-```
-Consumer doc-worker-<host> started on document_processing (concurrency=3)
-Worker ready, waiting for messages (Ctrl-C to stop)
-```
+验证日志中应出现 `Worker task started`，并在启用 retrieval/Redis 时看到
+`document_indexing` task。默认任务选择由 `APP_WORKER_TASKS=*` 控制。
 
 ### 环境变量
 
@@ -125,7 +121,7 @@ Worker ready, waiting for messages (Ctrl-C to stop)
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `APP_DB_HOST` | `localhost` | Docker PostgreSQL 地址 |
-| `APP_DB_PORT` | `5432` | PostgreSQL 端口 |
+| `APP_DB_PORT` | `15432` | Docker PostgreSQL 宿主机端口 |
 | `APP_DB_USER` | `app` | 数据库用户 |
 | `APP_DB_PASSWORD` | `devpassword` | 数据库密码 |
 | `APP_DB_NAME` | `agentlabkit` | 数据库名 |
@@ -141,7 +137,7 @@ npm install    # 首次或依赖变更后
 npm run dev
 ```
 
-Vite dev server 默认在 `http://localhost:5173`，API 请求自动代理到 `http://localhost:8000`（由 `.env.local` 中的 `VITE_API_PROXY_TARGET` 控制）。
+Vite dev server 默认在 `http://localhost:5173`，API 请求自动代理到 `http://localhost:8000`（由 `.env.local` 中的 `VITE_API_PROXY_TARGET` 控制；未配置时 Vite 默认也使用 8000）。
 
 验证：浏览器打开 `http://localhost:5173/`
 

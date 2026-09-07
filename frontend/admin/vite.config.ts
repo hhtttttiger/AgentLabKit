@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const apiTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:5291';
+  const apiTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:8000';
   const voicesTarget = env.VITE_VOICES_PROXY_TARGET || apiTarget;
 
   return {
