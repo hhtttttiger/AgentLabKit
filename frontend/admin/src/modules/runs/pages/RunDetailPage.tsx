@@ -35,7 +35,7 @@ export function RunDetailPage() {
         </div>
         <button type="button" onClick={() => navigate(`/runs/${run.id}/replay`)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover"><RotateCcw size={14} />{t('runs:actions.replay')}</button>
         <button type="button" disabled={run.status !== 'completed'} onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"><Database size={14} />Add to Dataset</button>
-        {run.traceId ? <button type="button" onClick={() => setParams({ tab: 'trace', focus: 'retrieval' }, { replace: true })} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover"><Search size={14} />{t('runs:actions.inspectRetrieval')}</button> : null}
+        {run.traceId ? <button type="button" onClick={() => setParams({ tab: 'trace' }, { replace: true })} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover"><Search size={14} />{t('runs:actions.inspectRetrieval')}</button> : null}
         <button type="button" onClick={() => navigate(run.agentKey ? `/playground?agent=${encodeURIComponent(run.agentKey)}` : '/playground')} className="inline-flex items-center gap-2 bg-primary px-3 py-2 text-sm text-primary-foreground"><Play size={14} />{t('runs:actions.openPlayground')}</button>
       </header>
       <nav className="flex gap-1 border-b border-border bg-surface px-6">

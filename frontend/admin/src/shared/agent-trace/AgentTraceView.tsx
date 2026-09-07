@@ -224,8 +224,16 @@ function NodeMeta({ node }: { node: TimelineNode }) {
 
 function RetrievalSummary({ events }: { events: AgentTraceRetrievalEvent[] }) {
   const failed = events.filter((event) => event.status === 'failed').length;
-  const resultCount = events.reduce((total, event) => total + (event.resultCount ?? 0), 0);
-  const previewCount = events.reduce((total, event) => total + event.results.length, 0);
+  const succeeded = events.filter((event) => event.status === 'succeeded');
+  const hasUnknownResultCount = succeeded.some((event) => event.resultCount == null);
+  const resultCount = hasUnknownResultCount ? null : succeeded.reduce((total, event) => total + (event.resultCount ?? 0), 0);
+  const previewCount = succeeded.reduce((total, event) => total + event.results.length, 0);
+  const resultSummary = resultCount === null
+    ? 'Retrieved evidence available.'
+    : resultCount === 0
+      ? 'No results returned.'
+      : `${resultCount} results · showing ${previewCount} evidence previews.`;
+
   return (
     <section className="rounded border border-border bg-surface-subtle/60 px-3 py-3" aria-label="Retrieval summary">
       <div className="flex items-center justify-between gap-3">
@@ -236,8 +244,8 @@ function RetrievalSummary({ events }: { events: AgentTraceRetrievalEvent[] }) {
         <p className="mt-1.5 text-xs leading-5 text-text-secondary">No retrieval was observed in this Run. Check whether the Agent was expected to use Knowledge for this question.</p>
       ) : (
         <p className="mt-1.5 text-xs leading-5 text-text-secondary">
-          {failed === events.length ? 'Retrieval failed.' : `${resultCount} results · showing ${previewCount} evidence previews.`}
-          {failed > 0 && failed < events.length ? ` ${failed} failed attempt${failed === 1 ? '' : 's'}.` : ''}
+          {failed === events.length ? 'Retrieval failed.' : resultSummary}
+          {failed > 0 ? ` ${failed} failed attempt${failed === 1 ? '' : 's'}.` : ''}
         </p>
       )}
       {events.length > 0 ? <p className="mt-2 text-xs leading-5 text-text-muted">Review the retrieved evidence. If expected information is missing, test retrieval. If it is present, review the Agent response and instructions.</p> : null}
@@ -252,7 +260,7 @@ function RetrievalBody({ event }: { event: AgentTraceRetrievalEvent }) {
       {event.query ? <p className="text-sm text-text">“{event.query}”</p> : null}
       {event.errorMessage ? <p className="text-xs leading-5 text-error-text">{event.errorMessage}</p> : null}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-secondary">
-        <span>{event.resultCount == null ? 'No results returned' : `${event.results.length} / ${event.resultCount} results`}</span>
+        <span>{event.resultCount == null ? 'Result count unavailable' : event.resultCount === 0 ? 'No results returned' : `${event.results.length} / ${event.resultCount} results`}</span>
         {event.durationMs != null ? <span>{formatDuration(event.durationMs)}</span> : null}
         {event.searchMode ? <span>{event.searchMode}</span> : null}
       </div>
