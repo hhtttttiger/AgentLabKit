@@ -41,6 +41,7 @@ export const runs = {
   },
   actions: {
     replay: '重放',
+    inspectRetrieval: '检查检索',
     openPlayground: '打开 Playground',
   },
   status: {

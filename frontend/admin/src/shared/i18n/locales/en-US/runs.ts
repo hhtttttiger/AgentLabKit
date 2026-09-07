@@ -41,6 +41,7 @@ export const runs = {
   },
   actions: {
     replay: 'Replay',
+    inspectRetrieval: 'Inspect Retrieval',
     openPlayground: 'Open Playground',
   },
   status: {

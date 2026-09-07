@@ -10,12 +10,14 @@ import {
   Clock3,
   Cpu,
   Wrench,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import type {
   AgentExecutionTrace,
   AgentTraceAppliedSkill,
   AgentTraceToolEvent,
+  AgentTraceRetrievalEvent,
 } from './contracts';
 
 type AgentTraceViewProps = {
@@ -28,7 +30,7 @@ type AgentTraceViewProps = {
 };
 
 type NodeTone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
-type NodeKind = 'context' | 'tool' | 'delegation' | 'handoff' | 'reply' | 'error' | 'note';
+type NodeKind = 'context' | 'tool' | 'retrieval' | 'delegation' | 'handoff' | 'reply' | 'error' | 'note';
 
 type TimelineNode = {
   id: string;
@@ -37,6 +39,7 @@ type TimelineNode = {
   title: string;
   status?: string;
   tool?: AgentTraceToolEvent;
+  retrieval?: AgentTraceRetrievalEvent;
   delta?: string;
   replyText?: string;
   message?: string;
@@ -122,6 +125,8 @@ export function AgentTraceView({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
         <div className="space-y-4">
+          <RetrievalSummary events={trace.retrievalEvents ?? []} />
+
           {trace.errorMessage ? (
             <div className="rounded-[2px] bg-error-subtle px-3 py-2 text-xs leading-5 text-error-text">
               {trace.errorCode ? <span className="font-semibold">{trace.errorCode}: </span> : null}
@@ -217,9 +222,60 @@ function NodeMeta({ node }: { node: TimelineNode }) {
   return <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">{bits}</div>;
 }
 
+function RetrievalSummary({ events }: { events: AgentTraceRetrievalEvent[] }) {
+  const failed = events.filter((event) => event.status === 'failed').length;
+  const resultCount = events.reduce((total, event) => total + (event.resultCount ?? 0), 0);
+  const previewCount = events.reduce((total, event) => total + event.results.length, 0);
+  return (
+    <section className="rounded border border-border bg-surface-subtle/60 px-3 py-3" aria-label="Retrieval summary">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-text">Retrieval</h3>
+        <span className="text-xs text-text-muted">{events.length ? `${events.length} ${events.length === 1 ? 'attempt' : 'attempts'}` : 'No retrieval observed'}</span>
+      </div>
+      {events.length === 0 ? (
+        <p className="mt-1.5 text-xs leading-5 text-text-secondary">No retrieval was observed in this Run. Check whether the Agent was expected to use Knowledge for this question.</p>
+      ) : (
+        <p className="mt-1.5 text-xs leading-5 text-text-secondary">
+          {failed === events.length ? 'Retrieval failed.' : `${resultCount} results · showing ${previewCount} evidence previews.`}
+          {failed > 0 && failed < events.length ? ` ${failed} failed attempt${failed === 1 ? '' : 's'}.` : ''}
+        </p>
+      )}
+      {events.length > 0 ? <p className="mt-2 text-xs leading-5 text-text-muted">Review the retrieved evidence. If expected information is missing, test retrieval. If it is present, review the Agent response and instructions.</p> : null}
+    </section>
+  );
+}
+
+function RetrievalBody({ event }: { event: AgentTraceRetrievalEvent }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2 space-y-2">
+      {event.query ? <p className="text-sm text-text">“{event.query}”</p> : null}
+      {event.errorMessage ? <p className="text-xs leading-5 text-error-text">{event.errorMessage}</p> : null}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-secondary">
+        <span>{event.resultCount == null ? 'No results returned' : `${event.results.length} / ${event.resultCount} results`}</span>
+        {event.durationMs != null ? <span>{formatDuration(event.durationMs)}</span> : null}
+        {event.searchMode ? <span>{event.searchMode}</span> : null}
+      </div>
+      {event.results.length ? <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="text-xs font-medium text-primary hover:underline">{open ? 'Hide retrieved evidence' : 'Show retrieved evidence'}</button> : null}
+      {open ? <div className="space-y-2">{event.results.map((result, index) => <EvidenceCard key={`${result.segmentId ?? 'result'}-${index}`} result={result} />)}</div> : null}
+    </div>
+  );
+}
+
+function EvidenceCard({ result }: { result: AgentTraceRetrievalEvent['results'][number] }) {
+  return <article className="rounded border border-border bg-surface px-3 py-2.5">
+    <div className="text-sm font-medium text-text">{result.title ?? '—'}</div>
+    {result.source ? <div className="mt-0.5 text-xs text-text-secondary">{result.source}</div> : null}
+    <div className="mt-1 text-xs text-text-muted">Score: {result.score === null ? '—' : result.score}</div>
+    {result.contentPreview ? <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-text-secondary">{result.contentPreview}</p> : null}
+  </article>;
+}
+
 function NodeBody({ node }: { node: TimelineNode }) {
   const { t } = useTranslation(['common', 'aiChat']);
   switch (node.kind) {
+    case 'retrieval':
+      return node.retrieval ? <RetrievalBody event={node.retrieval} /> : null;
     case 'tool':
       if (node.tool) return <ToolPayload tool={node.tool} extraMessage={node.message} />;
       return node.message ? <p className="mt-1.5 text-xs leading-5 text-error-text">{node.message}</p> : null;
@@ -414,6 +470,16 @@ function buildTimeline(trace: AgentExecutionTrace): TimelineNode[] {
           appliedSkills: step.appliedSkills ?? undefined,
         });
         break;
+      case 'retrieval':
+        nodes.push({
+          id: `retrieval-${nodes.length}`,
+          kind: 'retrieval',
+          tone: statusTone(step.status),
+          title: step.title,
+          status: step.status,
+          retrieval: step.retrievalEvent ?? undefined,
+        });
+        break;
       case 'tool_call':
         pushToolCall(step.toolEvent, step.title || step.toolEvent?.toolName || 'Tool call');
         break;
@@ -516,6 +582,8 @@ function statusTone(status?: string | null): NodeTone {
 
 function iconForKind(kind: NodeKind) {
   switch (kind) {
+    case 'retrieval':
+      return Search;
     case 'tool':
       return Wrench;
     case 'delegation':

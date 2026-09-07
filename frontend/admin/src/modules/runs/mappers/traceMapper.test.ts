@@ -232,6 +232,49 @@ describe('traceMapper', () => {
     expect(result.steps[0].title).toBe('agent.run');
   });
 
+  it('maps retrieval facts, bounded previews, nullable provenance, and score zero', () => {
+    const retrievalSpan: SpanData = {
+      ...mockToolSpan,
+      spanId: 'retrieval-1',
+      kind: 'retrieval',
+      name: 'retrieval.query',
+      attributes: {
+        'retrieval.query': 'refund policy',
+        'retrieval.source': 'knowledge',
+        'retrieval.knowledge_base_ids': ['kb-1'],
+        'retrieval.top_k': 10,
+        'retrieval.search_mode': 'hybrid',
+        'retrieval.result_count': 15,
+        'retrieval.duration_ms': 43,
+        'retrieval.results': [{
+          knowledge_base_id: null,
+          document_id: null,
+          segment_id: null,
+          score: 0,
+          title: 'Refund policy',
+          source: 'policy.md',
+          content_preview: 'Refunds are available within 30 days.',
+        }],
+      },
+    };
+    const result = mapTraceToAgentExecution({ ...mockDetail, spans: [retrievalSpan] });
+
+    expect(result.retrievalEvents).toHaveLength(1);
+    expect(result.retrievalEvents[0]).toMatchObject({ resultCount: 15, durationMs: 43 });
+    expect(result.retrievalEvents[0].results[0]).toMatchObject({ score: 0, knowledgeBaseId: null, documentId: null, segmentId: null });
+    expect(result.steps[0]).toMatchObject({ type: 'retrieval', retrievalEvent: result.retrievalEvents[0] });
+  });
+
+  it('keeps failed and successful retrieval attempts separate', () => {
+    const failed: SpanData = { ...mockToolSpan, spanId: 'retrieval-failed', kind: 'retrieval', status: 'error', attributes: { 'retrieval.query': 'q', 'retrieval.error_message': 'timeout' }, errorMessage: 'timeout' };
+    const succeeded: SpanData = { ...failed, spanId: 'retrieval-success', status: 'ok', attributes: { 'retrieval.query': 'q', 'retrieval.result_count': 0, 'retrieval.results': [] }, errorMessage: null };
+    const result = mapTraceToAgentExecution({ ...mockDetail, spans: [failed, succeeded] });
+
+    expect(result.retrievalEvents).toHaveLength(2);
+    expect(result.retrievalEvents.map((event) => event.status)).toEqual(['failed', 'succeeded']);
+    expect(result.retrievalEvents[1].resultCount).toBe(0);
+  });
+
   it('includes startedAtUtc and completedAtUtc', () => {
     const result = mapTraceToAgentExecution(mockDetail);
 

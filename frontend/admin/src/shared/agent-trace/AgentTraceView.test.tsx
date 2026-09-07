@@ -12,6 +12,7 @@ const trace: AgentExecutionTrace = {
   status: 'success',
   action: 'weather_lookup',
   appliedSkills: [],
+  retrievalEvents: [],
   toolEvents: [
     {
       toolName: 'weather_query',
@@ -60,5 +61,29 @@ describe('AgentTraceView', () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(toggle).toHaveTextContent('收起');
+  });
+
+  it('distinguishes no retrieval from bounded evidence and preserves score zero', () => {
+    const { unmount } = render(<AgentTraceView trace={trace} />);
+    expect(screen.getByText('No retrieval observed')).toBeInTheDocument();
+    unmount();
+
+    render(<AgentTraceView trace={{
+      ...trace,
+      retrievalEvents: [{
+        status: 'succeeded', query: 'refund policy', source: 'knowledge', knowledgeBaseIds: ['kb-1'],
+        topK: 10, searchMode: 'hybrid', resultCount: 15, durationMs: 43,
+        results: [{ knowledgeBaseId: null, documentId: null, segmentId: null, score: 0, title: 'Refund policy', source: 'policy.md', contentPreview: 'Refunds are available within 30 days.' }],
+        errorMessage: null,
+      }],
+      steps: [{ type: 'retrieval', status: 'succeeded', title: 'Retrieval', retrievalEvent: {
+        status: 'succeeded', query: 'refund policy', source: 'knowledge', knowledgeBaseIds: ['kb-1'], topK: 10, searchMode: 'hybrid', resultCount: 15, durationMs: 43,
+        results: [{ knowledgeBaseId: null, documentId: null, segmentId: null, score: 0, title: 'Refund policy', source: 'policy.md', contentPreview: 'Refunds are available within 30 days.' }], errorMessage: null,
+      } }],
+    }} />);
+    expect(screen.getByText('1 / 15 results')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show retrieved evidence' }));
+    expect(screen.getByText('Refunds are available within 30 days.')).toBeInTheDocument();
+    expect(screen.getByText('Score: 0')).toBeInTheDocument();
   });
 });

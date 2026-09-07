@@ -30,6 +30,7 @@ export function mergeAgentTrace(
     errorMessage: event.errorMessage ?? current?.errorMessage ?? null,
     appliedSkills: event.appliedSkills ?? current?.appliedSkills ?? [],
     toolEvents: nextToolEvents,
+    retrievalEvents: current?.retrievalEvents ?? [],
     steps: nextSteps,
     usage: event.usage ?? current?.usage ?? null,
   };

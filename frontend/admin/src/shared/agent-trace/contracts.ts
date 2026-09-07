@@ -12,6 +12,29 @@ export type AgentTraceAppliedSkill = {
   config: Record<string, unknown>;
 };
 
+export type AgentTraceRetrievalResult = {
+  knowledgeBaseId: string | null;
+  documentId: string | null;
+  segmentId: string | null;
+  score: number | null;
+  title: string | null;
+  source: string | null;
+  contentPreview: string | null;
+};
+
+export type AgentTraceRetrievalEvent = {
+  status: 'succeeded' | 'failed';
+  query: string | null;
+  source: string | null;
+  knowledgeBaseIds: string[];
+  topK: number | null;
+  searchMode: string | null;
+  resultCount: number | null;
+  durationMs: number | null;
+  results: AgentTraceRetrievalResult[];
+  errorMessage: string | null;
+};
+
 export type AgentTraceToolEvent = {
   toolName: string;
   status: string;
@@ -35,6 +58,7 @@ export type AgentTraceStep = {
   handoffReason?: string | null;
   delegationAgentKey?: string | null;
   toolEvent?: AgentTraceToolEvent | null;
+  retrievalEvent?: AgentTraceRetrievalEvent | null;
   appliedSkills?: AgentTraceAppliedSkill[] | null;
 };
 
@@ -52,6 +76,7 @@ export type AgentExecutionTrace = {
   errorMessage?: string | null;
   appliedSkills: AgentTraceAppliedSkill[];
   toolEvents: AgentTraceToolEvent[];
+  retrievalEvents: AgentTraceRetrievalEvent[];
   steps: AgentTraceStep[];
   usage?: AgentTraceUsage | null;
   startedAtUtc?: string | null;
