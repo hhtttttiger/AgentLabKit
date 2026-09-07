@@ -124,6 +124,12 @@ class DocumentSegment(EntityBase):
 
     __table_args__ = (
         Index("ix_document_segment_doc_idx", "document_id", "segment_index"),
+        Index(
+            "ix_document_segment_content_trgm",
+            "content",
+            postgresql_using="gin",
+            postgresql_ops={"content": "gin_trgm_ops"},
+        ),
     )
 
 

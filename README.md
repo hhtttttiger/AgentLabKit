@@ -86,6 +86,8 @@ PYTHONPATH=src python -m bootstrap
 PYTHONPATH=src uvicorn main:create_app --factory --reload
 ```
 
+数据库 migration 已重置为当前 schema baseline：旧 baseline 创建的数据库不支持升级，必须先备份/导出后重建数据库。开发环境可使用 `make reset`，然后重新执行上述 migration 与 bootstrap。详见 [`docs/operations/database-migrations.md`](docs/operations/database-migrations.md)。
+
 在另一个终端运行 indexing worker：
 
 ```bash
