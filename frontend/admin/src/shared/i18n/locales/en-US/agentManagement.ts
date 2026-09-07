@@ -629,14 +629,14 @@ export const agentManagement = {
       skillEnabledLabel: 'Enabled'
     },
     kbBindings: {
-      sectionTitle: 'Knowledge base bindings',
-      addButton: 'Add knowledge base',
+      sectionTitle: 'Knowledge',
+      addButton: 'Add knowledge',
       readonlyInfo: 'This version is published; knowledge base bindings cannot be modified directly. Create a draft to make changes.',
       missingToolWarning: 'Knowledge bases are bound, but no usable knowledge_search tool is bound in this version; they will not be consumed at runtime.',
       emptyTitle: 'No knowledge bases bound',
       emptyDescription: 'After binding, knowledge_search can search within these bases in published versions.',
-      drawerTitle: 'Add knowledge base binding',
-      drawerDescription: 'Add a knowledge base scope to this draft version.',
+      drawerTitle: 'Add knowledge',
+      drawerDescription: 'Add a knowledge base to this draft and enable knowledge retrieval.',
       sortLabel: 'Sort order',
       enabledLabel: 'Enabled',
       selectLabel: 'Knowledge base',

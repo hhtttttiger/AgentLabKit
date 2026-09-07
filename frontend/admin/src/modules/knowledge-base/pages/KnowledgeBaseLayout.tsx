@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, Pencil, Bot } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui/Button';
 import { useToast } from '@/shared/ui/Toast';
 import { useKbDetail, useKbMutations } from '../resources/knowledge-base/hooks';
 import { KbCreateDrawer } from '../resources/knowledge-base/components/KbCreateDrawer';
 import { ModuleLayoutShell } from '@/shared/ui/ModuleLayoutShell';
+import { UseKnowledgeInAgentModal } from './UseKnowledgeInAgentModal';
 
 export function KnowledgeBaseLayout() {
   const { t } = useTranslation(['common', 'knowledgeBase']);
@@ -16,6 +17,7 @@ export function KnowledgeBaseLayout() {
   const mutations = useKbMutations();
   const { toast } = useToast();
   const [editOpen, setEditOpen] = useState(false);
+  const [useInAgentOpen, setUseInAgentOpen] = useState(false);
 
   const tabs = [
     { key: 'overview', label: t('knowledgeBase:detail.sections.overview'), path: `/knowledge-base/${kbId}` },
@@ -44,13 +46,28 @@ export function KnowledgeBaseLayout() {
         }
         actions={
           kb ? (
-            <Button variant="secondary" onClick={() => setEditOpen(true)}>
-              <Pencil size={16} />
-              {t('actions.edit')}
-            </Button>
+            <>
+              <Button variant="secondary" onClick={() => setUseInAgentOpen(true)}>
+                <Bot size={16} />
+                {t('knowledgeBase:detail.useInAgent')}
+              </Button>
+              <Button variant="secondary" onClick={() => setEditOpen(true)}>
+                <Pencil size={16} />
+                {t('actions.edit')}
+              </Button>
+            </>
           ) : null
         }
       />
+
+      {kb && useInAgentOpen ? (
+        <UseKnowledgeInAgentModal
+          open
+          knowledgeBaseId={kb.id}
+          knowledgeBaseName={kb.name}
+          onClose={() => setUseInAgentOpen(false)}
+        />
+      ) : null}
 
       {kb ? (
         <KbCreateDrawer

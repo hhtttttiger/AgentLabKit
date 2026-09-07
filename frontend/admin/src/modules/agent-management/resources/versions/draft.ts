@@ -8,6 +8,8 @@ import type {
   VersionDetailView,
 } from '../../lib/contracts';
 
+const KNOWLEDGE_SEARCH_TOOL = 'knowledge_search';
+
 export type VersionEditorDraft = {
   systemPromptTemplate: string;
   modelKey: string;
@@ -26,6 +28,64 @@ export type VersionEditorDraft = {
 
 function hasNonEmptyObject(obj: Record<string, unknown> | null | undefined): boolean {
   return obj !== null && obj !== undefined && Object.keys(obj).length > 0;
+}
+
+export function ensureKnowledgeUsable({
+  toolBindings,
+  knowledgeBaseBindings,
+  knowledgeBaseId,
+}: {
+  toolBindings: ToolBindingWriteModel[];
+  knowledgeBaseBindings: KnowledgeBaseBindingWriteModel[];
+  knowledgeBaseId: string;
+}): {
+  toolBindings: ToolBindingWriteModel[];
+  knowledgeBaseBindings: KnowledgeBaseBindingWriteModel[];
+} {
+  const existingKnowledgeBinding = knowledgeBaseBindings.find(
+    (binding) => binding.knowledgeBaseId === knowledgeBaseId,
+  );
+  const knowledgeBinding = existingKnowledgeBinding
+    ? { ...existingKnowledgeBinding, isEnabled: true }
+    : {
+        id: null,
+        knowledgeBaseId,
+        sortOrder: knowledgeBaseBindings.length * 10,
+        isEnabled: true,
+        config: {},
+      };
+
+  const updatedKnowledgeBaseBindings: KnowledgeBaseBindingWriteModel[] = [
+    ...knowledgeBaseBindings
+      .filter((binding) => binding.knowledgeBaseId !== knowledgeBaseId || binding === existingKnowledgeBinding)
+      .map((binding) => binding === existingKnowledgeBinding ? { ...binding, isEnabled: true } : binding),
+  ];
+  if (!existingKnowledgeBinding) updatedKnowledgeBaseBindings.push(knowledgeBinding);
+
+  const existingToolBinding = toolBindings.find((binding) => binding.toolName === KNOWLEDGE_SEARCH_TOOL);
+  const updatedToolBindings: ToolBindingWriteModel[] = existingToolBinding
+    ? toolBindings.map((binding) => binding === existingToolBinding
+        ? {
+            ...binding,
+            isEnabled: true,
+            invocationMode: binding.invocationMode === 'disabled' ? 'auto' : binding.invocationMode,
+          }
+        : binding)
+    : [
+        ...toolBindings,
+        {
+          toolName: KNOWLEDGE_SEARCH_TOOL,
+          displayName: null,
+          description: null,
+          invocationMode: 'auto' as const,
+          isRequired: false,
+          config: {},
+          sortOrder: toolBindings.length,
+          isEnabled: true,
+        },
+      ];
+
+  return { toolBindings: updatedToolBindings, knowledgeBaseBindings: updatedKnowledgeBaseBindings };
 }
 
 export function createEmptyMcpBinding(): McpBindingWriteModel {

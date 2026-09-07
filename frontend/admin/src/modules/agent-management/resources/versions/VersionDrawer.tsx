@@ -28,6 +28,7 @@ import {
   createEmptyMcpBinding,
   createEmptySkillBinding,
   displayToPolicy,
+  ensureKnowledgeUsable,
   emptyToolOverride,
   ensureVersionDefaultPolicy,
   policyToDisplay,
@@ -650,7 +651,11 @@ export function VersionDrawer({
           onAdd={(binding) =>
             updateDraft((current) => ({
               ...current,
-              knowledgeBaseBindings: [...current.knowledgeBaseBindings, binding],
+              ...ensureKnowledgeUsable({
+                toolBindings: current.toolBindings,
+                knowledgeBaseBindings: current.knowledgeBaseBindings,
+                knowledgeBaseId: binding.knowledgeBaseId,
+              }),
             }))
           }
           onUpdate={(index, binding) =>

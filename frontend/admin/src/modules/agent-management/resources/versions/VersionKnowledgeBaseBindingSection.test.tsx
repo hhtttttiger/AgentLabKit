@@ -69,7 +69,7 @@ describe('VersionKnowledgeBaseBindingSection', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: '新增知识库绑定' }));
+    await user.click(screen.getByRole('button', { name: '添加知识' }));
 
     expect(screen.getByRole('option', { name: 'FAQ' })).toBeInTheDocument();
   });

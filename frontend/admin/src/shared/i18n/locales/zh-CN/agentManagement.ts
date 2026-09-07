@@ -629,14 +629,14 @@ export const agentManagement = {
           skillEnabledLabel: '启用'
         },
         kbBindings: {
-          sectionTitle: '知识库绑定',
-          addButton: '新增知识库绑定',
+          sectionTitle: 'Knowledge',
+          addButton: '添加知识',
           readonlyInfo: '当前版本已发布，知识库绑定不可直接修改；如需调整，请基于该版本创建草稿。',
           missingToolWarning: '已绑定知识库，但当前 version 尚未绑定可用的 knowledge_search 工具；这些知识库不会被运行时实际消费。',
           emptyTitle: '当前版本尚未绑定知识库',
           emptyDescription: '绑定后，knowledge_search 可以在已发布版本中按该范围检索。',
-          drawerTitle: '新增知识库绑定',
-          drawerDescription: '为当前 draft version 添加知识库范围。',
+          drawerTitle: '添加知识',
+          drawerDescription: '将知识库加入当前草稿，并自动启用知识检索。',
           sortLabel: '排序',
           enabledLabel: '启用',
           selectLabel: '知识库',

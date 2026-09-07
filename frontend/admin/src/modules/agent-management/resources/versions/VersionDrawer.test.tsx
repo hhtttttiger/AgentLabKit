@@ -323,7 +323,7 @@ describe('VersionDrawer', () => {
       />,
     );
 
-    expect(await screen.findByText('知识库绑定')).toBeInTheDocument();
+    expect(await screen.findByText('Knowledge')).toBeInTheDocument();
     expect(await screen.findByText('Policies')).toBeInTheDocument();
   });
 

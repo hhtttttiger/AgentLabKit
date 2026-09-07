@@ -5,6 +5,7 @@ import {
   createEmptyMcpBinding,
   createEmptySkillBinding,
   emptyToolOverride,
+  ensureKnowledgeUsable,
   ensureVersionDefaultPolicy,
   validateVersionDraft,
   versionDetailToDraft,
@@ -67,6 +68,38 @@ const sampleVersionDetail: VersionDetailView = {
 };
 
 describe('version draft helpers', () => {
+  it('composes knowledge usage with a usable search tool', () => {
+    const result = ensureKnowledgeUsable({ toolBindings: [], knowledgeBaseBindings: [], knowledgeBaseId: 'kb-1' });
+
+    expect(result.knowledgeBaseBindings).toEqual([expect.objectContaining({ knowledgeBaseId: 'kb-1', isEnabled: true })]);
+    expect(result.toolBindings).toEqual([expect.objectContaining({
+      toolName: 'knowledge_search', isEnabled: true, invocationMode: 'auto',
+    })]);
+  });
+
+  it('preserves usable advanced settings and avoids duplicate bindings', () => {
+    const result = ensureKnowledgeUsable({
+      toolBindings: [{ toolName: 'knowledge_search', displayName: 'Search', description: 'Custom', invocationMode: 'manual_only', isRequired: true, config: { topK: 5 }, sortOrder: 2, isEnabled: true }],
+      knowledgeBaseBindings: [{ id: 'binding-1', knowledgeBaseId: 'kb-1', sortOrder: 10, isEnabled: true, config: { scope: 'all' } }],
+      knowledgeBaseId: 'kb-1',
+    });
+
+    expect(result.toolBindings).toHaveLength(1);
+    expect(result.toolBindings[0]).toMatchObject({ displayName: 'Search', invocationMode: 'manual_only', config: { topK: 5 } });
+    expect(result.knowledgeBaseBindings).toHaveLength(1);
+  });
+
+  it('repairs disabled bindings without resetting unrelated fields', () => {
+    const result = ensureKnowledgeUsable({
+      toolBindings: [{ toolName: 'knowledge_search', displayName: 'Search', description: null, invocationMode: 'disabled', isRequired: true, config: { topK: 5 }, sortOrder: 2, isEnabled: false }],
+      knowledgeBaseBindings: [{ id: 'binding-1', knowledgeBaseId: 'kb-1', sortOrder: 10, isEnabled: false, config: { scope: 'all' } }],
+      knowledgeBaseId: 'kb-1',
+    });
+
+    expect(result.toolBindings[0]).toMatchObject({ isEnabled: true, invocationMode: 'auto', isRequired: true, config: { topK: 5 } });
+    expect(result.knowledgeBaseBindings[0]).toMatchObject({ isEnabled: true, config: { scope: 'all' } });
+  });
+
   it('maps version details into an editable draft without losing nested skill tool overrides', () => {
     const draft = versionDetailToDraft(sampleVersionDetail);
 
