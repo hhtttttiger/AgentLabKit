@@ -14,6 +14,8 @@
 - FastAPI 是 adapter，不是平台业务层。Platform actions 委托给 Application Use Cases；resource APIs 使用 Module Services；读取使用 Readers/Stores/Projections。
 - `llm_gateway` 是唯一的 LLM API entrypoint。`retrieval` 是唯一的 document/embedding/vector-retrieval engine。
 - Backend web indexing 只入队；`backend/src/worker.py` 消费队列。
+- Retrieval observability is execution fact: consumers may present Retrieval spans/results but must not reconstruct provenance from tool names, result text, current Knowledge state, or fallback IDs.
+- Product composition such as Use Knowledge should reuse existing domain contracts; frontend convenience alone does not justify a new Application Use Case.
 
 这些边界是稳定的。只有出于具体的正确性或产品需求才可修改，并同步更新权威架构说明。
 

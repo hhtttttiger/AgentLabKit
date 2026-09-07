@@ -4,30 +4,100 @@
 
 product
 
-## Users
+## Persona
 
-开发者使用 AgentLabKit 构建、配置和交付面向业务场景的 Agent。他们需要在同一平台中组合 Agent、能力、知识和模型，执行真实请求，并通过运行记录、Trace、Replay、Dataset 和 Evaluation 持续改进交付结果。
+### Agent Engineer
+
+开发者使用 AgentLabKit 构建 Agent、组合 Model / Capabilities / Knowledge、运行真实请求、检查执行行为，并通过 Dataset / Evaluation / Compare 持续证明改进。
 
 ## Product Purpose
 
-AgentLabKit 为开发者提供从 Agent 构建到业务交付的完整工程闭环。产品成功的标准是：开发者可以可靠执行 Agent，找回并检查 Run，Replay 和 Capture 有价值的执行，评估 Dataset，并比较 EvaluationRuns 的变化，从而持续演进 Agent。
+AgentLabKit 为 Agent Engineer 提供从构建到交付的工程闭环：让复杂的 Agent 工程流程清晰可操作，优先使用真实执行和可复用资产，并支持持续演进 Agent。
 
-## Brand Personality
+## Core Journey
 
-易用、可复用、可进化。产品应让复杂的 Agent 工程流程清晰可操作，优先复用既有能力和真实数据，并支持从一次执行逐步积累为可评估、可改进的资产。
+```text
+Create Agent
+→ Configure
+→ Publish
+→ Test
+→ Inspect Run
+→ Diagnose
+→ Add to Dataset
+→ Evaluate
+→ Modify Agent
+→ Re-evaluate
+→ Compare
+```
 
-## Anti-references
+Published Agent 是 executable target；Draft 是可编辑的 next version。生命周期规则：Draft-only 不提供 Test；Published-only 测试 Published；Published+Draft 仍测试 Published。
 
-避免为了展示模块完整性而堆叠页面、占位数据或重复抽象。避免隐藏真实执行语义、把 Trace 冒充 Run、用分数猜测 verdict，以及为了短期 UI 需求破坏稳定的 ownership 和 application contract。
+## Improve Journey
 
-## Design Principles
+```text
+Run
+→ Add to Dataset
+→ Evaluate Dataset
+→ Inspect failures
+→ Modify Agent
+→ Re-evaluate
+→ Compare Baseline / Candidate
+```
+
+产品语言使用 Add to Dataset、Evaluate Dataset、New Evaluation、Evaluation Run、Run Again、Compare、Baseline 和 Candidate。Capture、DatasetExample、RunConfig、Target Type / Target Key 是实现或 domain concepts，不是 primary UI wording。
+
+## Knowledge / RAG Journey
+
+```text
+Prepare Knowledge
+→ Test Retrieval
+→ Use in Agent
+→ Test Agent
+→ Inspect Retrieval
+→ Diagnose
+```
+
+“Use Knowledge”是产品语义：产品应让用户表达“让这个 Agent 使用这份 Knowledge”，而不是要求用户理解底层多个 binding mechanism。它由 selected Knowledge binding 与 usable `knowledge_search` 共同组成，但不改变两个 domain facts 的边界。
+
+## Retrieval Diagnosis
+
+产品必须区分：
+
+```text
+No Retrieval ≠ Zero Results ≠ Retrieval Failure
+```
+
+用户应能看到 retrieval 是否发生、query、attempts、result count、bounded evidence previews、failure 和 retry，并据此获得 facts + guidance，而不是 automatic root-cause classifier：expected evidence missing 时调查 Retrieval；expected evidence present 时调查 Agent response / instructions。
+
+## Product Language
+
+- **Run** — 一次真实执行。
+- **Trace** — 对这次执行的观测。
+- **Dataset** — 可复用测试资产。
+- **Evaluation Run** — 一次 Dataset evaluation。
+- **Baseline** — 比较基线。
+- **Candidate** — 待验证版本。
+- **Knowledge** — Agent 可使用的资料。
+- **Retrieval** — 一次实际检索行为。
+
+## Product Principles
 
 - 真实执行优先于演示数据。
-- 从一次 Run 到 Inspect、Replay、Capture、Evaluate、Compare 的路径必须连续。
+- Historical execution truth must remain historical；Trace evidence preview 不是当前 Knowledge state。
+- Run != Trace；不得把 Trace 冒充 Run。
+- 从 Run 到 Inspect、Replay、Add to Dataset、Evaluate、Compare 的路径必须连续。
 - 复用已有 public contract、资源查询和设计系统，不制造平行入口。
 - 语义事实优先于视觉推断，尤其是 identity、ownership、status 和 verdict。
 - 每个功能都应为下一次 Agent 改进留下可用资产。
 
+## Brand Personality
+
+易用、可复用、可进化。产品应让复杂的 Agent 工程流程清晰可操作。
+
+## Anti-references
+
+避免为了展示模块完整性而堆叠页面、占位数据或重复抽象。避免用分数猜测 verdict，或为了短期 UI 需求破坏稳定的 ownership 和 application contract。
+
 ## Accessibility & Inclusion
 
-当前没有额外的专项无障碍要求。仍应保持基本可用性，包括清晰的状态文本、可理解的错误和空状态，以及标准 HTML 交互元素。
+保持基本可用性，包括清晰的状态文本、可理解的错误和空状态，以及标准 HTML 交互元素。

@@ -11,6 +11,8 @@
 - 保持 Runtime 独立于 Evaluation、Compare、backend 和 observability implementations。
 - Replay 和 Evaluation 使用 `RunExecutor`；不得构造 `AgentRun` 或调用 Runtime internals。
 - 为新能力增加 semantic events，不要要求 consumers 从 logs 推断行为。
+- Retrieval attempts are semantic execution facts beneath ToolCall execution; preserve Runtime-owned span hierarchy and terminal pairing.
+- Provider provenance is optional authoritative data; never infer missing KB/document/segment identity.
 
 ## 关键路径
 

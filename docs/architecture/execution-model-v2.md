@@ -76,6 +76,17 @@ AgentRuntime → RuntimeEvent → TraceProjector → Trace / Span
 
 Observability and cost analysis consume events and must not infer missing identity from names, ordering, or internal stores. Malformed or orphaned events are diagnosed and safely degraded; projectors do not invent IDs or parent relationships.
 
+### Retrieval observation
+
+Retrieval attempts are Runtime-owned execution facts nested beneath ToolCall execution:
+
+```text
+ToolCall
+  └─ Retrieval attempt(s)
+```
+
+Each provider attempt has one Retrieval lifecycle. Retries may produce multiple Retrieval spans under one ToolCall. Provenance IDs are optional authoritative facts; bounded result previews are preserved in the event. Trace stores this historical observation and is not a Knowledge store. Consumers must not reconstruct provenance from tool names, result text, or current Knowledge storage.
+
 ## 5. Evaluation model
 
 The canonical evaluation input is:

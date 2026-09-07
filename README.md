@@ -2,12 +2,24 @@
 
 AgentLabKit 是一个用于构建、运行、观测和评估 AI agents 的 Python 与 React 平台。它包含可复用的 Agent Runtime、provider-neutral LLM gateway、RAG engine、guardrails、workflows、long-term memory、evaluation、cost analysis，以及 Web/desktop clients。
 
+## Agent Engineering Loop
+
+```text
+Build Agent → Test → Run → Inspect / Replay → Capture → Evaluate → Compare → Improve
+```
+
+## Knowledge / RAG Journey
+
+```text
+Prepare Knowledge → Test Retrieval → Use in Agent → Test Agent → Inspect Retrieval → Diagnose
+```
+
 ## 核心能力
 
 - **Agent Runtime** — turn 与 streaming execution、tools、guardrails、handoffs、delegation 和 deterministic workflows。
-- **Application use cases** — 执行、replay、将 Runs capture 为 DatasetExamples、评估 datasets，以及比较 evaluation runs。
+- **Application use cases** — 执行、replay、将 Runs 加入 Dataset、评估 datasets，以及比较 evaluation runs。
 - **LLM Gateway** — model catalog、provider adapters、routing/failover、credentials、retries、rate limiting 和 usage extraction。
-- **Retrieval** — document processing、chunking、embeddings、vector/full-text/hybrid search，以及可选的 GraphRAG。
+- **Knowledge / RAG** — prepare and search knowledge；将 Knowledge 组合进 versioned Agents；观测真实 Runs 中的 retrieval；检查有界历史证据，并区分 no retrieval、zero results 和 failure；诊断 Retrieval 方向或 Agent 方向。
 - **Platform services** — observability、cost analysis、evaluation 和 cross-session memory。
 - **Clients** — FastAPI HTTP/SSE API、React administration console，以及 standalone PySide6 desktop client。
 
@@ -33,9 +45,9 @@ Web / Desktop / External Client
 
 FastAPI 负责验证 HTTP、认证与授权、映射 DTO、委托调用，以及适配 HTTP/SSE。平台 orchestration 属于 `packages/application`；resource CRUD 属于 module services；query endpoints 使用 readers、stores 或 projections。
 
-Runtime 拥有 execution facts 与 identity。`Run` 不是 `Trace`：Trace 是真实 Run 的 Observability projection。Replay 和 Evaluation 通过 `RunExecutor` 请求真实 Runtime execution；它们不会制造 Runs 或 execution IDs。Dataset storage 拥有稳定的 `example_id`；它永远不是 `run_id`。
+Runtime 拥有 execution facts 与 identity。`Run` 不是 `Trace`：Trace 是真实 Run 的 Observability projection。Trace 提供一次真实 Run 的 execution observation，包括 Agent、LLM、Tool、Retrieval 等执行事实；Run 是 execution resource，Trace 是 Observability projection。Replay 和 Evaluation 通过 `RunExecutor` 请求真实 Runtime execution；它们不会制造 Runs 或 execution IDs。Dataset storage 拥有稳定的 `example_id`；它永远不是 `run_id`。
 
-参见 [`docs/architecture/execution-model-v2.md`](docs/architecture/execution-model-v2.md) 和 [`docs/architecture/fastapi-adapter-boundary.md`](docs/architecture/fastapi-adapter-boundary.md) 中的权威长篇规则。
+参见 [`docs/architecture/execution-model-v2.md`](docs/architecture/execution-model-v2.md)、[`docs/architecture/fastapi-adapter-boundary.md`](docs/architecture/fastapi-adapter-boundary.md) 和 [`docs/architecture/agent-turn-streaming.md`](docs/architecture/agent-turn-streaming.md) 中的权威长篇规则。
 
 ## 快速开始
 
@@ -44,8 +56,8 @@ Runtime 拥有 execution facts 与 identity。`Run` 不是 `Trace`：Trace 是�
 要求：Docker 和 Docker Compose v2。
 
 ```bash
-git clone https://github.com/your-org/agentlabkit.git
-cd agentlabkit
+git clone https://github.com/hhtttttiger/AgentLabKit.git
+cd AgentLabKit
 cp .env.example .env
 docker compose up --build
 ```
@@ -139,8 +151,9 @@ docs/architecture/  authoritative architecture decisions
 ## 文档
 
 - [`AGENTS.md`](AGENTS.md) — 简明的仓库级 coding constraints。
+- [`PRODUCT.md`](PRODUCT.md) — product purpose, journeys and UX principles。
 - [`packages/application/README.md`](packages/application/README.md) — application use-case package boundary。
-- [`docs/architecture/`](docs/architecture/) — Execution Model、FastAPI adapter 和 streaming contracts。
+- [`docs/architecture/`](docs/architecture/) — Execution Model、FastAPI adapter 和 streaming contracts：[`execution-model-v2.md`](docs/architecture/execution-model-v2.md)、[`fastapi-adapter-boundary.md`](docs/architecture/fastapi-adapter-boundary.md)、[`agent-turn-streaming.md`](docs/architecture/agent-turn-streaming.md)。
 - [`docs/operations/`](docs/operations/) — 本地与 Docker 开发操作。
 - [`.env.example`](.env.example) — environment configuration template。
 

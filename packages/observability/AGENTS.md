@@ -26,6 +26,8 @@ Projectors **不得**生成 `run_id`、`trace_id`、`span_id` 或 `parent_span_i
 - 消费 Runtime event contract；不要 import 或控制 Runtime internals。
 - 不要依赖 Evaluation 或 Compare。
 - 将 storage 和 HTTP concerns 保持在 `TraceStore`/module interfaces 后面。
+- Retrieval spans project bounded historical evidence previews and optional provenance from Runtime events.
+- Trace must not query Knowledge storage to reconstruct or refresh historical retrieval results.
 
 ## Testing expectations
 
