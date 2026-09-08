@@ -48,7 +48,7 @@ The `GET /api/eval/runs*` names are a compatibility hazard: they use `run` termi
 
 The streaming endpoint preserves SSE framing and emits mapped facade events (`context`, `reply_delta`, `tool_call`, `tool_result`, `handoff`, `completed`, and `error`), followed by `[DONE]`. The adapter injects Runtime-owned `runId`/`traceId` into events. Its facade terminal fields use `status: "succeeded"` for `completed`/`handoff` and `status: "failed"` for `error`; these are transport values and should not replace the canonical Runtime statuses (`completed`, `failed`, `cancelled`). A client disconnect/cancellation is not currently exposed as a durable Run query result through this endpoint.
 
-One additional compatibility debt was found in `backend/src/modules/ai_invoke/agent_turn.py`: the unused/legacy `run_agent_turn_stream` helper initializes `run_id` and `trace_id` to empty strings and does not copy them from the runtime events before mapping or auditing. The production router uses `ExecuteAgent`/`run_execute_agent_stream`, so this was not changed in the audit; it must be corrected or retired before that helper is exposed again.
+The unused legacy streaming helper has been removed. The production router uses `ExecuteAgent`/`run_execute_agent_stream`; its SSE frames use real double-newline delimiters, and execution identity and target version come from application updates. Before the first update, errors retain empty execution identity and an unknown target version rather than inventing facts.
 
 ## Identity map and invariants
 
@@ -119,7 +119,7 @@ A future `RunDetail` may add input/output and related identifiers, subject to pr
 | List Traces | Trace | — | `TraceStore` | Existing |
 | Execute Dataset Evaluation | EvaluationRun + AgentRuns | `EvaluateDataset` | Evaluation adapter/store | Existing for agent target |
 | Replay Run | new Run linked to source Run | `ReplayRun` | `RunReader` + `RunExecutor` | Implemented: `POST /api/runs/{run_id}/replay` (agent targets with exact historical version) |
-| Capture Run as Dataset Example | DatasetExample | `SaveRunAsDatasetExample` | — | Application scaffold; production wiring forbidden this round |
+| Capture Run as Dataset Example | DatasetExample | `CaptureRunAsDatasetExample` | — | Implemented through `POST /api/runs/{run_id}/capture`; the deprecated scaffold has been removed |
 | Cancel Run | Run | Future capability, likely UC | Runtime cancellation/active registry | Deferred; HTTP reliability not established |
 | Resume | Workflow/checkpoint (not assumed Run) | Future UC | Workflow runtime | Deferred; current identity/capability not established |
 | Compare Evaluation Runs | Evaluation comparison | `CompareEvaluationRuns` (future) | Evaluation | Deferred |
@@ -176,7 +176,6 @@ not exposed in `RunResponse`.
 ## Deferred work
 
 - user-scoped Run listing;
-- production wiring for `SaveRunAsDatasetExample`;
 - `CompareEvaluationRuns`;
 - `CancelRun`;
 - `ResumeExecution`;

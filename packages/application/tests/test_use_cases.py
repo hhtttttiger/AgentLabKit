@@ -7,8 +7,6 @@ from application.dataset import (
     CaptureRunAsDatasetExampleCommand,
     CaptureSourceRunNotFound,
     RunNotCapturable,
-    SaveRunAsDatasetExample,
-    SaveRunAsDatasetExampleCommand,
 )
 from application.evaluation import EvaluateDataset, EvaluateDatasetCommand
 from application.execution import (
@@ -221,18 +219,28 @@ async def test_capture_allows_duplicate_actions_and_explicit_expected_output():
 
 @pytest.mark.asyncio
 async def test_dataset_capture_uses_dataset_owned_identity():
-    source = Run("run-id")
+    from evaluation.contracts_v2 import DatasetExample
+
+    source = RunRecord(run_id="run-id", status="completed", input="hello")
 
     class Runs:
         async def get_run(self, run_id):
             return source
 
     class Datasets:
-        async def create_example_from_run(self, **kwargs):
-            return type("Example", (), {"example_id": "dataset-example-id"})()
+        async def create_example(self, **kwargs):
+            return DatasetExample(
+                example_id="dataset-example-id",
+                dataset_id=kwargs["dataset_id"],
+                input_text=kwargs["input_text"],
+                expected_output=kwargs["expected_output"],
+                metadata=dict(kwargs["metadata"]),
+                source_run_id=kwargs["source_run_id"],
+                source_trace_id=kwargs["source_trace_id"],
+            )
 
-    result = await SaveRunAsDatasetExample(Runs(), Datasets()).execute(
-        SaveRunAsDatasetExampleCommand("dataset", "run-id")
+    result = await CaptureRunAsDatasetExample(Runs(), Datasets()).execute(
+        CaptureRunAsDatasetExampleCommand("dataset", "run-id")
     )
     assert result.example_id != result.source_run_id
 

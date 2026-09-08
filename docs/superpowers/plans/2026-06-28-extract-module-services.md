@@ -1,5 +1,7 @@
 # Extract Business Logic from Routers into Services
 
+> Historical plan — not current implementation guidance. The legacy streaming helper shown below has been removed. Current agent execution delegates to Application use cases; see [FastAPI adapter boundary](../../architecture/fastapi-adapter-boundary.md). The snippets below preserve the original proposal and must not be restored as compatibility implementations.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Move business logic from `files`, `ai_invoke`, and `evaluation` router layers into dedicated service classes so the web layer becomes a thin shell — replaceable by gRPC/CLI without duplicating logic.

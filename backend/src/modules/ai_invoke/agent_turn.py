@@ -1,4 +1,4 @@
-"""Agent turn streaming — bridges ``agent_runtime.stream_turn`` to the frontend SSE contract.
+"""Agent turn streaming — bridges ``ExecuteAgent.stream`` to the frontend SSE contract.
 
 The runtime emits :class:`AgentTurnStreamEvent` (snake_case fields, event types
 ``turn_context`` / ``reply_delta`` / ``reply_completed`` / …, no ``runId``).
@@ -19,7 +19,7 @@ from typing import Any, AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from agent_runtime import AgentMessage, AgentRuntime, AgentTurnRequest, ToolExecutionRecord
+from agent_runtime import ToolExecutionRecord
 from agent_runtime.errors import AgentError
 
 from modules.agent.models import AgentExecutionAudit
@@ -51,7 +51,7 @@ def map_stream_event(
         "sessionId": event.session_id,
         "traceId": event.trace_id,
         "agentKey": agent_key or event.agent_key,
-        "agentVersion": agent_version if agent_version is not None else event.agent_version,
+        "agentVersion": agent_version,
     }
 
     event_type = event.event_type
@@ -176,6 +176,7 @@ async def run_execute_agent_stream(
     """Adapt ExecuteAgent's semantic updates to the public SSE contract."""
     run_id = ""
     trace_id = ""
+    agent_version: int | None = None
     reply_text = ""
     tool_events: list[ToolExecutionRecord] = []
     usage: Any = None
@@ -184,12 +185,13 @@ async def run_execute_agent_stream(
     error_message: str | None = None
 
     def sse(payload: dict[str, Any]) -> str:
-        return f"data: {json.dumps(payload, ensure_ascii=False)}\\n\\n"
+        return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     try:
         async for update in execute_agent.stream(command):
             event = update.event
             run_id, trace_id = update.run_id, update.trace_id
+            agent_version = int(update.target.agent_version) if update.target.agent_version else None
             if event.event_type == "reply_delta":
                 reply_text += event.delta or ""
             elif event.event_type in ("reply_completed", "handoff") and event.reply_text:
@@ -200,13 +202,13 @@ async def run_execute_agent_stream(
                 usage = event.usage
             yield sse(map_stream_event(
                 event, run_id=run_id, agent_key=command.agent_key,
-                agent_version=int(update.target.agent_version) if update.target.agent_version else None,
+                agent_version=agent_version,
             ))
     except AgentError as exc:
         status, error_message = "error", exc.message
         yield sse(error_payload(
             run_id=run_id, session_id=command.session_id or "", trace_id=trace_id,
-            agent_key=command.agent_key, agent_version=None,
+            agent_key=command.agent_key, agent_version=agent_version,
             code=exc.code.value if exc.code is not None else "runtime_error",
             message=exc.message,
         ))
@@ -215,116 +217,16 @@ async def run_execute_agent_stream(
         status, error_message = "error", str(exc)
         yield sse(error_payload(
             run_id=run_id, session_id=command.session_id or "", trace_id=trace_id,
-            agent_key=command.agent_key, agent_version=None,
+            agent_key=command.agent_key, agent_version=agent_version,
             code="runtime_error", message=str(exc),
         ))
     finally:
-        yield "data: [DONE]\\n\\n"
+        yield "data: [DONE]\n\n"
         await write_audit(
             session_factory, agent_key=command.agent_key, run_id=run_id,
-            agent_version=0, message=command.input, reply_text=reply_text,
+            agent_version=agent_version, message=command.input, reply_text=reply_text,
             tool_events=tool_events, usage=usage, status=status,
             duration_ms=int((time.perf_counter() - started_at) * 1000),
-            error_message=error_message,
-        )
-
-
-async def run_agent_turn_stream(
-    runtime: AgentRuntime,
-    *,
-    agent_key: str,
-    agent_version: int,
-    message: str,
-    session_id: str | None,
-    history: list[AgentMessage],
-    session_factory: async_sessionmaker[AsyncSession],
-    user_id: str | None = None,
-) -> AsyncIterator[str]:
-    """Run one agent turn and yield SSE ``data:`` lines.
-
-    Always terminates with ``data: [DONE]``. Runtime errors are converted to an
-    ``error`` event so the frontend's ``onError``/terminal handling still fires
-    cleanly. One ``AgentExecutionAudit`` row is written in ``finally``.
-    """
-    # Compatibility helper only: real production streaming uses ExecuteAgent.
-    # It deliberately does not invent execution identity.
-    run_id = ""
-    trace_id = ""
-    effective_session_id = session_id or ""
-
-    request = AgentTurnRequest(
-        session_id=effective_session_id,
-        user_message=message,
-        history=list(history),
-        user_id=user_id,
-        agent_key=agent_key,
-        agent_version=agent_version,
-        trace_id=trace_id,
-    )
-
-    started_at = time.perf_counter()
-    reply_text = ""
-    tool_events: list[ToolExecutionRecord] = []
-    usage: Any = None
-    status = "success"
-    error_message: str | None = None
-
-    def sse(payload: dict[str, Any]) -> str:
-        return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-
-    try:
-        async for event in runtime.stream_turn(request):
-            # Aggregate for the audit row.
-            if event.event_type == "reply_delta":
-                reply_text += event.delta or ""
-            elif event.event_type in ("reply_completed", "handoff") and event.reply_text:
-                reply_text = event.reply_text
-            if event.event_type in ("tool_call", "tool_result") and event.tool_event is not None:
-                tool_events.append(event.tool_event)
-            if event.usage is not None:
-                usage = event.usage
-
-            yield sse(
-                map_stream_event(
-                    event, run_id=run_id, agent_key=agent_key, agent_version=agent_version
-                )
-            )
-    except AgentError as exc:
-        status = "error"
-        error_message = exc.message
-        yield sse(
-            error_payload(
-                run_id=run_id, session_id=effective_session_id, trace_id=trace_id,
-                agent_key=agent_key, agent_version=agent_version,
-                code=exc.code.value if exc.code is not None else "runtime_error",
-                message=exc.message,
-            )
-        )
-    except Exception as exc:  # noqa: BLE001 — never let the SSE stream die silently
-        logger.exception("agent_turn_stream failed agent_key=%s run_id=%s", agent_key, run_id)
-        status = "error"
-        error_message = str(exc)
-        yield sse(
-            error_payload(
-                run_id=run_id, session_id=effective_session_id, trace_id=trace_id,
-                agent_key=agent_key, agent_version=agent_version,
-                code="runtime_error", message=str(exc),
-            )
-        )
-    finally:
-        yield "data: [DONE]\n\n"
-        duration_ms = int((time.perf_counter() - started_at) * 1000)
-        await write_audit(
-            session_factory,
-            agent_key=agent_key,
-            run_id=run_id,
-            agent_version=agent_version,
-            message=message,
-            reply_text=reply_text,
-            tool_events=tool_events,
-            usage=usage,
-            status=status,
-            duration_ms=duration_ms,
             error_message=error_message,
         )
 
@@ -334,7 +236,7 @@ async def write_audit(
     *,
     agent_key: str,
     run_id: str,
-    agent_version: int,
+    agent_version: int | None,
     message: str,
     reply_text: str,
     tool_events: list[ToolExecutionRecord],

@@ -247,34 +247,3 @@ def build_agent_runtime(
     agent_runtime.subscribe(run_projector.handle)
 
     return agent_runtime, agent_definition_loader
-
-
-def _build_obs_bridge_factory(obs_module: Any):
-    """Build observability bridge factory using the deprecated SpanBridge.
-
-    .. deprecated::
-        Use ``obs_module.get_tracer("agent_runtime")`` and pass as ``tracer=``
-        to :func:`create_agent_runtime` instead.
-    """
-    import warnings
-
-    warnings.warn(
-        "_build_obs_bridge_factory is deprecated; use tracer= instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    obs_settings = obs_module.settings
-
-    def _obs_bridge_factory(trace_id: str, event_bus, agent_key: str | None = None):
-        from observability.integrations.agent_runtime_listener import create_span_bridge
-
-        return create_span_bridge(
-            trace_store=obs_module.trace_store,
-            trace_id=trace_id,
-            agent_key=agent_key,
-            event_bus=event_bus,
-            max_spans=obs_settings.max_spans_per_trace,
-            enabled=obs_settings.enabled,
-        )
-
-    return _obs_bridge_factory

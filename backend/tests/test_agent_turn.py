@@ -3,8 +3,8 @@
 Pure/fake tests — no DB, no real LLM. Covers:
 - ``map_stream_event``: every runtime event type → frontend camelCase dict,
   with runId/sessionId/traceId injected and the two renamed types.
-- ``run_agent_turn_stream``: happy-path event sequence + terminal ``[DONE]``,
-  the error path (runtime raises ``AgentError`` → ``error`` event), and that
+- ``run_execute_agent_stream``: happy-path event sequence + terminal ``[DONE]``,
+  the error path (executor raises ``AgentError`` → ``error`` event), and that
   one audit row is persisted in each case.
 """
 
@@ -16,10 +16,12 @@ from typing import Any, AsyncIterator
 import pytest
 
 from agent_runtime import AgentTurnStreamEvent, ToolExecutionRecord
+from agent_runtime.contracts.run import RunTarget
+from application import ExecuteAgentCommand, ExecuteAgentUpdate
 from agent_runtime.errors import AgentError, AgentErrorCode
 from llm_gateway.models import UsageInfo
 
-from modules.ai_invoke.agent_turn import map_stream_event, run_agent_turn_stream
+from modules.ai_invoke.agent_turn import map_stream_event, run_execute_agent_stream
 
 RUN_ID = "run-xyz"
 AGENT_KEY = "default"
@@ -133,7 +135,7 @@ def test_delegation_delta_maps():
     assert payload["delegationAgentKey"] == "refund-specialist"
 
 
-# ── run_agent_turn_stream ───────────────────────────────────────────────────
+# ── run_execute_agent_stream ───────────────────────────────────────────────
 
 
 class _FakeAuditSession:
@@ -172,33 +174,50 @@ def _parse_sse_lines(lines: list[str]) -> list[dict[str, Any]]:
     return payloads
 
 
-class _FakeRuntime:
-    """Yields a scripted list of events from ``stream_turn``."""
+def _assert_framing(lines: list[str]) -> None:
+    assert all(line.startswith("data: ") and line.endswith("\n\n") for line in lines)
+    assert sum(line == "data: [DONE]\n\n" for line in lines) == 1
+    assert all("\\n" not in line for line in lines)
 
-    def __init__(self, events: list[AgentTurnStreamEvent]) -> None:
+
+class _FakeExecuteAgent:
+    """Yields a scripted list of typed ExecuteAgent updates."""
+
+    def __init__(self, events: list[AgentTurnStreamEvent], version: str | None = "1") -> None:
         self._events = events
+        self._version = version
 
-    async def stream_turn(self, request: Any) -> AsyncIterator[AgentTurnStreamEvent]:
+    async def stream(self, command: Any) -> AsyncIterator[ExecuteAgentUpdate]:
         for event in self._events:
-            yield event
+            yield ExecuteAgentUpdate(
+                event=event, run_id=RUN_ID, trace_id=event.trace_id,
+                target=RunTarget(agent_key=command.agent_key, agent_version=self._version),
+            )
 
 
-class _FakeRuntimeRaises:
-    """Yields one event, then raises ``AgentError`` on the next pull."""
+class _FakeExecuteAgentRaises:
+    """Yields one update, then raises ``AgentError`` on the next pull."""
 
-    def __init__(self, events: list[AgentTurnStreamEvent], error: AgentError) -> None:
+    def __init__(self, events: list[AgentTurnStreamEvent], error: Exception, version: str | None = "1") -> None:
         self._events = events
         self._error = error
+        self._version = version
 
-    async def stream_turn(self, request: Any) -> AsyncIterator[AgentTurnStreamEvent]:
+    async def stream(self, command: Any) -> AsyncIterator[ExecuteAgentUpdate]:
         for event in self._events:
-            yield event
+            yield ExecuteAgentUpdate(
+                event=event, run_id=RUN_ID, trace_id=event.trace_id,
+                target=RunTarget(agent_key=command.agent_key, agent_version=self._version),
+            )
         raise self._error
+
+
+COMMAND = ExecuteAgentCommand(agent_key=AGENT_KEY, input="hi", session_id="s")
 
 
 @pytest.mark.asyncio
 async def test_stream_happy_path_emits_context_deltas_completed_then_done():
-    runtime = _FakeRuntime(
+    execute_agent = _FakeExecuteAgent(
         [
             AgentTurnStreamEvent(event_type="turn_context", session_id="s", trace_id="t", applied_skills=[]),
             AgentTurnStreamEvent(event_type="reply_delta", session_id="s", trace_id="t", delta="Hello "),
@@ -214,18 +233,15 @@ async def test_stream_happy_path_emits_context_deltas_completed_then_done():
 
     lines = [
         line
-        async for line in run_agent_turn_stream(
-            runtime, agent_key=AGENT_KEY, agent_version=AGENT_VERSION,
-            message="hi", session_id="s", history=[], session_factory=sf,
-        )
+        async for line in run_execute_agent_stream(execute_agent, COMMAND, session_factory=sf)
     ]
 
     payloads = _parse_sse_lines(lines)
+    _assert_framing(lines)
     assert [p["type"] for p in payloads] == ["context", "reply_delta", "reply_delta", "completed"]
     assert lines[-1] == "data: [DONE]\n\n"
-    # This compatibility helper does not manufacture identity; the production
-    # ExecuteAgent adapter supplies Runtime-owned runId values.
     assert all("runId" in p for p in payloads)
+    assert all(p["runId"] == RUN_ID and p["traceId"] == "t" for p in payloads)
 
     # audit written once, success, with aggregated reply text
     assert len(sf.session.added) == 1
@@ -239,7 +255,7 @@ async def test_stream_happy_path_emits_context_deltas_completed_then_done():
 @pytest.mark.asyncio
 async def test_stream_error_path_emits_error_event_and_failed_audit():
     error = AgentError(AgentErrorCode.GATEWAY_ERROR, "upstream blew up")
-    runtime = _FakeRuntimeRaises(
+    execute_agent = _FakeExecuteAgentRaises(
         [AgentTurnStreamEvent(event_type="turn_context", session_id="s", trace_id="t", applied_skills=[])],
         error,
     )
@@ -247,20 +263,103 @@ async def test_stream_error_path_emits_error_event_and_failed_audit():
 
     lines = [
         line
-        async for line in run_agent_turn_stream(
-            runtime, agent_key=AGENT_KEY, agent_version=AGENT_VERSION,
-            message="hi", session_id="s", history=[], session_factory=sf,
-        )
+        async for line in run_execute_agent_stream(execute_agent, COMMAND, session_factory=sf)
     ]
 
     payloads = _parse_sse_lines(lines)
+    _assert_framing(lines)
     assert [p["type"] for p in payloads] == ["context", "error"]
     err = payloads[-1]
     assert err["errorCode"] == "gateway_error"
     assert err["errorMessage"] == "upstream blew up"
     assert err["status"] == "failed"
+    assert err["runId"] == RUN_ID and err["traceId"] == "t"
+    assert err["agentVersion"] == AGENT_VERSION
     assert lines[-1] == "data: [DONE]\n\n"
 
+    assert len(sf.session.added) == 1
     audit = sf.session.added[0]
     assert audit.status == "error"
     assert audit.error_message == "upstream blew up"
+    assert audit.agent_version == AGENT_VERSION
+
+
+@pytest.mark.asyncio
+async def test_stream_handoff_preserves_identity_and_writes_one_audit():
+    event = AgentTurnStreamEvent(
+        event_type="handoff", session_id="s", trace_id="t", reply_text="escalating",
+        handoff_reason="needs human", agent_version=99,
+    )
+    sf = _FakeSessionFactory()
+    lines = [line async for line in run_execute_agent_stream(
+        _FakeExecuteAgent([event], version="7"), COMMAND, session_factory=sf,
+    )]
+
+    _assert_framing(lines)
+    payloads = _parse_sse_lines(lines)
+    assert payloads[0]["type"] == "handoff"
+    assert payloads[0]["runId"] == RUN_ID
+    assert payloads[0]["traceId"] == "t"
+    assert payloads[0]["agentVersion"] == 7
+    assert len(sf.session.added) == 1
+    assert sf.session.added[0].agent_version == 7
+
+
+@pytest.mark.asyncio
+async def test_stream_generic_error_after_update_uses_authoritative_identity():
+    sf = _FakeSessionFactory()
+    lines = [line async for line in run_execute_agent_stream(
+        _FakeExecuteAgentRaises(
+            [AgentTurnStreamEvent(event_type="reply_delta", session_id="s", trace_id="t", delta="x")],
+            RuntimeError("broken"), version="8",
+        ), COMMAND, session_factory=sf,
+    )]
+
+    _assert_framing(lines)
+    error = _parse_sse_lines(lines)[-1]
+    assert error["type"] == "error"
+    assert error["runId"] == RUN_ID and error["traceId"] == "t"
+    assert error["agentVersion"] == 8
+    assert error["errorCode"] == "runtime_error"
+    assert error["errorMessage"] == "broken"
+    assert len(sf.session.added) == 1
+    audit = sf.session.added[0]
+    assert audit.status == "error" and audit.agent_version == 8
+
+
+@pytest.mark.asyncio
+async def test_stream_error_before_first_update_keeps_identity_empty():
+    sf = _FakeSessionFactory()
+    lines = [line async for line in run_execute_agent_stream(
+        _FakeExecuteAgentRaises([], RuntimeError("before update"), version="12"),
+        COMMAND, session_factory=sf,
+    )]
+
+    _assert_framing(lines)
+    error = _parse_sse_lines(lines)[-1]
+    assert error["type"] == "error"
+    assert error["runId"] == "" and error["traceId"] == ""
+    assert error["agentVersion"] is None
+    assert len(sf.session.added) == 1
+    audit = sf.session.added[0]
+    assert audit.run_id == "" and audit.agent_version is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("version, expected", [("11", 11), (None, None)])
+async def test_stream_uses_target_version_over_nested_event_version(version, expected):
+    event = AgentTurnStreamEvent(
+        event_type="reply_completed", session_id="s", trace_id="t", reply_text="ok",
+        agent_version=44,
+    )
+    sf = _FakeSessionFactory()
+    lines = [line async for line in run_execute_agent_stream(
+        _FakeExecuteAgent([event], version=version), COMMAND, session_factory=sf,
+    )]
+
+    _assert_framing(lines)
+    payload = _parse_sse_lines(lines)[0]
+    assert payload["agentVersion"] == expected
+    assert payload["runId"] == RUN_ID and payload["traceId"] == "t"
+    assert len(sf.session.added) == 1
+    assert sf.session.added[0].agent_version == expected

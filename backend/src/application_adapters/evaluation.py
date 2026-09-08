@@ -237,18 +237,3 @@ class BackendEvaluationEvaluator:
                 "passed": metric.passed,
             } for metric in legacy.metric_results],
         })
-
-
-def build_evaluate_dataset(*, session_factory: Any, eval_module: Any,
-                           agent_runtime: Any, existing_run_id: int):
-    from application import EvaluateDataset
-    from application_adapters.agent_runtime import AgentRuntimeExecutor, BackendAgentReader
-
-    # The runtime definition loader is the canonical agent reader.
-    loader = getattr(agent_runtime, "definition_loader", None)
-    if loader is None:
-        raise RuntimeError("AgentRuntime definition loader is unavailable")
-    config_reader = BackendEvaluationConfigurationReader(session_factory)
-    # The configuration is loaded by the use case; evaluator needs the same
-    # snapshot, so it is supplied by the background entrypoint below.
-    return config_reader, loader

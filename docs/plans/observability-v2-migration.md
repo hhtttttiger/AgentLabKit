@@ -63,7 +63,7 @@
    - 新增 `_TracerSpanManager` 管理 OTel root span 生命周期
    - `AgentRuntime` 和 `create_agent_runtime` 新增 `tracer` 参数
    - `web_modules.py` 改为传入 `obs_module.get_tracer("agent_runtime")`
-   - `_build_obs_bridge_factory` 标记 deprecated（`DeprecationWarning`）
+   - 旧 bridge 工厂曾标记 deprecated；现已在兼容实现清理中删除，生产装配仍使用 tracer
 
 6. ✅ **ObservabilityModule lifespan 注册** — 已验证 `app.state.observability_module` 和 `app.state.queue_backend` 正确设置
 

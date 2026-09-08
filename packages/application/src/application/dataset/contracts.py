@@ -23,10 +23,5 @@ class CaptureRunAsDatasetExampleResult:
 
     @property
     def example_id(self) -> str:
-        """Compatibility projection for the scaffold result shape."""
+        """Expose the Dataset-owned identity of the captured example."""
         return self.example.example_id
-
-
-# Compatibility aliases for the pre-production scaffold.
-SaveRunAsDatasetExampleCommand = CaptureRunAsDatasetExampleCommand
-SaveRunAsDatasetExampleResult = CaptureRunAsDatasetExampleResult

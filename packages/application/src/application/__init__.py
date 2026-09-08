@@ -16,9 +16,6 @@ from .dataset import (
     CaptureRunAsDatasetExampleResult,
     CaptureSourceRunNotFound,
     RunNotCapturable,
-    SaveRunAsDatasetExample,
-    SaveRunAsDatasetExampleCommand,
-    SaveRunAsDatasetExampleResult,
 )
 from .evaluation.contracts import EvaluationConfiguration, EvaluateDatasetCommand, EvaluateDatasetResult
 from .evaluation.evaluate_dataset import EvaluateDataset
@@ -35,7 +32,6 @@ __all__ = [
     "ReplayInputUnavailable",
     "CaptureRunAsDatasetExample", "CaptureRunAsDatasetExampleCommand", "CaptureRunAsDatasetExampleResult",
     "CaptureSourceRunNotFound", "RunNotCapturable",
-    "SaveRunAsDatasetExample", "SaveRunAsDatasetExampleCommand", "SaveRunAsDatasetExampleResult",
     "EvaluateDataset", "EvaluationConfiguration", "EvaluateDatasetCommand", "EvaluateDatasetResult",
     "CompareEvaluationRuns", "CompareEvaluationRunsCommand", "CompareEvaluationRunsResult",
     "EvaluationExampleComparison", "EvaluationRunNotFound", "EvaluationRunsNotComparable",

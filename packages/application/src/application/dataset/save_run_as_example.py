@@ -70,24 +70,3 @@ class CaptureRunAsDatasetExample:
             source_run_id=run.run_id,
             example=example,
         )
-
-
-class SaveRunAsDatasetExample:
-    """Deprecated scaffold adapter retained for import compatibility only."""
-
-    def __init__(self, runs: RunReader, datasets) -> None:
-        self._runs = runs
-        self._datasets = datasets
-
-    async def execute(self, command):
-        run = await self._runs.get_run(command.run_id)
-        if run is None:
-            raise LookupError(f"run {command.run_id} not found")
-        example = await self._datasets.create_example_from_run(
-            dataset_id=command.dataset_id, run=run,
-        )
-        return CaptureRunAsDatasetExampleResult(
-            dataset_id=command.dataset_id,
-            source_run_id=command.run_id,
-            example=example,
-        )
