@@ -22,6 +22,17 @@ describe('evaluation run lifecycle presentation', () => {
     expect(summary.errors).toBe(1);
   });
 
+  it('reads the snake_case storage summary keys and skips unavailable scores', () => {
+    // Summary JSON is the backend storage contract (avg_score), not camelCase.
+    expect(summarize({ avg_score: 0.5, total_cases: 3 }, []).avgScore).toBe(0.5);
+    expect(summarize({ total_cases: 3 }, []).avgScore).toBeNull();
+    expect(summarize({}, [result({ overallScore: 0.5 }), result({ overallScore: null })]).avgScore).toBe(0.5);
+    // A real zero is a real score; only absence renders as unavailable.
+    expect(summarize({ avg_score: 0 }, []).avgScore).toBe(0);
+    expect(summarize({}, []).total).toBeNull();
+    expect(summarize({ total_cases: 0 }, []).total).toBe(0);
+  });
+
   it('does not turn nullable scores into zero and labels RAG targets', () => {
     expect(summarize({}, [result({ overallScore: null })]).avgScore).toBeNull();
     expect(targetLabel('rag_pipeline')).toBe('RAG Pipeline');

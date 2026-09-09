@@ -56,6 +56,7 @@ export const evaluation = {
       status: 'Status',
       score: 'Score',
       startedAt: 'Started at',
+      createdAt: 'Created at',
       completedAt: 'Completed at'
     },
     status: {

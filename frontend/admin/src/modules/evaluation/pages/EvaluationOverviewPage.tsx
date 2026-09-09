@@ -25,10 +25,15 @@ export function EvaluationOverviewPage() {
   const datasetCount = datasets?.items?.length ?? 0;
   const runCount = runs?.length ?? 0;
   const completedRuns = runs?.filter((r) => r.status === 'completed') ?? [];
+  // Only real scores count: missing avg_score is not 0. No completed runs
+  // with scores means "—" rather than a fabricated 0.000.
+  const scoreValues = completedRuns
+    .map((r) => r.summary?.avg_score)
+    .filter((value): value is number => typeof value === 'number');
   const avgScore =
-    completedRuns.length > 0
-      ? completedRuns.reduce((sum, r) => sum + ((r.summary?.avgScore as number) ?? 0), 0) / completedRuns.length
-      : 0;
+    scoreValues.length > 0
+      ? scoreValues.reduce((sum, value) => sum + value, 0) / scoreValues.length
+      : null;
   const recentRuns = (runs ?? []).slice(0, 5);
 
   if (loadingDatasets || loadingRuns) {
@@ -67,7 +72,7 @@ export function EvaluationOverviewPage() {
         </button>
         <div className="flex flex-col items-start gap-1 rounded-lg border border-border bg-surface p-4">
           <span className="text-xs text-text-muted">{t('evaluation:overview.avgScore')}</span>
-          <span className="text-2xl font-bold text-text">{avgScore.toFixed(3)}</span>
+          <span className="text-2xl font-bold text-text">{avgScore === null ? '—' : avgScore.toFixed(3)}</span>
         </div>
       </div>
 
@@ -83,7 +88,7 @@ export function EvaluationOverviewPage() {
                 <th className="pb-2 font-medium">Run ID</th>
                 <th className="pb-2 font-medium text-center">{t('evaluation:runs.columns.status')}</th>
                 <th className="pb-2 font-medium text-right">{t('evaluation:runs.columns.score')}</th>
-                <th className="pb-2 font-medium">{t('evaluation:runs.columns.startedAt')}</th>
+                <th className="pb-2 font-medium">{t('evaluation:runs.columns.createdAt')}</th>
               </tr>
             </thead>
             <tbody>
@@ -98,7 +103,7 @@ export function EvaluationOverviewPage() {
                     {r.status}
                   </td>
                   <td className="py-2 text-right font-medium text-text">
-                    {((r.summary?.avgScore as number) ?? 0).toFixed(3)}
+                    {typeof r.summary?.avg_score === 'number' ? (r.summary.avg_score as number).toFixed(3) : '—'}
                   </td>
                   <td className="py-2 text-text-secondary">
                     {formatAdminDateTime(r.createdAtUtc)}

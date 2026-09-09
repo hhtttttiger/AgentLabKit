@@ -53,7 +53,7 @@ function Overview({ run }: { run: import('../types').RunDetail }) {
   return <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-2">
     <Field label={t('runs:detail.input')} value={run.input ?? t('runs:detail.noInput')} />
     <Field label={t('runs:detail.output')} value={run.output ?? t('runs:detail.noOutput')} />
-    <div className="border-t border-border pt-4 text-sm"><p className="text-text-muted">Session ID</p><p className="mt-1 font-mono text-text">{run.sessionId ?? '—'}</p><p className="mt-3 text-text-muted">Completed</p><p className="mt-1 text-text">{run.completedAt ? new Date(run.completedAt).toLocaleString() : '—'}</p></div>
+    <div className="border-t border-border pt-4 text-sm"><p className="text-text-muted">Session ID</p><p className="mt-1 font-mono text-text">{run.sessionId ?? '—'}</p><p className="mt-3 text-text-muted">{run.status === 'completed' ? 'Completed' : 'Ended'}</p><p className="mt-1 text-text">{run.completedAt ? new Date(run.completedAt).toLocaleString() : '—'}</p></div>
     {run.errorMessage && <div className="border-t border-border pt-4 text-sm text-error">{run.errorMessage}</div>}
   </div>;
 }

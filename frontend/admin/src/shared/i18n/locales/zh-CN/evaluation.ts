@@ -56,6 +56,7 @@ export const evaluation = {
           status: '状态',
           score: '得分',
           startedAt: '开始时间',
+          createdAt: '创建时间',
           completedAt: '完成时间'
         },
         status: {

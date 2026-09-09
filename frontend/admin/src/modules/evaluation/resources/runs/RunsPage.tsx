@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRunList, useRunConfigList, useTriggerRun, useCreateRunConfig } from '../configs/hooks';
 import { useDatasetList } from '../datasets/hooks';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +33,16 @@ export function RunsPage() {
   const [selectedRuns, setSelectedRuns] = useState<string[]>([]);
   const [createConfigOpen, setCreateConfigOpen] = useState(false);
   const [evaluateOpen, setEvaluateOpen] = useState(false);
+  // Explicit compare roles. Checkbox click order carries no baseline/
+  // candidate semantics; the roles are labeled, adjustable, and shown to
+  // the user before comparing.
+  const [baselineRunId, setBaselineRunId] = useState('');
+  const [candidateRunId, setCandidateRunId] = useState('');
+
+  useEffect(() => {
+    setBaselineRunId(selectedRuns[0] ?? '');
+    setCandidateRunId(selectedRuns[1] ?? '');
+  }, [selectedRuns]);
 
   const datasets = datasetResult?.items ?? [];
   const selectedDatasetId = selectedRuns.length ? configs?.find((config) => String(config.id) === String(runs?.find((run) => String(run.id) === selectedRuns[0])?.configId))?.datasetId : undefined;
@@ -60,7 +70,7 @@ export function RunsPage() {
   return (
     <div className="flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between gap-4">
-        <div><h1 className="text-lg font-semibold text-text">Evaluation Runs</h1>{selectedRuns.length === 2 && <button type="button" onClick={() => navigate(`/evaluation/runs/compare?left=${selectedRuns[0]}&right=${selectedRuns[1]}`)} className="mt-1 text-xs text-primary hover:underline">Compare selected runs</button>}</div>
+        <div><h1 className="text-lg font-semibold text-text">Evaluation Runs</h1></div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setEvaluateOpen(true)} className="rounded-[2px] bg-primary px-3 py-1.5 text-sm text-background">New Evaluation</button>
           <select
@@ -86,6 +96,42 @@ export function RunsPage() {
           </button>
         </div>
       </div>
+
+      {selectedRuns.length === 2 && (
+        <div className="flex flex-wrap items-center gap-3 border border-border bg-surface px-3 py-2 text-sm">
+          <span className="text-text-muted">选择对比角色（勾选顺序不代表语义）</span>
+          <label className="flex items-center gap-1">
+            <span className="font-medium text-text">Baseline</span>
+            <select
+              value={baselineRunId}
+              onChange={(e) => setBaselineRunId(e.target.value)}
+              className="rounded-[2px] border border-border bg-background px-2 py-1 text-xs"
+              aria-label="Baseline run"
+            >
+              {selectedRuns.map((id) => <option key={id} value={id}>#{id}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-1">
+            <span className="font-medium text-text">Candidate</span>
+            <select
+              value={candidateRunId}
+              onChange={(e) => setCandidateRunId(e.target.value)}
+              className="rounded-[2px] border border-border bg-background px-2 py-1 text-xs"
+              aria-label="Candidate run"
+            >
+              {selectedRuns.map((id) => <option key={id} value={id}>#{id}</option>)}
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={!baselineRunId || !candidateRunId || baselineRunId === candidateRunId}
+            onClick={() => navigate(`/evaluation/runs/compare?left=${baselineRunId}&right=${candidateRunId}`)}
+            className="rounded-[2px] bg-primary px-3 py-1.5 text-xs text-background disabled:opacity-30"
+          >
+            Compare baseline vs candidate
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <SkeletonRows columns={6} rows={5} />
@@ -114,7 +160,7 @@ export function RunsPage() {
                 <td className="py-2 text-text">{configs?.find((config) => String(config.id) === String(r.configId))?.targetKey ?? '—'}</td>
                 <td className="py-2 text-text-secondary">{datasets.find((dataset) => String(dataset.id) === String(configs?.find((config) => String(config.id) === String(r.configId))?.datasetId))?.name ?? '—'}</td>
                 <td className={`py-2 text-center text-xs font-medium ${STATUS_COLORS[r.status] || ''}`}>{r.status}</td>
-                <td className="py-2 text-right font-medium text-text">{typeof r.summary?.avgScore === 'number' ? (r.summary.avgScore as number).toFixed(3) : '—'}</td>
+                <td className="py-2 text-right font-medium text-text">{typeof r.summary?.avg_score === 'number' ? (r.summary.avg_score as number).toFixed(3) : '—'}</td>
                 <td className="py-2 text-right text-text-secondary">{(r.summary?.total_cases as number) ?? '—'}</td>
                 <td className="py-2 text-right text-text-secondary">{typeof r.summary?.error_count === 'number' ? r.summary.error_count as number : '—'}</td>
                 <td className="py-2 text-text-secondary">{formatAdminDateTime(r.createdAtUtc)}</td>
