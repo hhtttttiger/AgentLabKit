@@ -15,6 +15,10 @@ dependencies = [
 ragas = [
   "ragas>=0.4.3,<0.5",
   "datasets>=3.0",
+  # ragas 0.4.3 imports langchain_community.chat_models.vertexai, which
+  # langchain-community 0.4 removed; without this pin a fresh install of the
+  # extra resolves 0.4.x and `from ragas import ...` raises ImportError.
+  "langchain-community>=0.3,<0.4",
 ]
 dev = [
   "pytest>=8.3.0",
