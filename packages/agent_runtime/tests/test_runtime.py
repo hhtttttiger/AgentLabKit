@@ -418,7 +418,7 @@ class TestAgentRuntime:
         assert result.reply_text == "Your order will ship tomorrow."
         assert result.trace_id == "trace-123"
         assert result.usage.total_tokens == 16
-        assert gateway.requests[0].model == "gpt-4.1-mini"
+        assert gateway.requests[0].model == AgentSettings().default_model
         assert gateway.requests[0].provider == ProviderId.OPENAI
         assert gateway.requests[0].trace_id == "trace-123"
         assert "When will my order ship?" in gateway.requests[0].prompt
