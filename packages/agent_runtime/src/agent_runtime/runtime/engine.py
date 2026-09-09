@@ -195,6 +195,35 @@ create_agent_runtime = _create_agent_runtime_impl
 _ROOT_ATTR = "agentlabkit.trace.root"
 
 
+class _RetrievalSpanSink:
+    """Bridges the retrieval observer onto the OTel span manager.
+
+    Created per tool execution so the retrieval span is parented beneath the
+    active tool span (ToolCall → Retrieval hierarchy)."""
+
+    def __init__(self, span_mgr: "_TracerSpanManager | None", parent_span: Any) -> None:
+        self._span_mgr = span_mgr
+        self._parent = parent_span
+
+    def start(self, *, query: str, source: str, knowledge_base_ids,
+              top_k: int | None, search_mode: str | None) -> Any:
+        if self._span_mgr is None:
+            return None
+        return self._span_mgr.start_retrieval_span(
+            self._parent, query=query, source=source,
+            knowledge_base_ids=knowledge_base_ids, top_k=top_k,
+            search_mode=search_mode,
+        )
+
+    def succeed(self, span: Any, *, result_count: int, duration_ms: int, results) -> None:
+        _TracerSpanManager.end_retrieval_span(
+            span, result_count=result_count, duration_ms=duration_ms, results=results,
+        )
+
+    def fail(self, span: Any, error_message: str) -> None:
+        _TracerSpanManager.end_retrieval_span(span, error_message=error_message)
+
+
 class _TracerSpanManager:
     """Manages an OTel root span for a single agent turn.
 
@@ -231,6 +260,7 @@ class _TracerSpanManager:
             context=self._authoritative_trace_context(),
             attributes={
                 _ROOT_ATTR: True,
+                "agentlabkit.kind": "agent",
                 "agentlabkit.trace_id": self._trace_id,
                 **({"agentlabkit.run_id": self._run_id} if self._run_id else {}),
                 **({"agentlabkit.agent_key": self._agent_key} if self._agent_key else {}),
@@ -266,16 +296,75 @@ class _TracerSpanManager:
     def start_llm_span(self) -> Any:
         if self._root_span is None:
             return None
-        return self._tracer.start_span("llm.generate", context=self._child_context())
+        return self._tracer.start_span(
+            "llm.generate",
+            attributes={"agentlabkit.kind": "llm"},
+            context=self._child_context(),
+        )
 
     def start_tool_span(self, tool_name: str) -> Any:
         if self._root_span is None:
             return None
         return self._tracer.start_span(
             f"tool.{tool_name}",
-            attributes={"tool.name": tool_name},
+            attributes={"tool.name": tool_name, "agentlabkit.kind": "tool"},
             context=self._child_context(),
         )
+
+    def start_retrieval_span(self, parent_span: Any, *, query: str, source: str,
+                             knowledge_base_ids, top_k: int | None,
+                             search_mode: str | None) -> Any:
+        """Retrieval is an execution fact: span + bounded refs, created at
+        execution time so consumers never reconstruct provenance."""
+        if self._root_span is None:
+            return None
+        attrs: dict[str, Any] = {
+            "agentlabkit.kind": "retrieval",
+            "retrieval.query": query,
+            "retrieval.source": source,
+            "retrieval.knowledge_base_ids": [str(k) for k in knowledge_base_ids],
+        }
+        if top_k is not None:
+            attrs["retrieval.top_k"] = top_k
+        if search_mode:
+            attrs["retrieval.search_mode"] = search_mode
+        ctx = (
+            set_span_in_context(parent_span)
+            if parent_span is not None else self._child_context()
+        )
+        return self._tracer.start_span("retrieval.search", attributes=attrs, context=ctx)
+
+    @staticmethod
+    def end_retrieval_span(span: Any, *, result_count: int | None = None,
+                           duration_ms: int | None = None, results=None,
+                           error_message: str | None = None) -> None:
+        if span is None:
+            return
+        if error_message:
+            span.set_attribute("retrieval.error_message", error_message)
+            span.set_status(StatusCode.ERROR, error_message)
+        else:
+            if result_count is not None:
+                span.set_attribute("retrieval.result_count", result_count)
+            if duration_ms is not None:
+                span.set_attribute("retrieval.duration_ms", duration_ms)
+            if results is not None:
+                # OTel attributes only support primitive sequences; the
+                # bounded refs ride as JSON and the span processor decodes
+                # them into the stored envelope.
+                span.set_attribute("retrieval.results", json.dumps([
+                    {
+                        "knowledge_base_id": r.knowledge_base_id,
+                        "document_id": r.document_id,
+                        "segment_id": r.segment_id,
+                        "score": r.score,
+                        "title": r.title,
+                        "source": r.source,
+                        "content_preview": r.content_preview,
+                    }
+                    for r in results
+                ]))
+        span.end()
 
     def set_error(self, message: str) -> None:
         self._error_message = message
@@ -1285,6 +1374,7 @@ class AgentRuntime:
                                     ToolExecutionObservers(
                                         retrieval=RuntimeRetrievalObserver(
                                             _stream_semantic_emit, _stream_span_ctx,
+                                            span_sink=_RetrievalSpanSink(_span_mgr, _tool_span),
                                         ),
                                     )
                                     if _stream_semantic_emit is not None else None

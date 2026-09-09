@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -243,6 +244,17 @@ class TraceBufferSpanProcessor(SpanProcessor):
                 if not any(token in key.lower() for token in ("prompt", "preview", "arguments", "result"))
             }
         attrs = bounded_attributes(attrs, max_bytes=self._settings.max_attribute_bytes)
+        # OTel attributes only support primitive sequences; the runtime sends
+        # bounded retrieval refs as JSON and the envelope restores the array
+        # (execution facts, decoded — not reconstructed).
+        raw_results = attrs.get("retrieval.results")
+        if isinstance(raw_results, str):
+            try:
+                decoded = json.loads(raw_results)
+                if isinstance(decoded, list):
+                    attrs["retrieval.results"] = decoded
+            except ValueError:
+                pass
 
         events = [
             {
@@ -280,7 +292,12 @@ class TraceBufferSpanProcessor(SpanProcessor):
             trace_id=format(span.context.trace_id, "032x"),
             parent_span_id=format(span.parent.span_id, "016x") if span.parent else None,
             name=span.name[:256],
-            kind=getattr(span.kind, "name", str(span.kind)).lower(),
+            # The Runtime stamps the semantic kind (agent/llm/tool/retrieval)
+            # at execution time; OTel's SpanKind enum cannot express it.
+            kind=(
+                _optional_str(attrs.get("agentlabkit.kind"))
+                or getattr(span.kind, "name", str(span.kind)).lower()
+            ),
             status=_trace_status(span, attrs),
             instrumentation_scope=(
                 getattr(span.instrumentation_scope, "name", "") or ""

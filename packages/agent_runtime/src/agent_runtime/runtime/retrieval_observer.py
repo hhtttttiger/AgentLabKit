@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Protocol
 from uuid import uuid4
 
 from ..contracts.models import KnowledgeChunk
@@ -16,12 +16,26 @@ _RESULT_CAP = 10
 _PREVIEW_LIMIT = 400
 
 
+class RetrievalSpanSink(Protocol):
+    """OTel span bridge owned by the engine (execution-time facts only)."""
+
+    def start(self, *, query: str, source: str, knowledge_base_ids: Sequence[str],
+              top_k: int | None, search_mode: str | None) -> object | None: ...
+
+    def succeed(self, span: object | None, *, result_count: int, duration_ms: int,
+                results: Sequence[RetrievalResultRef]) -> None: ...
+
+    def fail(self, span: object | None, error_message: str) -> None: ...
+
+
 class RuntimeRetrievalObserver(RetrievalObserver):
     """Allocates nested retrieval spans without exposing runtime identity to tools."""
 
-    def __init__(self, emit: SemanticEventSink, span_context: _SpanContext) -> None:
+    def __init__(self, emit: SemanticEventSink, span_context: _SpanContext,
+                 span_sink: RetrievalSpanSink | None = None) -> None:
         self._emit = emit
         self._span_context = span_context
+        self._span_sink = span_sink
 
     @asynccontextmanager
     async def observe(
@@ -32,6 +46,12 @@ class RuntimeRetrievalObserver(RetrievalObserver):
         parent_span_id = self._span_context.current_span_id
         self._span_context.push(span_id)
         observation = _RuntimeRetrievalObservation()
+        otel_span = None
+        if self._span_sink is not None:
+            otel_span = self._span_sink.start(
+                query=query, source=source, knowledge_base_ids=knowledge_base_ids,
+                top_k=top_k, search_mode=search_mode,
+            )
         started = time.perf_counter()
         await self._emit(RetrievalStarted(
             query=query, source=source, knowledge_base_ids=tuple(knowledge_base_ids),
@@ -41,15 +61,24 @@ class RuntimeRetrievalObserver(RetrievalObserver):
         try:
             yield observation
         except BaseException as exc:
+            message = str(exc) or exc.__class__.__name__
+            if self._span_sink is not None:
+                self._span_sink.fail(otel_span, message)
             await self._emit(RetrievalFailed(
-                error_message=str(exc) or exc.__class__.__name__, span_id=span_id,
+                error_message=message, span_id=span_id,
                 parent_span_id=parent_span_id,
             ))
             raise
         else:
+            duration_ms = int((time.perf_counter() - started) * 1000)
+            if self._span_sink is not None:
+                self._span_sink.succeed(
+                    otel_span, result_count=observation.result_count,
+                    duration_ms=duration_ms, results=observation.refs,
+                )
             await self._emit(RetrievalCompleted(
                 result_count=observation.result_count,
-                duration_ms=int((time.perf_counter() - started) * 1000),
+                duration_ms=duration_ms,
                 results=tuple(observation.refs), span_id=span_id,
                 parent_span_id=parent_span_id,
             ))

@@ -221,3 +221,82 @@ async def test_child_spans_share_the_root_trace_and_parent_to_it():
         assert span.parent is not None and span.parent.span_id == root_span_id, (
             f"{span.name} must be parented to agent.run"
         )
+
+
+@pytest.mark.asyncio
+async def test_retrieval_span_lands_under_tool_span_with_execution_facts():
+    """knowledge_search retrieval becomes an OTel span with bounded refs."""
+    import json
+
+    from agent_runtime.contracts.models import KnowledgeChunk
+    from agent_runtime.events_v2 import RetrievalCompleted, RetrievalStarted
+    from agent_runtime.tools.contracts import ToolExecutionContext, ToolResult
+    from agent_runtime.tools.registry import ToolSpec
+
+    class _KbProvider:
+        async def search(self, query: str, top_k: int = 5):
+            return [
+                KnowledgeChunk(
+                    title="Policy", content="Ships within 24h", source="kb://policy",
+                    knowledge_base_id="355981249820491776", document_id="9007199254740993",
+                    segment_id="9007199254740995", score=0.87,
+                ),
+            ]
+
+    def _stream_events(text: str) -> list[TextStreamEvent]:
+        return [TextStreamEvent(
+            event_type="completed", provider=ProviderId.OPENAI, model="test-model",
+            text=text, usage=UsageInfo(input_tokens=1, output_tokens=1),
+        )]
+
+    tracer, recorder = _make_tracer_and_recorder()
+    runtime = AgentRuntime(
+        settings=AgentSettings(),
+        gateway=_StreamingGateway([
+            _stream_events(json.dumps({
+                "kind": "tool_call", "tool_name": "knowledge_search",
+                "arguments": {"query": "shipping policy"},
+            })),
+            _stream_events(json.dumps({"kind": "final", "reply_text": "ok", "should_handoff": False})),
+        ]),
+        tool_registry=ToolRegistry(knowledge_provider=_KbProvider()),
+        tracer=tracer,
+    )
+
+    events: list = []
+    runtime.subscribe(events.append)
+    async for _ in runtime.stream(AgentTurnRequest(
+        user_message="shipping?", session_id="s-rag",
+    )):
+        pass
+
+    assert any(isinstance(e, RetrievalStarted) for e in events)
+    assert any(isinstance(e, RetrievalCompleted) for e in events)
+
+    root = _root_span(recorder)
+    tool_spans = [s for s in recorder.ended if s.name.startswith("tool.")]
+    retrieval_spans = [s for s in recorder.ended if s.name == "retrieval.search"]
+    assert tool_spans, "knowledge_search tool span must be recorded"
+    assert retrieval_spans, "retrieval span must be recorded"
+
+    rspan = retrieval_spans[0]
+    attrs = dict(rspan.attributes or {})
+    assert attrs.get("agentlabkit.kind") == "retrieval"
+    assert attrs.get("retrieval.query") == "shipping policy"
+    assert attrs.get("retrieval.result_count") == 1
+    # OTel attributes carry the refs as JSON; the span processor decodes them.
+    results = json.loads(attrs.get("retrieval.results"))
+    assert results and results[0]["knowledge_base_id"] == "355981249820491776"
+    assert results[0]["score"] == 0.87
+    # ToolCall → Retrieval hierarchy: retrieval parented to the tool span.
+    assert rspan.parent is not None and rspan.parent.span_id == tool_spans[0].context.span_id
+    # and the tool span shares the root trace.
+    assert tool_spans[0].context.trace_id == root.context.trace_id
+
+    # Semantic kinds are stamped on every span for the trace view.
+    root_attrs = dict(root.attributes or {})
+    assert root_attrs.get("agentlabkit.kind") == "agent"
+    llm_attrs = dict([s for s in recorder.ended if s.name == "llm.generate"][0].attributes or {})
+    assert llm_attrs.get("agentlabkit.kind") == "llm"
+    tool_attrs = dict(tool_spans[0].attributes or {})
+    assert tool_attrs.get("agentlabkit.kind") == "tool"
