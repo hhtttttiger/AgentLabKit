@@ -44,14 +44,14 @@ export function RunsPage() {
       targetType: model.targetType,
       targetKey: model.targetKey,
       metricConfigs: model.metricConfigs.map((name) => ({ name })),
-      judgeModelBindingKey: model.judgeModelBindingKey,
+      judgeModelKey: model.judgeModelKey,
     });
     setCreateConfigOpen(false);
     toast(t('toast.created'));
   };
 
   const handleEvaluate = async (model: CreateRunConfigDraft) => {
-    const config = await createConfigMutation.mutateAsync({ name: model.name, datasetId: model.datasetId, targetType: model.targetType, targetKey: model.targetKey, metricConfigs: model.metricConfigs.map((name) => ({ name })), judgeModelBindingKey: model.judgeModelBindingKey });
+    const config = await createConfigMutation.mutateAsync({ name: model.name, datasetId: model.datasetId, targetType: model.targetType, targetKey: model.targetKey, metricConfigs: model.metricConfigs.map((name) => ({ name })), judgeModelKey: model.judgeModelKey });
     const run = await triggerMutation.mutateAsync(config.id);
     setEvaluateOpen(false);
     navigate(`/evaluation/runs/${run.id}`);

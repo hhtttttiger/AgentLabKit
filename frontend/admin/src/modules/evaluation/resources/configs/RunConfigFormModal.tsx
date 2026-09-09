@@ -23,7 +23,7 @@ export interface CreateRunConfigDraft {
   targetType: 'agent' | 'rag_pipeline';
   targetKey: string;
   metricConfigs: string[];
-  judgeModelBindingKey: string;
+  judgeModelKey: string;
 }
 
 const DEFAULT_METRICS = [
@@ -38,7 +38,7 @@ const emptyDraft: CreateRunConfigDraft = {
   targetType: 'agent',
   targetKey: '',
   metricConfigs: DEFAULT_METRICS.map((m) => m.name),
-  judgeModelBindingKey: '',
+  judgeModelKey: '',
 };
 
 export function RunConfigFormModal({
@@ -165,8 +165,8 @@ export function RunConfigFormModal({
             )}
             <TextField
               label={t('form.judgeBinding')}
-              value={draft.judgeModelBindingKey}
-              onChange={(e) => setDraft((p) => ({ ...p, judgeModelBindingKey: e.target.value }))}
+              value={draft.judgeModelKey}
+              onChange={(e) => setDraft((p) => ({ ...p, judgeModelKey: e.target.value }))}
               placeholder="留空则使用默认模型"
               hint="LLM-as-Judge 使用的模型 binding key"
             />

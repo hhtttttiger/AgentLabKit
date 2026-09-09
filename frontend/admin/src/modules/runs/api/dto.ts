@@ -29,7 +29,8 @@ export interface ReplayRunDto {
 }
 
 export interface CaptureRunRequest {
-  datasetId: number;
+  // Snowflake ids exceed Number.MAX_SAFE_INTEGER; identity is always a string.
+  datasetId: string;
   expectedOutput?: unknown;
   metadata?: Record<string, unknown>;
 }

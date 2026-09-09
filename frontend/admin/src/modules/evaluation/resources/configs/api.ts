@@ -6,7 +6,7 @@ export function listRunConfigs() {
   return apiRequest<RunConfigData[]>('/api/eval/run-configs');
 }
 
-export function createRunConfig(body: { name: string; datasetId: string; targetType?: string; targetKey?: string; metricConfigs?: Record<string, unknown>[]; judgeModelBindingKey?: string }) {
+export function createRunConfig(body: { name: string; datasetId: string; targetType?: string; targetKey?: string; metricConfigs?: Record<string, unknown>[]; judgeModelKey?: string }) {
   return apiRequest<RunConfigData>('/api/eval/run-configs', { method: 'POST', body });
 }
 

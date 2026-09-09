@@ -15,7 +15,9 @@ class DatasetCreateRequest(CamelModel):
 
 
 class DatasetResponse(CamelModel):
-    id: int
+    # Identity is an opaque string on the wire: snowflake ids exceed
+    # Number.MAX_SAFE_INTEGER and must never round-trip as JSON numbers.
+    id: str
     name: str
     description: str | None = None
     tags: list[str] = []
@@ -33,8 +35,8 @@ class CaseCreateRequest(CamelModel):
 
 
 class CaseResponse(CamelModel):
-    id: int
-    dataset_id: int
+    id: str
+    dataset_id: str
     case_index: int
     input_text: str
     expected_output: str | None = None
@@ -52,9 +54,9 @@ class RunConfigCreateRequest(CamelModel):
 
 
 class RunConfigResponse(CamelModel):
-    id: int
+    id: str
     name: str
-    dataset_id: int
+    dataset_id: str
     target_type: str
     target_key: str
     metric_configs: list[dict[str, Any]]
@@ -63,22 +65,30 @@ class RunConfigResponse(CamelModel):
 
 
 class RunResponse(CamelModel):
-    id: int
-    config_id: int
+    id: str
+    config_id: str
     status: str
     started_at_utc: datetime | None = None
     completed_at_utc: datetime | None = None
-    summary: dict[str, Any] = {}
+    summary: dict[str, Any]
     created_at_utc: datetime
 
 
+class MetricResultItem(CamelModel):
+    """View over a persisted metric_results_json entry (snake_case storage)."""
+    metric_name: str
+    score: float | None = None
+    reasoning: str | None = None
+    passed: bool | None = None
+
+
 class RunResultResponse(CamelModel):
-    id: int
-    run_id: int
-    case_id: int
+    id: str
+    run_id: str
+    case_id: str
     actual_output: str
-    metric_results: list[dict[str, Any]]
-    overall_score: float
+    metric_results: list[MetricResultItem]
+    overall_score: float | None
     passed: bool | None = None
     error_message: str | None = None
     duration_ms: int

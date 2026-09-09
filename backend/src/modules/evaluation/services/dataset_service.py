@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from common.errors import NotFoundError
 from evaluation.contracts_v2 import DatasetExample
 from ..models import EvalDataset, EvalCase
+from ..schemas import CaseResponse, DatasetResponse
 
 
 class DatasetService:
@@ -141,18 +142,26 @@ class DatasetService:
         await self._db.commit()
 
     @staticmethod
-    def _to_dataset_view(d) -> dict:
-        return {
-            "id": d.id, "name": d.name, "description": d.description,
-            "tags": d.tags_json or [], "case_count": d.case_count,
-            "is_active": d.is_active, "created_at_utc": d.created_at_utc,
-            "updated_at_utc": d.updated_at_utc,
-        }
+    def _to_dataset_view(d: EvalDataset) -> DatasetResponse:
+        return DatasetResponse(
+            id=str(d.id),
+            name=d.name,
+            description=d.description,
+            tags=list(d.tags_json or []),
+            case_count=d.case_count,
+            is_active=d.is_active,
+            created_at_utc=d.created_at_utc,
+            updated_at_utc=d.updated_at_utc,
+        )
 
     @staticmethod
-    def _to_case_view(c) -> dict:
-        return {
-            "id": c.id, "dataset_id": c.dataset_id, "case_index": c.case_index,
-            "input_text": c.input_text, "expected_output": c.expected_output,
-            "context": c.context_json or [], "tags": c.tags_json or [],
-        }
+    def _to_case_view(c: EvalCase) -> CaseResponse:
+        return CaseResponse(
+            id=str(c.id),
+            dataset_id=str(c.dataset_id),
+            case_index=c.case_index,
+            input_text=c.input_text,
+            expected_output=c.expected_output,
+            context=list(c.context_json or []),
+            tags=list(c.tags_json or []),
+        )

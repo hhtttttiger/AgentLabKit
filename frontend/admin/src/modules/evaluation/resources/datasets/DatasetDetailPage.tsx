@@ -32,7 +32,7 @@ export function DatasetDetailPage() {
   };
 
   const handleEvaluate = async (draft: CreateRunConfigDraft) => {
-    const config = await createConfigMutation.mutateAsync({ name: draft.name, datasetId: draft.datasetId, targetType: draft.targetType, targetKey: draft.targetKey, metricConfigs: draft.metricConfigs.map((name) => ({ name })), judgeModelBindingKey: draft.judgeModelBindingKey });
+    const config = await createConfigMutation.mutateAsync({ name: draft.name, datasetId: draft.datasetId, targetType: draft.targetType, targetKey: draft.targetKey, metricConfigs: draft.metricConfigs.map((name) => ({ name })), judgeModelKey: draft.judgeModelKey });
     const run = await triggerMutation.mutateAsync(config.id);
     setEvaluateOpen(false);
     navigate(`/evaluation/runs/${run.id}`);

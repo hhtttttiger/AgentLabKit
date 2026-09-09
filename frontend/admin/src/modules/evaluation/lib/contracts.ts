@@ -26,7 +26,7 @@ export interface RunConfigData {
   targetType: string;
   targetKey: string;
   metricConfigs: Record<string, unknown>[];
-  judgeModelBindingKey: string;
+  judgeModelKey: string;
   createdAtUtc: string;
 }
 

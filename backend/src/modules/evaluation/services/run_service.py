@@ -7,6 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.errors import NotFoundError
 from ..models import EvalRunConfig, EvalRun, EvalRunResult, EvalCase
+from ..schemas import (
+    MetricResultItem,
+    RunConfigResponse,
+    RunResponse,
+    RunResultResponse,
+)
 
 
 class RunService:
@@ -62,27 +68,27 @@ class RunService:
 
         run_configs = await self.list_run_configs()
         config = next(
-            (c for c in run_configs if str(c["id"]) == str(config_id)), None
+            (c for c in run_configs if c.id == str(config_id)), None
         )
 
         # Agent evaluations use the v2 Application use case. Keep the legacy
         # runner for rag_pipeline until its target contract is migrated too.
         runtime = getattr(request_app_state, "agent_runtime", None)
-        if config and config["target_type"] == "agent" and runtime is not None:
+        if config and config.target_type == "agent" and runtime is not None:
             background_tasks.add_task(
-                self.execute_application_run, run["id"], config_id, eval_mod, runtime
+                self.execute_application_run, int(run.id), config_id, eval_mod, runtime
             )
             return run
 
         target_executor = None
         if config:
             target_executor = create_target_executor(
-                target_type=config["target_type"], target_key=config["target_key"],
+                target_type=config.target_type, target_key=config.target_key,
                 agent_runtime=runtime,
                 retrieval_service=getattr(request_app_state, "retrieval_service", None),
                 gateway_service=getattr(request_app_state, "gateway_service", None),
             )
-        background_tasks.add_task(self.execute_run, run["id"], config_id, eval_mod, target_executor)
+        background_tasks.add_task(self.execute_run, int(run.id), config_id, eval_mod, target_executor)
         return run
 
     async def list_runs(self, *, limit: int) -> list[dict]:
@@ -216,31 +222,40 @@ class RunService:
             await session.commit()
 
     @staticmethod
-    def _to_run_config_view(c) -> dict:
-        return {
-            "id": c.id, "name": c.name, "dataset_id": c.dataset_id,
-            "target_type": c.target_type, "target_key": c.target_key,
-            "metric_configs": c.metric_configs_json or [],
-            "judge_model_key": c.judge_model_key,
-            "created_at_utc": c.created_at_utc,
-        }
+    def _to_run_config_view(c: EvalRunConfig) -> RunConfigResponse:
+        return RunConfigResponse(
+            id=str(c.id),
+            name=c.name,
+            dataset_id=str(c.dataset_id),
+            target_type=c.target_type,
+            target_key=c.target_key,
+            metric_configs=list(c.metric_configs_json or []),
+            judge_model_key=c.judge_model_key or "",
+            created_at_utc=c.created_at_utc,
+        )
 
     @staticmethod
-    def _to_run_view(r) -> dict:
-        return {
-            "id": r.id, "config_id": r.config_id, "status": r.status,
-            "started_at_utc": r.started_at_utc, "completed_at_utc": r.completed_at_utc,
-            "summary": r.summary_json, "created_at_utc": r.created_at_utc,
-        }
+    def _to_run_view(r: EvalRun) -> RunResponse:
+        return RunResponse(
+            id=str(r.id),
+            config_id=str(r.config_id),
+            status=r.status,
+            started_at_utc=r.started_at_utc,
+            completed_at_utc=r.completed_at_utc,
+            summary=dict(r.summary_json or {}),
+            created_at_utc=r.created_at_utc,
+        )
 
     @staticmethod
-    def _to_run_result_view(r) -> dict:
-        return {
-            "id": r.id, "run_id": r.run_id, "case_id": r.case_id,
-            "actual_output": r.actual_output or "",
-            "metric_results": r.metric_results_json or [],
-            "overall_score": r.overall_score,
-            "passed": r.passed,
-            "error_message": r.error_message,
-            "duration_ms": r.duration_ms,
-        }
+    def _to_run_result_view(r: EvalRunResult) -> RunResultResponse:
+        return RunResultResponse(
+            id=str(r.id),
+            run_id=str(r.run_id),
+            case_id=str(r.case_id),
+            actual_output=r.actual_output or "",
+            metric_results=[MetricResultItem(**m) for m in (r.metric_results_json or [])],
+            overall_score=r.overall_score,
+            passed=r.passed,
+            error_message=r.error_message,
+            duration_ms=r.duration_ms,
+        )

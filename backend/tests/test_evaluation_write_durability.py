@@ -136,17 +136,18 @@ async def test_triggered_pending_run_is_durable_and_visible_to_a_new_session(
             metric_configs_json=[],
             judge_model_key="",
         )
-        config_id = config["id"]
+        config_id = int(config.id)
 
     async with db_session_factory() as session:
         svc = RunService(session)
         run = await svc.trigger_run(config_id)
-        assert run["status"] == "pending"
+        assert run.status == "pending"
+        assert isinstance(run.id, str)
 
     # Independent session, as the scheduled background task would use.
     async with db_session_factory() as session:
         row = (
-            await session.execute(select(EvalRun).where(EvalRun.id == run["id"]))
+            await session.execute(select(EvalRun).where(EvalRun.id == int(run.id)))
         ).scalar_one_or_none()
         assert row is not None, "pending run must be committed before the response returns"
         assert row.status == "pending"
