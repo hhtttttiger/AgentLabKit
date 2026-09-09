@@ -195,7 +195,9 @@ class RunService:
 
             scores = []
             for r in results:
-                scores.append(r.overall_score)
+                # unavailable (None) 分数不参与均值；不折算为 0
+                if r.overall_score is not None:
+                    scores.append(r.overall_score)
                 orm_result = EvalRunResult(
                     run_id=run_id, case_id=r.case_id,
                     actual_output=r.actual_output,
@@ -216,7 +218,7 @@ class RunService:
             run.completed_at_utc = func.now()
             run.summary_json = {
                 "total_cases": len(results),
-                "avg_score": round(sum(scores) / len(scores), 4) if scores else 0,
+                "avg_score": round(sum(scores) / len(scores), 4) if scores else None,
                 "error_count": sum(1 for r in results if r.error_message),
             }
             await session.commit()

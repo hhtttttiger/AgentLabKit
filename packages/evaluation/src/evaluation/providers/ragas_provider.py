@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -26,6 +27,20 @@ _RAGAS_METRIC_MAP: dict[str, str] = {
     "answer_relevancy": "AnswerRelevancy",
     "context_precision": "ContextPrecision",
 }
+
+
+def _score_or_none(value: Any) -> float | None:
+    """ragas 用 NaN 表示该行该指标评估失败；NaN/Inf 不允许进入结果。
+
+    unavailable 返回 None（没有分数），绝不折算成 0.0，也不据此判 FAIL。
+    """
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(score) or math.isinf(score):
+        return None
+    return score
 
 
 # ── 内部 EvalMetric 适配 ──────────────────────────────────────────────
@@ -56,7 +71,12 @@ class _RAGASMetricAdapter:
             metrics=[self._ragas_metric],
             llm=self._llm,
         )
-        return float(result[self.name][0])
+        # ragas 0.4.3 EvaluationResult 支持 __getitem__（per-row 分数列表），
+        # 没有 .get()。
+        value = _score_or_none(result[self.name][0])
+        if value is None:
+            raise ValueError(f"ragas metric {self.name!r} unavailable (NaN) for this case")
+        return value
 
 
 # ── RAGAS LLM 构建桥接 ───────────────────────────────────────────────
@@ -146,15 +166,31 @@ class RAGASEvalProvider:
             self._llm = None  # 等待懒解析
             self._config_resolved = False
 
-    async def _ensure_llm(self) -> Any:
-        """确保 RAGAS LLM 已构建（懒解析 gateway provider config）。"""
+    async def _ensure_llm(self, model_override: str | None = None) -> Any:
+        """确保 RAGAS LLM 已构建（懒解析 gateway provider config）。
+
+        Args:
+            model_override: per-run-config judge 模型（``EvalRunConfig.judge_model_key``），
+                为空时使用 provider 级 ``model_name``。两者都为空时 fail-fast。
+        """
         if self._config_resolved and self._llm is not None:
             return self._llm
 
         if self._gateway_service is not None:
-            config = await self._gateway_service.resolve_provider_config(
-                self._model_name,
-            )
+            model = (model_override or self._model_name or "").strip()
+            if not model:
+                raise RuntimeError(
+                    "Judge model not configured: set the run config's judge "
+                    "model or EVALUATION_DEFAULT_JUDGE_MODEL. Refusing to "
+                    "guess a vendor default."
+                )
+            try:
+                config = await self._gateway_service.resolve_provider_config(model)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"Judge model {model!r} could not be resolved through the "
+                    f"LLM gateway: {exc}"
+                ) from exc
             self._llm = _build_ragas_llm(config)
             self._config_resolved = True
             return self._llm
@@ -192,9 +228,11 @@ class RAGASEvalProvider:
             )
             return [err]
 
-        # 确保 LLM 已构建
+        # 确保 LLM 已构建（per-config judge 模型优先于模块级默认）
         try:
-            await self._ensure_llm()
+            await self._ensure_llm(
+                model_override=getattr(config, "judge_model_key", None),
+            )
         except RuntimeError as e:
             err = EvalRunResult(
                 error_message=str(e),
@@ -202,13 +240,16 @@ class RAGASEvalProvider:
             )
             return [err]
 
-        # 解析 metric 实例
+        # 解析 metric 实例（只跟踪实际交给 ragas 的名字）
         ragas_metrics = []
+        resolved_names: list[str] = []
         for name in metrics:
             if name in self._custom_metrics:
                 ragas_metrics.append(self._custom_metrics[name])
+                resolved_names.append(name)
             elif name in _RAGAS_METRIC_MAP:
                 ragas_metrics.append(self._resolve_ragas_metric(name))
+                resolved_names.append(name)
             else:
                 logger.warning("Skipping unknown RAGAS metric: %s", name)
 
@@ -255,23 +296,35 @@ class RAGASEvalProvider:
         for i, case in enumerate(cases):
             case_scores: list[float] = []
             case_metric_results: list[EvalMetricResult] = []
-            for metric_name in metrics:
-                score = result.get(metric_name)
-                if score is not None:
-                    # RAGAS 返回 per-row 分数数组或聚合分数
-                    if hasattr(score, '__len__') and not isinstance(score, str):
-                        val = float(score[i]) if i < len(score) else 0.0
-                    else:
-                        val = float(score)
+            for metric_name in resolved_names:
+                # ragas 0.4.3 EvaluationResult: result[name] 是 per-row 分数
+                # 列表（无 .get()）；raise_exceptions=False 时失败行为 NaN。
+                try:
+                    row_scores = list(result[metric_name])
+                except (KeyError, IndexError, TypeError):
+                    logger.warning("ragas result missing metric %r", metric_name)
+                    continue
+                val: float | None = None
+                if i < len(row_scores):
+                    val = _score_or_none(row_scores[i])
+                if val is not None:
                     case_metric_results.append(
                         EvalMetricResult(metric_name=metric_name, score=val, reasoning=None)
                     )
                     case_scores.append(val)
+                else:
+                    # unavailable ≠ 0.0，且不据此判 FAIL
+                    case_metric_results.append(
+                        EvalMetricResult(
+                            metric_name=metric_name, score=None, passed=None,
+                            reasoning="metric unavailable (ragas returned no score)",
+                        )
+                    )
 
             results.append(EvalRunResult(
                 case_id=case.id,
                 metric_results=case_metric_results,
-                overall_score=round(sum(case_scores) / len(case_scores), 4) if case_scores else 0.0,
+                overall_score=round(sum(case_scores) / len(case_scores), 4) if case_scores else None,
                 duration_ms=duration,
             ))
         return results
@@ -291,28 +344,6 @@ class RAGASEvalProvider:
         class_name = _RAGAS_METRIC_MAP[metric_name]
         cls = getattr(ragas_metrics_module, class_name)
         return cls(llm=self._llm)
-
-    @staticmethod
-    def _parse_ragas_result(
-        result: Any,
-        requested_metrics: list[str],
-        num_cases: int,
-    ) -> list[EvalMetricResult]:
-        """将 RAGAS evaluate() 返回值解析为 EvalMetricResult 列表。"""
-        metric_results: list[EvalMetricResult] = []
-
-        for metric_name in requested_metrics:
-            score = result.get(metric_name)
-            if score is not None:
-                metric_results.append(
-                    EvalMetricResult(
-                        metric_name=metric_name,
-                        score=float(score),
-                        reasoning=None,
-                    )
-                )
-
-        return metric_results
 
 
 # ── 便捷工厂 ─────────────────────────────────────────────────────────

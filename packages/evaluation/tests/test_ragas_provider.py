@@ -92,12 +92,18 @@ class TestRAGASEvalProvider:
     async def test_evaluate_success(self, sample_cases, sample_config):
         mock_llm = MagicMock()
 
-        # Mock RAGAS evaluate 返回值 — per-case 数组
-        mock_result = MagicMock()
-        mock_result.get.side_effect = lambda name: {
+        # ragas 0.4.3 EvaluationResult 只有 __getitem__（无 .get()），
+        # 返回 per-row 分数列表。
+        scores = {
             "faithfulness": [0.85, 0.80],
             "answer_relevancy": [0.92, 0.88],
-        }.get(name)
+        }
+
+        class _Result:
+            def __getitem__(self, name):
+                return scores[name]
+
+        mock_result = _Result()
 
         mock_eval_fn = MagicMock(return_value=mock_result)
         mock_ds_cls = MagicMock()
@@ -160,11 +166,13 @@ class TestRAGASEvalProvider:
     async def test_evaluate_skips_unknown_metrics(self, sample_cases, sample_config):
         """未知 metric 应被跳过。"""
         mock_llm = MagicMock()
-        mock_result = MagicMock()
-        # 只有 faithfulness 有分数，未知 metric 返回 None
-        mock_result.get.side_effect = lambda name: {
-            "faithfulness": [0.8, 0.7],
-        }.get(name)
+        scores = {"faithfulness": [0.8, 0.7]}
+
+        class _Result:
+            def __getitem__(self, name):
+                return scores[name]
+
+        mock_result = _Result()
 
         mock_eval_fn = MagicMock(return_value=mock_result)
         mock_ds_cls = MagicMock()

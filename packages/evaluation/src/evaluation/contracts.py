@@ -19,9 +19,13 @@ class EvalCase:
 
 @dataclass(slots=True)
 class EvalMetricResult:
-    """单个指标的评估结果。"""
+    """单个指标的评估结果。
+
+    ``score=None`` 表示该指标 unavailable（如 ragas 对失败行返回 NaN、
+    context-dependent 指标缺 context）。unavailable 不是 0.0，也不据此判 FAIL。
+    """
     metric_name: str
-    score: float = 0.0        # 0.0 - 1.0
+    score: float | None = 0.0   # None = unavailable; 0.0 - 1.0 when present
     reasoning: str | None = None
     passed: bool | None = None
 
@@ -46,7 +50,7 @@ class EvalRunResult:
     case_id: int = 0
     actual_output: str = ""
     metric_results: list[EvalMetricResult] = field(default_factory=list)
-    overall_score: float = 0.0
+    overall_score: float | None = 0.0  # None = 没有任何可用分数
     passed: bool | None = None
     error_message: str | None = None
     duration_ms: int = 0

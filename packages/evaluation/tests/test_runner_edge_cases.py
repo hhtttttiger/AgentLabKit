@@ -181,15 +181,16 @@ class TestMetricAggregation:
         assert result.overall_score == 0.7
 
     @pytest.mark.asyncio
-    async def test_empty_metrics_returns_zero_score(self) -> None:
+    async def test_empty_metrics_returns_no_score(self) -> None:
         judge = AsyncMock()
         runner = EvaluationRunner(judge=judge)
 
-        # 空 metric 列表
+        # 空 metric 列表：没有任何可用分数 → None（unavailable ≠ 0.0）
         runner._resolve_legacy_metrics = lambda config: []
 
         result = await runner.run_single_case(_case(), _config())
-        assert result.overall_score == 0.0
+        assert result.overall_score is None
+        assert result.passed is None
 
 
 # ── metric name 解析 ───────────────────────────────────────────────

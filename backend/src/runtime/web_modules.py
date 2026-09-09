@@ -78,7 +78,10 @@ def build_evaluation_module(gateway_service: Any | None) -> Any:
         else None
     )
 
-    # Provider 模式: 注册 RAGAS provider
+    # Provider 模式: 注册 RAGAS provider。
+    # model_name 可为空：provider 在首次 evaluate 时 fail-fast（要求
+    # per-config judge model 或 EVALUATION_DEFAULT_JUDGE_MODEL），而不是
+    # 硬编码某个供应商模型。
     registry = None
     if gateway_service is not None:
         try:
@@ -86,7 +89,7 @@ def build_evaluation_module(gateway_service: Any | None) -> Any:
 
             registry = ProviderRegistry()
             ragas_provider = RAGASEvalProvider(
-                model_name=eval_settings.default_judge_model or "gpt-4o",
+                model_name=eval_settings.default_judge_model,
                 gateway_service=gateway_service,
             )
             registry.register(ragas_provider, default=True)

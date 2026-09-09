@@ -78,7 +78,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ../packages/db -e ../packages/infra -e ../packages/retrieval \
   -e ../packages/cost_analysis -e ../packages/observability \
-  -e ../packages/memory -e ../packages/evaluation \
+  -e ../packages/memory -e "../packages/evaluation[ragas]" \
   -e ../packages/llm_gateway -e ../packages/agent_runtime \
   -e ../packages/application -e ".[dev]"
 PYTHONPATH=src alembic upgrade head

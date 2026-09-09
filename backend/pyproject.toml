@@ -34,8 +34,10 @@ dependencies = [
     # Long-term memory
     "agentlabkit-memory>=0.1.0",
 
-    # Evaluation
-    "agentlabkit-evaluation>=0.1.0",
+    # Evaluation — the [ragas] extra is a default (not optional) dependency:
+    # the run-config UI's default metrics (faithfulness / answer_relevancy /
+    # context_precision) are ragas-backed and must exist in a default install.
+    "agentlabkit-evaluation[ragas]>=0.1.0",
     "agentlabkit-application>=0.1.0",
 
     # Auth

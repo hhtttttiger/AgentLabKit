@@ -221,9 +221,12 @@ class MetricScore(Enum):
 
 @dataclass(frozen=True, slots=True)
 class MetricResult:
-    """单个指标的评估结果（向后兼容）。"""
+    """单个指标的评估结果（向后兼容）。
+
+    ``score=None`` 表示 unavailable —— 不是 0.0，也不据此判 FAIL。
+    """
     metric_name: str
-    score: float = 0.0        # 0.0 - 1.0
+    score: float | None = 0.0  # None = unavailable
     reasoning: str | None = None
     passed: bool | None = None
     details: dict[str, Any] = field(default_factory=dict)
@@ -263,7 +266,7 @@ class EvaluationResult:
         if self.score is not None:
             return self.score
         if self.metric_results:
-            scores = [r.score for r in self.metric_results]
+            scores = [r.score for r in self.metric_results if r.score is not None]
             return sum(scores) / len(scores) if scores else 0.0
         return 0.0
 
@@ -396,7 +399,8 @@ class EvaluationRun:
     total_examples: int
     completed_examples: int
     failed_examples: int
-    overall_score: float
+    # None = 没有任何可用分数（unavailable ≠ 0.0）
+    overall_score: float | None
     started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None
@@ -415,7 +419,7 @@ class EvaluationRun:
         total_examples: int = 0,
         completed_examples: int = 0,
         failed_examples: int = 0,
-        overall_score: float = 0.0,
+        overall_score: float | None = None,
         started_at: datetime | None = None,
         completed_at: datetime | None = None,
         error_message: str | None = None,
@@ -523,13 +527,15 @@ def eval_run_result_to_evaluation_result(
     metric_results = getattr(eval_result, "metric_results", [])
 
     if metric_results:
-        avg_score = sum(m.score for m in metric_results) / len(metric_results)
+        # unavailable (None) 分数不参与均值；全部 unavailable 时 score=None。
+        scores = [m.score for m in metric_results if m.score is not None]
+        avg_score: float | None = sum(scores) / len(scores) if scores else None
         verdicts = [m.passed for m in metric_results if m.passed is not None]
         # No verdict is not a successful verdict.  Preserve the v2
         # tri-state meaning of passed (True / False / None).
         all_passed = all(verdicts) if verdicts else None
     else:
-        avg_score = 0.0
+        avg_score = None
         all_passed = None
 
     # ``0.0`` is a valid authoritative score; only a missing attribute falls

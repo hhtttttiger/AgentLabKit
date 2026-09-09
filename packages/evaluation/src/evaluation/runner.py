@@ -195,14 +195,14 @@ class EvaluationRunner:
             )
             metric_results.append(result)
 
-        scores = [r.score for r in metric_results]
-        overall = sum(scores) / len(scores) if scores else 0.0
+        scores = [r.score for r in metric_results if r.score is not None]
+        overall = round(sum(scores) / len(scores), 4) if scores else None
 
         return EvalRunResult(
             case_id=case.id,
             actual_output=actual_output,
             metric_results=metric_results,
-            overall_score=round(overall, 4),
+            overall_score=overall,
             passed=(all(verdicts) if (verdicts := [r.passed for r in metric_results if r.passed is not None]) else None),
             duration_ms=int((time.monotonic() - start) * 1000),
         )

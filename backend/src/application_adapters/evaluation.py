@@ -77,16 +77,17 @@ class BackendEvaluationRunReader(EvaluationRunReader):
             config = await session.get(EvalRunConfigModel, run.config_id)
             if config is None:
                 return None
-            summary = dict(run.summary_json or {})
-            from evaluation.contracts_v2 import EvaluationRun, EvaluationRunStatus
-            return EvaluationRun(
-                run_id=str(run.id), dataset_id=str(config.dataset_id),
-                agent_key=config.target_key,
-                status=EvaluationRunStatus(run.status),
-                total_examples=int(summary.get("total_cases", 0)),
-                completed_examples=int(summary.get("total_cases", 0)),
-                overall_score=float(summary.get("avg_score", 0.0)),
-            )
+        summary = dict(run.summary_json or {})
+        from evaluation.contracts_v2 import EvaluationRun, EvaluationRunStatus
+        return EvaluationRun(
+            run_id=str(run.id), dataset_id=str(config.dataset_id),
+            agent_key=config.target_key,
+            status=EvaluationRunStatus(run.status),
+            total_examples=int(summary.get("total_cases", 0)),
+            completed_examples=int(summary.get("total_cases", 0)),
+            # None summary avg (no available scores) stays None — not 0.0
+            overall_score=summary.get("avg_score"),
+        )
 
     async def list_results(self, run_id: str) -> list[EvaluationResult]:
         async with self._factory() as session:
@@ -98,7 +99,8 @@ class BackendEvaluationRunReader(EvaluationRunReader):
                 metrics = list(row.metric_results_json or [])
                 results.append(EvaluationResult(
                     evaluator_name="backend.persisted",
-                    example_id=str(row.case_id), score=float(row.overall_score),
+                    example_id=str(row.case_id),
+                    score=row.overall_score,  # None = no available score
                     passed=row.passed,
                     message=row.error_message,
                     details={"actual_output": row.actual_output, "metric_results": metrics},
@@ -156,7 +158,8 @@ class BackendEvaluationRunStore:
                 case_id=int(result.example_id),
                 actual_output=str(result.details.get("actual_output", "")),
                 metric_results_json=result.details.get("metric_results", []),
-                overall_score=result.score if result.score is not None else 0.0,
+                # None = no available score (unavailable ≠ 0.0)
+                overall_score=result.score,
                 passed=result.passed,
                 error_message=result.message,
                 duration_ms=result.duration_ms,
@@ -171,12 +174,12 @@ class BackendEvaluationRunStore:
             result_rows = (await session.execute(
                 select(EvalRunResult).where(EvalRunResult.run_id == self._existing_run_id)
             )).scalars().all()
-            scores = [row.overall_score for row in result_rows]
+            scores = [row.overall_score for row in result_rows if row.overall_score is not None]
             run.status = "completed"
             run.completed_at_utc = func.now()
             run.summary_json = {
                 "total_cases": len(result_rows),
-                "avg_score": round(sum(scores) / len(scores), 4) if scores else 0,
+                "avg_score": round(sum(scores) / len(scores), 4) if scores else None,
                 "error_count": sum(1 for row in result_rows if row.error_message),
             }
             await session.commit()

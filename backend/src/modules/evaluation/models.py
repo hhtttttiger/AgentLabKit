@@ -55,7 +55,9 @@ class EvalRunResult(EntityBase):
     case_id: Mapped[int] = mapped_column(BigInteger, index=True)
     actual_output: Mapped[str] = mapped_column(Text, default="")
     metric_results_json: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
-    overall_score: Mapped[float] = mapped_column(Float, default=0)
+    # Nullable is authoritative: NULL means the evaluator produced no score
+    # for this example (unavailable ≠ 0.0). NaN never reaches the database.
+    overall_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Nullable is authoritative: None means the evaluator did not judge this example.
     passed: Mapped[bool | None] = mapped_column(nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text)
