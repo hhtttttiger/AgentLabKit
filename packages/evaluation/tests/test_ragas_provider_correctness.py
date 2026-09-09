@@ -197,3 +197,20 @@ async def test_actual_outputs_are_the_evaluated_response():
 
     assert captured["items"][0]["response"] == "真实输出"
     assert captured["items"][0]["reference"] == "a0"  # expected stays the reference
+
+
+def test_error_rows_carry_no_score():
+    """失败行不伪造分数：overall_score 默认 None，绝不能落 0.0。
+
+    Run summary 的 avg 只聚合非 None 分数；error 行进入聚合会把失败
+    显示成 0 分（DF-10 truthfulness regression）。
+    """
+    from evaluation.contracts import EvalRunResult
+
+    err = EvalRunResult(error_message="boom")
+    assert err.overall_score is None, "error row must not default to 0.0"
+    assert err.passed is None
+
+    scores = [r.overall_score for r in [err] if r.overall_score is not None]
+    avg = round(sum(scores) / len(scores), 4) if scores else None
+    assert avg is None, "a run of only error rows has no average score"

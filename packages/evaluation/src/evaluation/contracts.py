@@ -50,7 +50,9 @@ class EvalRunResult:
     case_id: int = 0
     actual_output: str = ""
     metric_results: list[EvalMetricResult] = field(default_factory=list)
-    overall_score: float | None = 0.0  # None = 没有任何可用分数
+    # None = 没有任何可用分数（含 error 行：失败不是 0 分）。显式构造
+    # success 路径都会传入计算值；默认值只落在 error/空结果上。
+    overall_score: float | None = None
     passed: bool | None = None
     error_message: str | None = None
     duration_ms: int = 0

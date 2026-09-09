@@ -264,7 +264,8 @@ class TestAdapters:
         result = EvalRunResult(case_id=1, error_message="evaluator failed")
         eval_result = eval_run_result_to_evaluation_result(result)
         assert eval_result.passed is None
-        assert eval_result.score == 0.0
+        # 失败行没有任何可用分数：None 而不是伪造的 0.0。
+        assert eval_result.score is None
         assert eval_result.error_message == "evaluator failed"
 
     def test_eval_run_result_with_error(self):
