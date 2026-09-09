@@ -299,7 +299,7 @@ function SkillWorkbenchPageContent({ skillKey }: { skillKey: string }) {
         <div className="flex flex-wrap gap-2">
           <Button
             variant="secondary"
-            onClick={() => navigate('/agent-management/skills')}
+            onClick={() => navigate('/capabilities/skills')}
             data-testid="skill-workbench-back"
           >
             <ArrowLeft size={16} />

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 export function ObservabilityLayout() {
   const { t } = useTranslation(['common', 'observability']);
   const sections = [
-    { key: 'traces', label: t('observability:sections.traces'), path: '/observability' },
+    { key: 'traces', label: t('observability:sections.traces'), path: '/traces' },
   ];
 
   return (

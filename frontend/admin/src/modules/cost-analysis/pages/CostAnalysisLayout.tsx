@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 export function CostAnalysisLayout() {
   const { t } = useTranslation(['common', 'costAnalysis']);
   const sections = [
-    { key: 'overview', label: t('costAnalysis:sections.overview'), path: '/cost-analysis' },
-    { key: 'budgets', label: t('costAnalysis:sections.budgets'), path: '/cost-analysis/budgets' },
-    { key: 'alerts', label: t('costAnalysis:sections.alerts'), path: '/cost-analysis/alerts' },
+    { key: 'overview', label: t('costAnalysis:sections.overview'), path: '/cost' },
+    { key: 'budgets', label: t('costAnalysis:sections.budgets'), path: '/cost/budgets' },
+    { key: 'alerts', label: t('costAnalysis:sections.alerts'), path: '/cost/alerts' },
   ];
 
   return (

@@ -107,7 +107,7 @@ export function SkillsPage() {
       render: (row) => (
         <RowActions actions={[
           { label: t(`${am}skills.actions.edit`), onClick: () => setEditingItem(row) },
-          { label: t(`${am}skills.actions.workbench`), onClick: () => navigate(`/agent-management/skills/${row.skillKey}/workbench`) },
+          { label: t(`${am}skills.actions.workbench`), onClick: () => navigate(`/capabilities/skills/${row.skillKey}/workbench`) },
           ...(row.status === 'draft' ? [{ label: t(`${am}skills.actions.publish`), onClick: () => mutations.publish.mutate(row.skillKey), disabled: mutations.publish.isPending }] : []),
           { label: t(`${am}skills.actions.delete`), onClick: () => setDeletingItem(row), variant: 'danger' as const, disabled: mutations.remove.isPending },
         ]} />

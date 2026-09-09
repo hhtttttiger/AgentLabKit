@@ -102,7 +102,7 @@ function ModelTableView({ state }: { state: ModelsPageState }) {
             ...(isEmbeddingModel(row.type)
               ? [{ label: t('modelManagement:models.page.rowActions.testEmbedding'), onClick: () => state.openEmbeddingTest(row) }]
               : []),
-            { label: t('modelManagement:models.page.rowActions.detail'), onClick: () => navigate(`/model-management/models/${row.modelKey}`) },
+            { label: t('modelManagement:models.page.rowActions.detail'), onClick: () => navigate(`/models/models/${row.modelKey}`) },
             { label: t('modelManagement:models.page.rowActions.delete'), onClick: () => state.requestDelete(row), variant: 'danger' },
           ]} />
         ),
@@ -157,14 +157,14 @@ function ModelGridView({ state }: { state: ModelsPageState }) {
         return (
           <div
             key={model.modelKey}
-            onClick={() => navigate(`/model-management/models/${model.modelKey}`)}
+            onClick={() => navigate(`/models/models/${model.modelKey}`)}
             className="group flex cursor-pointer flex-col rounded-[2px] border border-border bg-surface/80 p-5 transition hover:border-primary/40 hover:"
           >
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <Link
-                  to={`/model-management/models/${model.modelKey}`}
+                  to={`/models/models/${model.modelKey}`}
                   className="text-base font-semibold text-text hover:text-primary transition"
                 >
                   {model.displayName}

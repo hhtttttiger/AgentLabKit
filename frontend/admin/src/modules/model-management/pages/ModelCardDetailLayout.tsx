@@ -19,9 +19,9 @@ export function ModelDetailLayout() {
   const cardName = model?.displayName ?? t('modelManagement:detail.fallbackTitle');
 
   const sections = [
-    { key: 'overview', label: t('modelManagement:detail.sections.overview'), path: `/model-management/models/${modelKey}`, end: true },
-    { key: 'instances', label: t('modelManagement:detail.sections.instances'), path: `/model-management/models/${modelKey}/instances` },
-    { key: 'bindings', label: t('modelManagement:detail.sections.bindings'), path: `/model-management/models/${modelKey}/bindings` },
+    { key: 'overview', label: t('modelManagement:detail.sections.overview'), path: `/models/models/${modelKey}`, end: true },
+    { key: 'instances', label: t('modelManagement:detail.sections.instances'), path: `/models/models/${modelKey}/instances` },
+    { key: 'bindings', label: t('modelManagement:detail.sections.bindings'), path: `/models/models/${modelKey}/bindings` },
   ];
 
   return (
@@ -32,7 +32,7 @@ export function ModelDetailLayout() {
         sections={sections}
         leading={
           <button
-            onClick={() => navigate('/model-management/models')}
+            onClick={() => navigate('/models/models')}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition hover:bg-state-hover hover:text-text"
             title={t('modelManagement:detail.backToList')}
           >
@@ -47,11 +47,11 @@ export function ModelDetailLayout() {
                 {t('modelManagement:models.page.rowActions.test')}
               </Button>
             )}
-            <Button onClick={() => navigate(`/model-management/models/${modelKey}/instances?action=create`)}>
+            <Button onClick={() => navigate(`/models/models/${modelKey}/instances?action=create`)}>
               <PlusCircle size={16} />
               {t('actions.addInstance')}
             </Button>
-            <Button variant="secondary" onClick={() => navigate(`/model-management/models/${modelKey}/bindings?action=create`)}>
+            <Button variant="secondary" onClick={() => navigate(`/models/models/${modelKey}/bindings?action=create`)}>
               <PlusCircle size={16} />
               {t('actions.addBinding')}
             </Button>

@@ -48,7 +48,7 @@ export function ModelDetailPage() {
       title={model?.displayName ?? t('modelManagement:models.detail.loading')}
       actions={
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => navigate('/model-management/models')}>
+          <Button variant="secondary" onClick={() => navigate('/models/models')}>
             <ArrowLeft size={16} />
             {t('modelManagement:models.detail.actions.backToList')}
           </Button>

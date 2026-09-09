@@ -29,7 +29,7 @@ export function KnowledgeBaseListPage() {
 
   const listQuery = useKbList(filters);
   const mutations = useKbMutations({
-    onCreated: (id) => navigate(`/knowledge-base/${id}`),
+    onCreated: (id) => navigate(`/knowledge/${id}`),
   });
 
   const items = listQuery.data?.items ?? [];
@@ -107,7 +107,7 @@ export function KnowledgeBaseListPage() {
                 kb={kb}
                 onEdit={() => setEditingItem(kb)}
                 onDelete={() => setDeletingItem(kb)}
-                onClick={() => navigate(`/knowledge-base/${kb.id}`)}
+                onClick={() => navigate(`/knowledge/${kb.id}`)}
               />
             ))}
           </div>

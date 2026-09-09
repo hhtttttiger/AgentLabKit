@@ -100,7 +100,7 @@ export function TraceListPage() {
               <th className="pb-2 pl-4 font-medium">{t('observability:traces.columns.startTime')}</th>
             </tr></thead>
             <tbody>{traces.map((trace: TraceData) => (
-              <tr key={trace.traceId} className="cursor-pointer border-b border-border-subtle hover:bg-surface-raised" onClick={() => navigate(`/observability/${trace.traceId}`)}>
+              <tr key={trace.traceId} className="cursor-pointer border-b border-border-subtle hover:bg-surface-raised" onClick={() => navigate(`/traces/${trace.traceId}`)}>
                 <td className="py-2 font-mono text-xs text-primary" title={trace.traceId}>{trace.traceId}</td>
                 <td className="py-2 text-text-secondary">{trace.agentKey || '—'}</td>
                 <td className="py-2 text-center"><span className={`rounded-[2px] px-2 py-0.5 text-xs ${trace.status === 'ok' ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}>{trace.status}</span></td>

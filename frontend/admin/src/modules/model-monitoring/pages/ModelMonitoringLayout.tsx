@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 export function ModelMonitoringLayout() {
   const { t } = useTranslation(['common', 'modelMonitoring']);
   const sections = [
-    { key: 'overview', label: t('modelMonitoring:sections.overview'), path: '/model-monitoring' },
-    { key: 'errors', label: t('modelMonitoring:sections.errors'), path: '/model-monitoring/errors' },
+    { key: 'overview', label: t('modelMonitoring:sections.overview'), path: '/monitoring' },
+    { key: 'errors', label: t('modelMonitoring:sections.errors'), path: '/monitoring/errors' },
   ];
 
   return (

@@ -65,7 +65,7 @@ export function TraceDetailPage() {
     <div className="flex flex-col gap-6 p-6">
       {/* Back + header */}
       <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/observability')} className="text-sm text-text-secondary hover:text-primary">
+        <button onClick={() => navigate('/traces')} className="text-sm text-text-secondary hover:text-primary">
           {t('observability:traces.detail.backToList')}
         </button>
         <h2 className="font-mono text-sm text-text-muted">

@@ -20,10 +20,10 @@ export function KnowledgeBaseLayout() {
   const [useInAgentOpen, setUseInAgentOpen] = useState(false);
 
   const tabs = [
-    { key: 'overview', label: t('knowledgeBase:detail.sections.overview'), path: `/knowledge-base/${kbId}` },
-    { key: 'documents', label: t('knowledgeBase:detail.sections.documents'), path: `/knowledge-base/${kbId}/documents` },
-    { key: 'glossary', label: t('knowledgeBase:detail.sections.glossary'), path: `/knowledge-base/${kbId}/glossary` },
-    { key: 'search', label: t('knowledgeBase:detail.sections.search'), path: `/knowledge-base/${kbId}/search` },
+    { key: 'overview', label: t('knowledgeBase:detail.sections.overview'), path: `/knowledge/${kbId}` },
+    { key: 'documents', label: t('knowledgeBase:detail.sections.documents'), path: `/knowledge/${kbId}/documents` },
+    { key: 'glossary', label: t('knowledgeBase:detail.sections.glossary'), path: `/knowledge/${kbId}/glossary` },
+    { key: 'search', label: t('knowledgeBase:detail.sections.search'), path: `/knowledge/${kbId}/search` },
   ];
 
   const kbName = detailQuery.data?.name ?? t('knowledgeBase:detail.fallbackTitle');
@@ -37,7 +37,7 @@ export function KnowledgeBaseLayout() {
         sections={tabs}
         leading={
           <button
-            onClick={() => navigate('/knowledge-base')}
+            onClick={() => navigate('/knowledge')}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-text-secondary transition hover:bg-state-hover hover:text-text"
             title={t('knowledgeBase:detail.backToList')}
           >

@@ -102,7 +102,7 @@ describe('SkillsPage', () => {
 
     await user.click(menuButton);
     await user.click(screen.getByRole('menuitem', { name: '编排工作台' }));
-    expect(navigateMock).toHaveBeenCalledWith('/agent-management/skills/summarize-doc/workbench');
+    expect(navigateMock).toHaveBeenCalledWith('/capabilities/skills/summarize-doc/workbench');
 
     await user.click(menuButton);
     await user.click(screen.getByRole('menuitem', { name: '删除' }));

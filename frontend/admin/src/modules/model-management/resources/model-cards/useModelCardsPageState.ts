@@ -71,7 +71,7 @@ export function useModelsPageState(): ModelsPageState {
   const mutations = useModelMutations({
     onCreated: (modelKey) => {
       if (navigateToDetailAfterCreate) {
-        navigate(`/model-management/models/${modelKey}`);
+        navigate(`/models/models/${modelKey}`);
       }
     },
   });
