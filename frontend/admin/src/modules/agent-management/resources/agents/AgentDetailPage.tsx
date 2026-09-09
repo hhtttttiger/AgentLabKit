@@ -113,6 +113,13 @@ export function AgentDetailPage() {
 
   const agent = agentQuery.data;
 
+  // Hooks must run before the loading/error early returns below: calling
+  // useVersionList only after the query resolved changes the hook count
+  // between renders and crashes the page ("Rendered more hooks than during
+  // the previous render") on cold mounts (direct URL, create-success,
+  // Use-Knowledge navigation). Empty key keeps the query disabled.
+  const buildVersionsQuery = useVersionList(agent?.agentKey ?? agentKey ?? '', { page: 1, pageSize: 100 });
+
   if (agentQuery.isLoading) {
     return (
       <div className="flex h-full flex-col">
@@ -172,7 +179,6 @@ export function AgentDetailPage() {
     }
   };
 
-  const buildVersionsQuery = useVersionList(agent.agentKey, { page: 1, pageSize: 100 });
   const hasPublished = agent.publishedVersionNumber !== null;
   const hasDraft = (buildVersionsQuery.data?.items ?? []).some((row) => row.versionStatus === 'draft');
   const canTestPublished = hasPublished;
