@@ -111,6 +111,25 @@ class TraceBufferSpanProcessor(SpanProcessor):
         spans: list[SpanEnvelope],
         dropped: int,
     ) -> TraceEnvelope | None:
+        try:
+            return self._build_trace_envelope(root, spans, dropped)
+        except Exception:
+            # A malformed root span (e.g. missing the authoritative
+            # agentlabkit.run_id) must not raise through Span.end() into the
+            # runtime.  The envelope is dropped — never repaired with a
+            # fallback/reconstructed/generated run_id.
+            logger.exception(
+                "Dropping trace %s: root span lacks valid authoritative identity",
+                format(root.context.trace_id, "032x"),
+            )
+            return None
+
+    def _build_trace_envelope(
+        self,
+        root: ReadableSpan,
+        spans: list[SpanEnvelope],
+        dropped: int,
+    ) -> TraceEnvelope | None:
         raw_attrs = dict(root.attributes or {})
         attrs = bounded_attributes(
             raw_attrs,

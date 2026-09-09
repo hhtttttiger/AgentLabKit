@@ -36,11 +36,12 @@ if TYPE_CHECKING:
 from llm_gateway import GatewayProtocol, UsageInfo
 
 try:
-    from opentelemetry.trace import Span, StatusCode, Tracer
+    from opentelemetry.trace import Span, StatusCode, Tracer, set_span_in_context
 except ModuleNotFoundError:  # pragma: no cover
     Span = None  # type: ignore[assignment,misc]
     StatusCode = None  # type: ignore[assignment,misc]
     Tracer = None  # type: ignore[assignment,misc]
+    set_span_in_context = None  # type: ignore[assignment,misc]
 
 from ..config import AgentSettings
 from ..contracts.models import (
@@ -191,27 +192,44 @@ class _TracerSpanManager:
     :class:`TraceBufferSpanProcessor` knows to flush the trace when it ends.
     """
 
-    def __init__(self, tracer: Any, trace_id: str, agent_key: str | None = None) -> None:
+    def __init__(self, tracer: Any, trace_id: str, agent_key: str | None = None,
+                 run_id: str = "") -> None:
         self._tracer = tracer
         self._trace_id = trace_id
         self._agent_key = agent_key
+        self._run_id = run_id
         self._root_span: Any = None
         self._error_message: str | None = None
 
     def start(self) -> None:
+        """Start the root span carrying the authoritative run identity.
+
+        ``agentlabkit.run_id`` comes from the Runtime-owned ExecutionContext;
+        the span processor only reads it — it never falls back, reconstructs,
+        or generates run identity.  An empty run_id (context-less legacy
+        callers) leaves the attribute unset and the trace is truthfully
+        unpublishable.
+        """
         self._root_span = self._tracer.start_span(
             "agent.run",
             attributes={
                 _ROOT_ATTR: True,
                 "agentlabkit.trace_id": self._trace_id,
+                **({"agentlabkit.run_id": self._run_id} if self._run_id else {}),
                 **({"agentlabkit.agent_key": self._agent_key} if self._agent_key else {}),
             },
         )
 
+    def _child_context(self) -> Any:
+        """Parent child spans to the root span so they share its trace."""
+        if set_span_in_context is None:  # pragma: no cover
+            return None
+        return set_span_in_context(self._root_span)
+
     def start_llm_span(self) -> Any:
         if self._root_span is None:
             return None
-        return self._tracer.start_span("llm.generate")
+        return self._tracer.start_span("llm.generate", context=self._child_context())
 
     def start_tool_span(self, tool_name: str) -> Any:
         if self._root_span is None:
@@ -219,6 +237,7 @@ class _TracerSpanManager:
         return self._tracer.start_span(
             f"tool.{tool_name}",
             attributes={"tool.name": tool_name},
+            context=self._child_context(),
         )
 
     def set_error(self, message: str) -> None:
@@ -491,6 +510,7 @@ class AgentRuntime:
         if self._tracer is not None:
             _span_mgr = _TracerSpanManager(
                 self._tracer, _trace_id, getattr(request, "agent_key", None),
+                run_id=_run_id,
             )
             _span_mgr.start()
         elif self._observability_bridge_factory is not None:
@@ -972,6 +992,7 @@ class AgentRuntime:
         if self._tracer is not None:
             _span_mgr = _TracerSpanManager(
                 self._tracer, _trace_id, getattr(prepared.resolved_request, "agent_key", None),
+                run_id=_run_id,
             )
             _span_mgr.start()
         elif self._observability_bridge_factory is not None:

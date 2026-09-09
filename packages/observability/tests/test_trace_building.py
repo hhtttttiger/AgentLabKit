@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -372,3 +373,58 @@ class TestEnvelopeStatus:
 
         envelope = publisher.submit_nowait.call_args[0][0]
         assert envelope.status == "timeout"
+
+
+# ── authoritative run_id（DF-02）────────────────────────────────────
+
+class TestAuthoritativeRunId:
+    def test_envelope_carries_root_span_run_id_exactly(self) -> None:
+        settings = _make_settings()
+        publisher = _make_publisher()
+        processor = TraceBufferSpanProcessor(publisher, settings)
+
+        run_id = "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0"
+        root = _make_span(
+            attributes={"agentlabkit.trace.root": True, "agentlabkit.run_id": run_id},
+        )
+        processor.on_end(root)
+
+        envelope = publisher.submit_nowait.call_args[0][0]
+        assert envelope.run_id == run_id
+
+    def test_root_span_without_run_id_is_dropped_loudly_not_fabricated(self) -> None:
+        """No fallback/reconstruction: a root span lacking the authoritative
+        run_id must not crash on_end (which would propagate through
+        Span.end() into the runtime) and must not publish an envelope."""
+        import logging
+
+        settings = _make_settings()
+        publisher = _make_publisher()
+        processor = TraceBufferSpanProcessor(publisher, settings)
+
+        root = _make_span(
+            attributes={"agentlabkit.trace.root": True},  # no agentlabkit.run_id
+        )
+        with caplog_context() as records:
+            processor.on_end(root)  # must not raise
+
+        publisher.submit_nowait.assert_not_called()
+        assert any("Dropping trace" in r.getMessage() for r in records)
+
+
+class _CaplogHandler(list):
+    def __init__(self) -> None:
+        super().__init__()
+        self._handler = logging.Handler()
+        self._handler.emit = lambda record: self.append(record)
+
+    def __enter__(self):
+        logging.getLogger("observability.span_processor").addHandler(self._handler)
+        return self
+
+    def __exit__(self, *args):
+        logging.getLogger("observability.span_processor").removeHandler(self._handler)
+
+
+def caplog_context():
+    return _CaplogHandler()
