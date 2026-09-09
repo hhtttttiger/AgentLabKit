@@ -15,7 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.errors import NotFoundErrorfrom ..models import (
+from common.errors import NotFoundError
+from ..models import (
     DocumentSegment,
     KnowledgeDocument,
     KnowledgeDocumentRecallStat,
