@@ -172,14 +172,32 @@ async def build_memory_module(
         if settings.provider == "mem0" and "native" in registry.list_providers():
             registry.register(native, default=True)
 
-    return await create_memory_module(
-        session_factory=session_factory,
-        gateway_service=gateway_service,
-        embedding_provider=embedding_prov,
-        settings=settings,
-        provider_registry=registry,
-        provider_name=settings.provider,
-    )
+    async def _create(provider_name: str):
+        return await create_memory_module(
+            session_factory=session_factory,
+            gateway_service=gateway_service,
+            embedding_provider=embedding_prov,
+            settings=settings,
+            provider_registry=registry,
+            provider_name=provider_name,
+        )
+
+    try:
+        return await _create(settings.provider)
+    except Exception:
+        # 请求的 provider 初始化失败（如 mem0 要求外部 LLM/embedding 凭证）
+        # 时，响亮降级到本地 native provider，而不是让启动崩溃。
+        import logging
+
+        if settings.provider != "native" and "native" in registry.list_providers():
+            logging.getLogger(__name__).warning(
+                "Long-term memory provider %r failed to initialize; falling "
+                "back to the local native provider",
+                settings.provider,
+                exc_info=True,
+            )
+            return await _create("native")
+        raise
 
 
 def build_agent_runtime(

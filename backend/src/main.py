@@ -81,7 +81,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         file_storage = build_file_storage(settings)
         app.state.file_storage = file_storage
 
-        app.state.memory_module = await build_memory_module(sf, gateway, retrieval)
+        # ── Long-Term Memory（默认关闭；关闭时不初始化，也不要求任何
+        #    provider 依赖或外部凭证。memory 路由保持 503 提示。）──
+        from memory.config import MemorySettings as LongTermMemorySettings
+
+        memory_settings = LongTermMemorySettings()
+        if memory_settings.enabled:
+            app.state.memory_module = await build_memory_module(sf, gateway, retrieval)
+        else:
+            app.state.memory_module = None
 
         # ── 文档队列（web 只 enqueue，消费在 worker 进程）──
         if settings.redis_enabled and retrieval is not None:

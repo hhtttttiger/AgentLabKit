@@ -17,7 +17,13 @@ x-app-env: &app-env
   APP_EMBEDDING_DIMENSIONS: ${APP_EMBEDDING_DIMENSIONS:-1536}
   APP_REDIS_URL: ${APP_REDIS_URL:-redis://redis:6379/0}
   APP_GATEWAY__CATALOG_DATABASE_URL: ${APP_GATEWAY__CATALOG_DATABASE_URL:-postgresql+asyncpg://app:devpassword@postgres:5432/agentlabkit}
-  APP_GATEWAY__CATALOG_ENCRYPT_KEY: ${APP_GATEWAY__CATALOG_ENCRYPT_KEY:-change-me-encrypt-key}
+  # Dev-only generated AES-256-GCM key (base64, 32 bytes) so compose boots
+  # without a local .env; replace before storing real credentials.
+  APP_GATEWAY__CATALOG_ENCRYPT_KEY: ${APP_GATEWAY__CATALOG_ENCRYPT_KEY:-GdaKDkUGO8DZouneKRm1JpOuGlrsYCgCYXzEflb8Qmk=}
+  # Long-term memory off by default; native provider needs no external
+  # credentials when enabled.
+  LONG_TERM_MEMORY_ENABLED: "false"
+  LONG_TERM_MEMORY_PROVIDER: native
 
 services:
   postgres:
