@@ -130,3 +130,120 @@ def event_loop():
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
+
+
+# ── Real-PostgreSQL fixtures (use with @pytest.mark.db) ────────────
+#
+# Every db-marked test gets a freshly created, uniquely named database.
+# Sessions are handed out by `db_session_factory`; assertions about
+# durability must open a NEW session from the factory — never reuse the
+# session that performed the write (closing a session is not commit).
+
+
+def _import_all_models() -> None:
+    """Mirror backend/alembic/env.py model loading so create_all sees every table."""
+    from modules.auth.models import AuthUser  # noqa: F401
+    from modules.llm_catalog.models import (  # noqa: F401
+        LlmCatalogRevision, LlmConnectionProfile, LlmFeature,
+        LlmModel, LlmModelBinding, LlmModelFeature, LlmModelInstance,
+    )
+    from modules.agent.models import (  # noqa: F401
+        AgentDefinition, AgentDefinitionVersion, AgentTool, AgentToolBinding,
+        AgentSkill, AgentSkillBinding, AgentMcpServer, AgentMcpBinding,
+        AgentKnowledgeBaseBinding, AgentCatalogRevision, AgentExecutionAudit,
+    )
+    from modules.knowledge_base.models import (  # noqa: F401
+        KnowledgeBaseEntity, KnowledgeFolder, KnowledgeDocument,
+        KnowledgeDocumentRecallStat, DocumentSegment, DocumentProcessingJob,
+        DocumentIndex, SegmentEmbedding,
+    )
+    from modules.glossary.models import (  # noqa: F401
+        GlossaryCategory, GlossaryTerm, KnowledgeBaseGlossaryCategory,
+    )
+    from modules.files.models import StoredFile  # noqa: F401
+    from modules.cost_analysis.models import CostBudget, CostAlert  # noqa: F401
+    from modules.observability.models import TraceRecordOrm, TraceSpanOrm  # noqa: F401
+    from modules.run_projection.models import RunRecordModel, RunProjectionEventModel  # noqa: F401
+    from modules.memory.models import MemoryRecordOrm, MemoryEmbeddingOrm  # noqa: F401
+    from modules.chat.models import ChatSessionOrm, ChatMessageOrm  # noqa: F401
+    from modules.evaluation.models import (  # noqa: F401
+        EvalDataset, EvalCase, EvalRunConfig, EvalRun, EvalRunResult,
+    )
+    from llm_gateway.usage.orm_models import (  # noqa: F401
+        ModelAttemptLogOrm, ModelRequestLogOrm, UsageBase,
+    )
+
+
+def _db_server_params() -> dict:
+    return {
+        "host": os.environ.get("APP_TEST_DB_HOST", "localhost"),
+        "port": int(os.environ.get("APP_TEST_DB_PORT", "15432")),
+        "user": os.environ.get("APP_TEST_DB_USER", "app"),
+        "password": os.environ.get("APP_TEST_DB_PASSWORD", "devpassword"),
+    }
+
+
+@pytest.fixture
+async def db_env():
+    """Fresh throwaway database + session factory for one db-marked test."""
+    import uuid
+
+    import asyncpg
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from alkit_db import Base
+
+    params = _db_server_params()
+    db_name = f"agentlabkit_test_{uuid.uuid4().hex[:12]}"
+    admin = await asyncpg.connect(
+        host=params["host"], port=params["port"],
+        user=params["user"], password=params["password"],
+        database="postgres",
+    )
+    try:
+        await admin.execute(f'CREATE DATABASE "{db_name}"')
+    finally:
+        await admin.close()
+
+    url = (
+        f"postgresql+asyncpg://{params['user']}:{params['password']}"
+        f"@{params['host']}:{params['port']}/{db_name}"
+    )
+    engine = create_async_engine(url)
+    try:
+        # Extensions must exist before create_all emits vector/pg_trgm indexes
+        # (mirrors alembic baseline 0001_current_baseline).
+        async with engine.begin() as conn:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public"))
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        _import_all_models()
+        from llm_gateway.usage.orm_models import UsageBase
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(UsageBase.metadata.create_all)
+        yield async_sessionmaker(engine, expire_on_commit=False)
+    finally:
+        await engine.dispose()
+        admin = await asyncpg.connect(
+            host=params["host"], port=params["port"],
+            user=params["user"], password=params["password"],
+            database="postgres",
+        )
+        try:
+            await admin.execute(f'DROP DATABASE "{db_name}" WITH (FORCE)')
+        finally:
+            await admin.close()
+
+
+@pytest.fixture
+async def db_session_factory(db_env):
+    """Session factory bound to the throwaway test database."""
+    return db_env
+
+
+@pytest.fixture
+async def db_session(db_session_factory):
+    """One request-like session: closes without committing, exactly like get_db."""
+    async with db_session_factory() as session:
+        yield session

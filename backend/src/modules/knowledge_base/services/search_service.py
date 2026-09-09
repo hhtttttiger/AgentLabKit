@@ -15,8 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.errors import NotFoundError
-from ..models import (
+from common.errors import NotFoundErrorfrom ..models import (
     DocumentSegment,
     KnowledgeDocument,
     KnowledgeDocumentRecallStat,
@@ -27,6 +26,11 @@ from ..schemas import (
     KbSearchResponse,
     KbSearchResult,
 )
+
+
+def _utcnow_naive() -> datetime:
+    """recall stats 时间戳列是 naive DateTime；写入 naive UTC（与 retrieval_service 一致）。"""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class SearchService:
@@ -152,7 +156,7 @@ class SearchService:
                         {
                             "document_id": doc_id,
                             "recall_count": 1,
-                            "last_recalled_at_utc": datetime.now(timezone.utc),
+                            "last_recalled_at_utc": _utcnow_naive(),
                         }
                         for doc_id in document_ids
                     ])
@@ -160,7 +164,7 @@ class SearchService:
                         index_elements=["document_id"],
                         set_={
                             "recall_count": KnowledgeDocumentRecallStat.recall_count + 1,
-                            "last_recalled_at_utc": datetime.now(timezone.utc),
+                            "last_recalled_at_utc": _utcnow_naive(),
                         },
                     )
                     await session.execute(stmt)

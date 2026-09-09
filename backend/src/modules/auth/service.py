@@ -19,6 +19,14 @@ verify_password = _pwd_ctx.verify
 _VALID_ROLES = ("admin", "member")
 
 
+def _utcnow_naive() -> datetime:
+    """auth_users 时间戳列是 TIMESTAMP WITHOUT TIME ZONE；只能写入 naive UTC。
+
+    tz-aware 值在 asyncpg 的 timestamp 编码器上会直接 TypeError。
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def _create_token(user: AuthUser, settings: Settings) -> dict:
     now = datetime.now(timezone.utc)
     payload = {
@@ -54,8 +62,10 @@ async def authenticate(
         raise BusinessError("Account is disabled", status_code=403)
 
     # Update last login timestamp
-    user.last_login_at_utc = datetime.now(timezone.utc)
+    user.last_login_at_utc = _utcnow_naive()
+    # Service 拥有写事务：flush 只推给数据库，close 不等于 commit。
     await session.flush()
+    await session.commit()
 
     return _create_token(user, settings)
 
@@ -130,6 +140,7 @@ async def create_user(
     )
     session.add(user)
     await session.flush()
+    await session.commit()
     return user
 
 
@@ -176,6 +187,7 @@ async def update_user(
         user.is_active = is_active
 
     await session.flush()
+    await session.commit()
     return user
 
 
@@ -193,6 +205,7 @@ async def change_password(
 
     user.password_hash = hash_password(new_password)
     await session.flush()
+    await session.commit()
 
 
 async def update_profile(
@@ -215,6 +228,7 @@ async def update_profile(
         user.display_name = display_name
 
     await session.flush()
+    await session.commit()
     return user
 
 
