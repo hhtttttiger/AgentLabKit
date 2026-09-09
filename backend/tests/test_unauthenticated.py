@@ -16,7 +16,7 @@ PROTECTED_ROUTES = [
     ("GET", "/api/traces"),
     ("GET", "/api/memories?userId=test"),
     ("GET", "/api/eval/datasets"),
-    ("POST", "/api/chat/complete"),
+    ("GET", "/api/chat/sessions"),
     ("POST", "/api/ai/invoke/agents/test/turn"),
 ]
 
