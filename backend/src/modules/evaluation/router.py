@@ -63,7 +63,9 @@ async def list_cases(dataset_id: int, svc: DatasetServiceDep):
 
 @router.post("/datasets/{dataset_id}/cases")
 async def create_cases(dataset_id: int, body: list[CaseCreateRequest], svc: DatasetServiceDep):
-    return ok(await svc.create_cases(dataset_id, [c.model_dump() for c in body]))
+    # by_alias=False: CamelModel.model_dump() defaults to camelCase aliases,
+    # but the service contract consumes snake_case keys.
+    return ok(await svc.create_cases(dataset_id, [c.model_dump(by_alias=False) for c in body]))
 
 
 @router.delete("/datasets/{dataset_id}/cases/{case_id}")

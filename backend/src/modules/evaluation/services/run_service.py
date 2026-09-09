@@ -22,6 +22,8 @@ class RunService:
         self._db.add(config)
         await self._db.flush()
         await self._db.refresh(config)
+        # Service owns the write transaction (see DatasetService.create_dataset).
+        await self._db.commit()
         return self._to_run_config_view(config)
 
     async def trigger_run(self, config_id: int) -> dict:
@@ -34,6 +36,9 @@ class RunService:
         self._db.add(run)
         await self._db.flush()
         await self._db.refresh(run)
+        # The pending run must be durable before the response returns: the
+        # scheduled background task re-selects it in a brand-new session.
+        await self._db.commit()
         return self._to_run_view(run)
 
     async def trigger_run_and_execute(

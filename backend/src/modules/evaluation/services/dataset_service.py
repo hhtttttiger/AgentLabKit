@@ -36,6 +36,9 @@ class DatasetService:
         self._db.add(ds)
         await self._db.flush()
         await self._db.refresh(ds)
+        # Service owns the write transaction: the request session never
+        # commits on its own, so flush-only writes roll back on close.
+        await self._db.commit()
         return self._to_dataset_view(ds)
 
     async def delete_dataset(self, dataset_id: int) -> None:
@@ -45,6 +48,7 @@ class DatasetService:
             raise NotFoundError("Dataset", str(dataset_id))
         ds.is_active = False
         await self._db.flush()
+        await self._db.commit()
 
     async def list_cases(self, dataset_id: int) -> list[dict]:
         result = await self._db.execute(
@@ -62,7 +66,11 @@ class DatasetService:
         source_run_id: str,
         source_trace_id: str | None = None,
     ) -> DatasetExample:
-        """Create one DatasetExample and let the database own its identity."""
+        """Create one DatasetExample and let the database own its identity.
+
+        Flush-only by design: the caller (BackendDatasetExampleWriter) owns
+        this write's transaction and commits it in its own session.
+        """
         result = await self._db.execute(
             select(EvalDataset).where(EvalDataset.id == int(dataset_id), EvalDataset.is_active == True)
         )
@@ -112,6 +120,7 @@ class DatasetService:
             self._db.add(case)
         ds.case_count = start_idx + len(cases)
         await self._db.flush()
+        await self._db.commit()
         return {"added": len(cases), "total": ds.case_count}
 
     async def delete_case(self, dataset_id: int, case_id: int) -> None:
@@ -129,6 +138,7 @@ class DatasetService:
 
         await self._db.delete(case)
         await self._db.flush()
+        await self._db.commit()
 
     @staticmethod
     def _to_dataset_view(d) -> dict:
