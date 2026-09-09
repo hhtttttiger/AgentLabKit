@@ -166,3 +166,34 @@ def test_summary_avg_skips_unavailable():
     avg = round(sum(empty) / len(empty), 4) if empty else None
     assert avg is None
     assert not (math.isnan(avg) if avg is not None else False)
+
+
+@pytest.mark.asyncio
+async def test_actual_outputs_are_the_evaluated_response():
+    """The agent's real output is the response ragas sees — not the expected
+    output (which would make the evaluation expected-vs-expected)."""
+    provider = _make_provider()
+    captured = {}
+
+    class _CapturingResult(_FakeEvaluationResult):
+        pass
+
+    def fake_evaluate(*args, **kwargs):
+        captured["dataset"] = args[0] if args else kwargs.get("dataset")
+        return _FakeEvaluationResult({"faithfulness": [0.9]})
+
+    with patch("ragas.evaluate", side_effect=fake_evaluate):
+        # Patch EvaluationDataset.from_list to capture the raw items
+        import ragas as ragas_mod
+        orig_from_list = ragas_mod.EvaluationDataset.from_list
+        def spy_from_list(items):
+            captured["items"] = [dict(i) for i in items]
+            return orig_from_list(items)
+        with patch.object(ragas_mod.EvaluationDataset, "from_list", staticmethod(spy_from_list)):
+            await provider.evaluate(
+                _cases(1), ["faithfulness"], EvalRunConfig(),
+                actual_outputs=["真实输出"],
+            )
+
+    assert captured["items"][0]["response"] == "真实输出"
+    assert captured["items"][0]["reference"] == "a0"  # expected stays the reference

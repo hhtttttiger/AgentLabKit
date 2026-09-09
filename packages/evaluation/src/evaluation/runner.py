@@ -26,6 +26,14 @@ BUILTIN_METRICS = {
     "context_relevance": ContextRelevanceMetric,
 }
 
+def _provider_accepts_actual_outputs(provider: Any) -> bool:
+    import inspect
+    try:
+        return "actual_outputs" in inspect.signature(provider.evaluate).parameters
+    except (TypeError, ValueError):  # pragma: no cover — exotic callables
+        return False
+
+
 # 用户常用名 → RAGAS 实际 metric 名映射
 METRIC_NAME_MAP = {
     "answer_relevance": "answer_relevancy",      # RAGAS 用这个名字
@@ -94,7 +102,7 @@ class EvaluationRunner:
             # 2. 选择评估路径
             provider = self._get_provider()
             if provider is not None:
-                return await self._run_with_provider(case, config, provider, start)
+                return await self._run_with_provider(case, config, provider, start, actual_output)
 
             return await self.evaluate_case(case, actual_output, config, started_at=start)
 
@@ -122,7 +130,7 @@ class EvaluationRunner:
         start = time.monotonic() if started_at is None else started_at
         provider = self._get_provider()
         if provider is not None:
-            return await self._run_with_provider(case, config, provider, start)
+            return await self._run_with_provider(case, config, provider, start, actual_output)
         return await self._run_with_legacy(case, actual_output, config, start)
 
     async def run_batch(
@@ -164,12 +172,27 @@ class EvaluationRunner:
         config: EvalRunConfig,
         provider: EvalProvider,
         start: float,
+        actual_output: str | None = None,
     ) -> EvalRunResult:
-        """通过 EvalProvider 评估单个用例。"""
+        """通过 EvalProvider 评估单个用例。
+
+        ``actual_output`` 是目标的真实输出；缺失时 provider 回退到
+        dataset-only 模式（用 expected_output 当 response）。
+        """
         metric_names = self._resolve_metric_names(config)
-        results = await provider.evaluate([case], metric_names, config)
+        # Providers predating the actual_outputs parameter (third-party
+        # EvalProvider implementations) still evaluate; they simply stay in
+        # dataset-only mode.
+        if actual_output is not None and _provider_accepts_actual_outputs(provider):
+            results = await provider.evaluate(
+                [case], metric_names, config, actual_outputs=[actual_output],
+            )
+        else:
+            results = await provider.evaluate([case], metric_names, config)
         result = results[0] if results else EvalRunResult(case_id=case.id)
         result.case_id = case.id
+        if actual_output:
+            result.actual_output = actual_output
         return result
 
     # ── Legacy 模式 ───────────────────────────────────────────────────

@@ -213,8 +213,14 @@ class RAGASEvalProvider:
         cases: list[EvalCase],
         metrics: list[str],
         config: EvalRunConfig,
+        *,
+        actual_outputs: list[str] | None = None,
     ) -> list[EvalRunResult]:
-        """批量评估 — 返回 per-case 结果列表，与 legacy 行为一致。"""
+        """批量评估 — 返回 per-case 结果列表，与 legacy 行为一致。
+
+        ``actual_outputs`` 是目标对每个 case 的真实输出（被评估对象）；
+        缺省时回退到 ``case.expected_output``（dataset-only 模式）。
+        """
         import time as _time
 
         start = _time.monotonic()
@@ -262,11 +268,15 @@ class RAGASEvalProvider:
 
         # 构建 RAGAS dataset
         dataset_items = []
-        for case in cases:
+        for i, case in enumerate(cases):
+            if actual_outputs is not None and i < len(actual_outputs):
+                response = actual_outputs[i]
+            else:
+                response = case.expected_output or ""
             item = {
                 "user_input": case.input_text,
                 "retrieved_contexts": case.context or [],
-                "response": case.expected_output or "",
+                "response": response,
             }
             if case.expected_output:
                 item["reference"] = case.expected_output
