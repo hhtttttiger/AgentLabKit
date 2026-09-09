@@ -6,6 +6,16 @@ The repository uses `0001_current_baseline` as the current schema baseline.
 Databases created before this baseline are unsupported and are not upgrade-compatible.
 Do not edit `alembic_version` to bypass this boundary.
 
+**Decision frozen on 2026-09-09.** The squash window is closed:
+
+- Pre-baseline databases are permanently unsupported. Retaining their data
+  requires an explicit export/import procedure, never an Alembic upgrade.
+- Re-baselining or re-squashing the chain is prohibited; every schema change
+  is a forward revision on top of the baseline.
+- `backend/tests/test_migration_chain.py` enforces this on every test pass:
+  the baseline is the only root revision, the chain has exactly one head,
+  and only the baseline may build schema from ORM metadata.
+
 ## Initialize or reset
 
 For a clean database:
