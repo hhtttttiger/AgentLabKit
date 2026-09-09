@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Protocol, runtime_checkable
 
+from alkit_db.snowflake import next_id as next_snowflake_id
 from sqlalchemy import text as sa_text
 
 from .contracts import SpanEnvelope, TraceEnvelope, TracePage, TraceRecord, TraceStats
@@ -41,6 +42,9 @@ class PostgresTraceStore:
 
     async def ingest_trace(self, envelope: TraceEnvelope) -> None:
         trace_params = {
+            # Raw SQL bypasses the ORM's Python-side snowflake default; the
+            # column has no server default, so identity is generated here.
+            "id": next_snowflake_id(),
             "trace_id": envelope.trace_id,
             "root_span_id": envelope.root_span_id,
             "run_id": envelope.run_id,
@@ -65,6 +69,7 @@ class PostgresTraceStore:
         }
         span_params = [
             {
+                "id": next_snowflake_id(),
                 "span_id": span.span_id,
                 "trace_id": span.trace_id,
                 "parent_span_id": span.parent_span_id,
@@ -88,14 +93,14 @@ class PostgresTraceStore:
                 sa_text(
                     """
                     INSERT INTO trace_records (
-                        trace_id, root_span_id, run_id, agent_key, session_id, user_id,
+                        id, trace_id, root_span_id, run_id, agent_key, session_id, user_id,
                         correlation_id, status, total_duration_ms, total_input_tokens,
                         total_output_tokens, cache_write_tokens, cache_read_tokens,
                         total_estimated_cost, span_count, dropped_span_count, sample_reason,
                         attributes_json, schema_version, started_at_utc, completed_at_utc,
                         created_at_utc, updated_at_utc
                     ) VALUES (
-                        :trace_id, :root_span_id, CAST(:run_id AS uuid), :agent_key, :session_id,
+                        :id, :trace_id, :root_span_id, CAST(:run_id AS uuid), :agent_key, :session_id,
                         :user_id, :correlation_id, :status, :duration, :input_tokens,
                         :output_tokens, :cache_write, :cache_read, :cost, :span_count,
                         :dropped_count, :sample_reason, CAST(:attributes AS jsonb),
@@ -128,12 +133,12 @@ class PostgresTraceStore:
                     sa_text(
                         """
                         INSERT INTO trace_spans (
-                            span_id, trace_id, parent_span_id, name, span_kind, status,
+                            id, span_id, trace_id, parent_span_id, name, span_kind, status,
                             instrumentation_scope, started_at_utc, completed_at_utc,
                             duration_ms, attributes_json, events_json, links_json,
                             error_code, error_message, created_at_utc, updated_at_utc
                         ) VALUES (
-                            :span_id, :trace_id, :parent_span_id, :name, :kind, :status,
+                            :id, :span_id, :trace_id, :parent_span_id, :name, :kind, :status,
                             :scope, :started, :completed, :duration,
                             CAST(:attributes AS jsonb), CAST(:events AS jsonb),
                             CAST(:links AS jsonb), :error_code, :error_message, NOW(), NOW()

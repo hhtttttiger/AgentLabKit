@@ -36,12 +36,23 @@ if TYPE_CHECKING:
 from llm_gateway import GatewayProtocol, UsageInfo
 
 try:
-    from opentelemetry.trace import Span, StatusCode, Tracer, set_span_in_context
+    from opentelemetry.trace import (
+        NonRecordingSpan,
+        SpanContext,
+        TraceFlags,
+        Span,
+        StatusCode,
+        Tracer,
+        set_span_in_context,
+    )
 except ModuleNotFoundError:  # pragma: no cover
     Span = None  # type: ignore[assignment,misc]
     StatusCode = None  # type: ignore[assignment,misc]
     Tracer = None  # type: ignore[assignment,misc]
     set_span_in_context = None  # type: ignore[assignment,misc]
+    NonRecordingSpan = None  # type: ignore[assignment,misc]
+    SpanContext = None  # type: ignore[assignment,misc]
+    TraceFlags = None  # type: ignore[assignment,misc]
 
 from ..config import AgentSettings
 from ..contracts.models import (
@@ -209,9 +220,15 @@ class _TracerSpanManager:
         or generates run identity.  An empty run_id (context-less legacy
         callers) leaves the attribute unset and the trace is truthfully
         unpublishable.
+
+        The OTel trace id is likewise seeded from the authoritative
+        ExecutionContext.trace_id (a 128-bit hex): the SDK's random id would
+        orphan the trace from the Run projection, which carries the same
+        identity.
         """
         self._root_span = self._tracer.start_span(
             "agent.run",
+            context=self._authoritative_trace_context(),
             attributes={
                 _ROOT_ATTR: True,
                 "agentlabkit.trace_id": self._trace_id,
@@ -219,6 +236,26 @@ class _TracerSpanManager:
                 **({"agentlabkit.agent_key": self._agent_key} if self._agent_key else {}),
             },
         )
+
+    def _authoritative_trace_context(self) -> Any:
+        """Parent the root span to a synthetic context carrying the
+        ExecutionContext trace id so the real span inherits it exactly."""
+        if NonRecordingSpan is None:  # pragma: no cover
+            return None
+        normalized = (self._trace_id or "").replace("-", "")
+        if len(normalized) != 32:
+            return None  # unparseable legacy id: let the SDK assign one
+        try:
+            trace_id_int = int(normalized, 16)
+        except ValueError:
+            return None
+        synthetic = NonRecordingSpan(SpanContext(
+            trace_id=trace_id_int,
+            span_id=int(uuid4().hex[:16], 16),
+            is_remote=False,
+            trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        ))
+        return set_span_in_context(synthetic)
 
     def _child_context(self) -> Any:
         """Parent child spans to the root span so they share its trace."""

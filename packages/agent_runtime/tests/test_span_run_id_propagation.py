@@ -127,6 +127,9 @@ async def test_blocking_run_attaches_authoritative_run_id_to_root_span():
     # The span carries the Runtime-owned identity — exactly, not a re-encoding.
     assert attrs.get("agentlabkit.run_id") == agent_run.run_id
     assert attrs.get("agentlabkit.trace.root") is True
+    # The OTel trace id equals the Runtime-owned trace identity so the Run
+    # projection (which carries the same id) links to this trace exactly.
+    assert format(root.context.trace_id, "032x") == agent_run.trace_id
 
 
 @pytest.mark.asyncio

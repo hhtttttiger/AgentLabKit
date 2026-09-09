@@ -66,8 +66,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # ── 核心模块（始终初始化，不依赖 gateway）──
         app.state.cost_analysis_module = build_cost_analysis_module(sf)
 
-        obs_module = build_observability_module(sf)
+        # Trace envelopes flow web → Redis → worker (trace_ingestion).
+        # Without a queue backend the span processor collects spans but the
+        # publisher drops every envelope — no trace ever reaches storage.
+        trace_queue = (
+            RedisStreamsQueue(settings=QueueSettings()) if settings.redis_enabled else None
+        )
+        obs_module = build_observability_module(sf, queue_backend=trace_queue)
         app.state.observability_module = obs_module
+        if trace_queue is not None:
+            await obs_module.publisher.start()
 
         app.state.evaluation_module = build_evaluation_module(gateway)
 
@@ -111,6 +119,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
 
         # ── 清理 ──
+        if getattr(obs_module, "publisher", None) is not None:
+            await obs_module.publisher.shutdown()
+        if trace_queue is not None:
+            await trace_queue.close()
         doc_queue = getattr(app.state, "doc_queue", None)
         if doc_queue is not None:
             await doc_queue.close()
