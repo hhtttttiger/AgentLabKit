@@ -59,24 +59,22 @@ class CancelToken:
         """
         task = asyncio.ensure_future(coro)
         wait_task = asyncio.ensure_future(self._event.wait())
-        done, pending = await asyncio.wait(
-            {task, wait_task},
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        for p in pending:
-            p.cancel()
-            try:
-                await p
-            except (asyncio.CancelledError, Exception):
-                pass
-        if wait_task in done:
-            task.cancel()
-            try:
-                await task
-            except (asyncio.CancelledError, Exception):
-                pass
-            raise asyncio.CancelledError("Agent run was cancelled")
-        return task.result()
+        try:
+            done, _ = await asyncio.wait(
+                {task, wait_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if wait_task in done:
+                raise asyncio.CancelledError("Agent run was cancelled")
+            return task.result()
+        finally:
+            # The caller may be cancelled while asyncio.wait is pending.
+            # Cancel and join both owned tasks on every exit, so a model/tool
+            # invocation cannot continue after its enclosing Run has ended.
+            for owned in (task, wait_task):
+                if not owned.done():
+                    owned.cancel()
+            await asyncio.gather(task, wait_task, return_exceptions=True)
 
 
 class CancelScope:

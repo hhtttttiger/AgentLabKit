@@ -123,6 +123,7 @@ from .turn_post import TurnOutput, TurnPostProcessor
 from .turn_prep import PreparedTurn, TurnPrep
 from .voice_stream_handler import VoiceStreamHandler
 from .workflow_runner import build_tool_context, build_workflow_engine, resolve_workflow
+from .lifecycle import RunLifecycle, ExecutionScope
 
 # ── Voice imports (for _post_process_turn) ──────────────────────────────
 from ..channels.voice import (
@@ -463,6 +464,7 @@ class AgentRuntime:
         *,
         cancel_token: CancelToken | None = None,
         execution_context: ExecutionContext | None = None,
+        lifecycle: RunLifecycle | None = None,
     ) -> AgentTurnResult:
         """Execute a single agent turn in blocking mode.
 
@@ -498,28 +500,30 @@ class AgentRuntime:
                 event_bus=self._event_bus,
             )
 
+        # The Runtime execution boundary starts before Runtime-owned
+        # preparation.  Application-level target resolution may still fail
+        # before entering this method and therefore remains a noRun case.
+        _run_lifecycle_started = execution_context is not None and lifecycle is None
+        if _run_lifecycle_started:
+            await self._event_bus.emit(RunStarted(
+                run_id=_run_id,
+                trace_id=_trace_id,
+                agent_key=request.agent_key or "",
+                agent_version=str(request.agent_version or ""),
+                input_text=request.user_message,
+                session_id=request.session_id,
+                user_id=execution_context.user_id,
+                span_id=execution_context.root_span_id,
+            ))
+
         await self._ensure_active_global_guardrails_snapshot_loaded()
+
         prepared = await self._turn_prep.prepare_turn(request)
         definition = prepared.definition
         effective_settings = prepared.effective_settings
         tool_bindings = prepared.tool_bindings
         auto_tool_names = prepared.auto_tool_names
         applied_skills = prepared.applied_skills
-
-        # ── Emit RunStarted BEFORE guardrails (P0: run boundary) ────────
-        _run_lifecycle_started = False
-        if execution_context is not None:
-            await self._event_bus.emit(RunStarted(
-                run_id=_run_id,
-                trace_id=_trace_id,
-                agent_key=prepared.resolved_request.agent_key or "",
-                agent_version=definition.version_number if definition else "",
-                input_text=prepared.resolved_request.user_message,
-                session_id=prepared.resolved_request.session_id,
-                user_id=execution_context.user_id,
-                span_id=execution_context.root_span_id,
-            ))
-            _run_lifecycle_started = True
 
         # ── Input Guards (delegates to TurnGuards) ──────────────────────
         guard_result = await self._turn_guards.run_input_guards(
@@ -540,13 +544,6 @@ class AgentRuntime:
                     parent_span_id=execution_context.root_span_id,
                     guardrail_name="input_guard", guardrail_type="input", action="block",
                 ))
-                await self._event_bus.emit(RunCompleted(
-                    run_id=_run_id, trace_id=_trace_id,
-                    span_id=execution_context.root_span_id,
-                    output_text=guard_result.blocked_result.reply_text or "",
-                    attributes={"outcome": "blocked", "blocked": True},
-                ))
-                execution_context.metadata["terminal_emitted"] = True
                 if _span_mgr:
                     _span_mgr.end()
                 elif _obs_bridge:
@@ -603,7 +600,7 @@ class AgentRuntime:
         )
 
         try:
-            loop_result = await run_agent_loop(
+            loop_coro = run_agent_loop(
                 prompts=[AgentMessage(role=AgentRole.USER, content=resolved_request.user_message)],
                 context=context,
                 config=config,
@@ -613,34 +610,25 @@ class AgentRuntime:
                 run_id=_run_id,
                 trace_id=_trace_id,
                 agent_key=resolved_request.agent_key or "",
-                skip_run_lifecycle=_run_lifecycle_started,
+                emit_run_lifecycle=execution_context is None,
                 root_span_id=execution_context.root_span_id if execution_context else None,
+            )
+            loop_result = (
+                await cancel_token.race(loop_coro)
+                if cancel_token is not None
+                else await loop_coro
             )
         except AgentError as exc:
             if _span_mgr:
                 _span_mgr.set_error("AgentError")
             elif _obs_bridge:
                 _obs_bridge.set_error("AgentError")
-            if _run_lifecycle_started:
-                await self._event_bus.emit(RunFailed(
-                    run_id=_run_id, trace_id=_trace_id,
-                    span_id=execution_context.root_span_id,
-                    error_code="AGENT_ERROR", error_message=exc.message,
-                ))
-                execution_context.metadata["terminal_emitted"] = True
             raise
         except Exception as exc:
             if _span_mgr:
                 _span_mgr.set_error(str(exc))
             elif _obs_bridge:
                 _obs_bridge.set_error(str(exc))
-            if _run_lifecycle_started:
-                await self._event_bus.emit(RunFailed(
-                    run_id=_run_id, trace_id=_trace_id,
-                    span_id=execution_context.root_span_id,
-                    error_code=type(exc).__name__, error_message=str(exc),
-                ))
-                execution_context.metadata["terminal_emitted"] = True
             raise AgentError(
                 AgentErrorCode.RUNTIME_ERROR,
                 str(exc),
@@ -742,67 +730,41 @@ class AgentRuntime:
             target=_target,
         )
 
-        run = AgentRun(
-            run_id=ctx.run_id,
-            trace_id=ctx.trace_id,
-            user_id=ctx.user_id,
-            input=request.user_message,
-            session_id=ctx.session_id,
-            target=_target,
-            started_at=ctx.started_at,
+        lifecycle = RunLifecycle(
+            context=ctx, request=request, event_bus=self._event_bus,
+            cancel=cancel_token or CancelToken(), target=_target,
         )
+        await lifecycle.start(
+            agent_key=_target.agent_key,
+            agent_version=_target.agent_version,
+        )
+        run = lifecycle.run
 
         # ── run_turn emits RunStarted before guardrails ──
         # Terminal events (RunCompleted/RunFailed) are emitted HERE in run()
         # to guarantee exactly-once emission — the loop skips them when
-        # skip_run_lifecycle=True.
+        # RuntimeLifecycle owns the run terminal boundary.
         try:
             result = await self.run_turn(
                 request,
                 cancel_token=cancel_token,
                 execution_context=ctx,
+                lifecycle=lifecycle,
             )
         except asyncio.CancelledError as exc:
             # Cancellation is a first-class terminal state, never a failure.
-            await self._event_bus.emit(RunCancelled(
-                run_id=ctx.run_id,
-                trace_id=ctx.trace_id,
-                span_id=ctx.root_span_id,
-                reason="run_cancelled",
-            ))
-            run.mark_cancelled("run_cancelled")
+            await lifecycle.finish(status=RunStatus.CANCELLED, reason="run_cancelled")
             await self._publish_completion(run)
-            return run
+            raise
         except Exception as exc:
             # Emit RunFailed (P0: terminal invariant — exactly one terminal)
             error_code = "AGENT_ERROR" if isinstance(exc, AgentError) else type(exc).__name__
             error_message = exc.message if isinstance(exc, AgentError) else str(exc)
-            if not ctx.metadata.pop("terminal_emitted", False):
-                await self._event_bus.emit(RunFailed(
-                    run_id=ctx.run_id,
-                    trace_id=ctx.trace_id,
-                    span_id=ctx.root_span_id,
-                    error_code=error_code,
-                    error_message=error_message,
-                ))
-            run.status = RunStatus.FAILED
-            run.error = RunError(
-                code=error_code,
-                message=error_message,
-            )
-            run.finished_at = datetime.now(timezone.utc)
+            await lifecycle.finish(status=RunStatus.FAILED, error=exc)
             await self._publish_completion(run)
             return run
 
-        # run_turn owns the terminal for an early guardrail completion;
-        # normal turns are completed here after the result is produced.
-        if not ctx.metadata.pop("terminal_emitted", False):
-            await self._event_bus.emit(RunCompleted(
-                run_id=ctx.run_id,
-                trace_id=ctx.trace_id,
-                span_id=ctx.root_span_id,
-                output_text=result.reply_text or "",
-            ))
+        await lifecycle.finish(status=RunStatus.COMPLETED, result=result)
 
         # Build RunUsage from the turn result
         usage = None
@@ -863,29 +825,59 @@ class AgentRuntime:
             target=target,
             metadata=dict(getattr(request, "metadata", {}) or {}),
         )
+        lifecycle = RunLifecycle(
+            context=context, request=request, event_bus=self._event_bus,
+            cancel=cancel_token or CancelToken(), target=target,
+        )
+        await lifecycle.start(agent_key=target.agent_key, agent_version=target.agent_version)
         request = request.model_copy(update={"trace_id": context.trace_id})
         terminal_event: AgentTurnStreamEvent | None = None
+        finalized = False
         try:
             async for event in self.stream_turn(
                 request, cancel_token=cancel_token, execution_context=context,
+                lifecycle=lifecycle,
             ):
                 event.run_id = context.run_id
                 # The context is authoritative even if request preparation cloned data.
                 event.trace_id = context.trace_id
                 if event.event_type in {"reply_completed", "handoff"}:
                     terminal_event = event
+                    # Finalize before the public terminal yield so the
+                    # authoritative snapshot (usage included) is published
+                    # with the completed event, not after stream exhaustion.
+                    run = await lifecycle.finish(status=RunStatus.COMPLETED, stream_event=event)
+                    await self._publish_completion(run)
+                    finalized = True
                 yield event
         except asyncio.CancelledError:
-            run = self._stream_snapshot(context, request, terminal_event, status=RunStatus.CANCELLED)
-            await self._publish_completion(run)
+            if not finalized:
+                run = await lifecycle.finish(status=RunStatus.CANCELLED, reason="run_cancelled", stream_event=terminal_event)
+                await self._publish_completion(run)
+                finalized = True
             raise
         except Exception as exc:
-            run = self._stream_snapshot(context, request, terminal_event, status=RunStatus.FAILED, error=exc)
-            await self._publish_completion(run)
+            if not finalized:
+                run = await lifecycle.finish(status=RunStatus.FAILED, error=exc, stream_event=terminal_event)
+                await self._publish_completion(run)
+                finalized = True
             raise
         else:
-            run = self._stream_snapshot(context, request, terminal_event)
-            await self._publish_completion(run)
+            # Streams that exhaust without a public terminal event still
+            # finalize as completed with whatever identity was collected.
+            if not finalized:
+                run = await lifecycle.finish(status=RunStatus.COMPLETED, stream_event=terminal_event)
+                await self._publish_completion(run)
+                finalized = True
+        finally:
+            # Closing a started public stream before a terminal event is a
+            # cancellation boundary.  GeneratorExit must not yield; it only
+            # finalizes the execution and publishes its snapshot.
+            if not finalized:
+                run = await lifecycle.finish(
+                    status=RunStatus.CANCELLED, reason="stream_closed", stream_event=terminal_event,
+                )
+                await self._publish_completion(run)
 
     async def stream_turn(
         self,
@@ -893,6 +885,7 @@ class AgentRuntime:
         *,
         cancel_token: CancelToken | None = None,
         execution_context: ExecutionContext | None = None,
+        lifecycle: RunLifecycle | None = None,
     ) -> AsyncIterator[AgentTurnStreamEvent]:
         """Execute a single agent turn in streaming mode.
 
@@ -908,22 +901,42 @@ class AgentRuntime:
                 its own trace_id but does not emit v2 run lifecycle events.
         """
         await self._ensure_active_global_guardrails_snapshot_loaded()
-        prepared = await self._turn_prep.prepare_turn(request)
+
+        _run_id = execution_context.run_id if execution_context else ""
+        _trace_id = (
+            execution_context.trace_id
+            if execution_context
+            else getattr(request, "trace_id", None) or str(uuid4())
+        )
+        _run_started = execution_context is not None
+        _lifecycle_owned_here = False
+        if lifecycle is None and execution_context is not None:
+            target = RunTarget(
+                type="agent", agent_key=request.agent_key,
+                agent_version=str(request.agent_version) if request.agent_version else None,
+            )
+            lifecycle = RunLifecycle(
+                context=execution_context, request=request, event_bus=self._event_bus,
+                cancel=cancel_token or CancelToken(), target=target,
+            )
+            _lifecycle_owned_here = True
+            await lifecycle.start(agent_key=target.agent_key, agent_version=target.agent_version)
+        try:
+            prepared = await self._turn_prep.prepare_turn(request)
+        except asyncio.CancelledError:
+            if lifecycle is not None:
+                await lifecycle.finish(status=RunStatus.CANCELLED, reason="stream_cancelled")
+            raise
+        except Exception as exc:
+            if lifecycle is not None:
+                await lifecycle.finish(status=RunStatus.FAILED, error=exc)
+            raise
         definition = prepared.definition
         effective_settings = prepared.effective_settings
         tool_bindings = prepared.tool_bindings
         auto_tool_names = prepared.auto_tool_names
         applied_skills = prepared.applied_skills
 
-        # ── Identity: use ExecutionContext if provided ──────────────────
-        _run_id = execution_context.run_id if execution_context else ""
-        _trace_id = (
-            execution_context.trace_id
-            if execution_context
-            else getattr(prepared.resolved_request, "trace_id", None) or str(uuid4())
-        )
-        _run_started = False
-        _terminal_emitted = False
         # Streaming uses Runtime-owned semantic span identity. Retrieval spans
         # are nested beneath the active streaming ToolCall span.
         _stream_span_ctx = _SpanContext()
@@ -939,22 +952,19 @@ class AgentRuntime:
 
         async def _emit_run_terminal(*, status: str = "completed", **kwargs) -> None:
             """Emit the terminal v2 event for the run (exactly once)."""
-            nonlocal _terminal_emitted
-            if _terminal_emitted or not _run_started:
+            if lifecycle is None or lifecycle.finalized or not _run_started:
                 return
-            _terminal_emitted = True
             if status == "completed":
-                await self._event_bus.emit(RunCompleted(
-                    run_id=_run_id, trace_id=_trace_id, **kwargs,
-                ))
+                if not _lifecycle_owned_here:
+                    # A lifecycle owned by the public stream boundary is
+                    # finalized there with the authoritative terminal event
+                    # (usage included); finalizing here first would drop it.
+                    return
+                await lifecycle.finish(status=RunStatus.COMPLETED, output=kwargs.get("output_text", ""))
             elif status == "failed":
-                await self._event_bus.emit(RunFailed(
-                    run_id=_run_id, trace_id=_trace_id, **kwargs,
-                ))
+                await lifecycle.finish(status=RunStatus.FAILED, error=RuntimeError(kwargs.get("error_message", "stream failed")))
             elif status == "cancelled":
-                await self._event_bus.emit(RunCancelled(
-                    run_id=_run_id, trace_id=_trace_id, **kwargs,
-                ))
+                await lifecycle.finish(status=RunStatus.CANCELLED, reason=kwargs.get("reason", "stream_cancelled"))
 
         # Create observability before RunStarted so the root event is not lost.
         _span_mgr: _TracerSpanManager | None = None
@@ -970,20 +980,6 @@ class AgentRuntime:
                 agent_key=getattr(prepared.resolved_request, "agent_key", None),
                 event_bus=self._event_bus,
             )
-
-        # ── Emit RunStarted BEFORE guardrails (P0: run boundary) ────────
-        if execution_context:
-            await self._event_bus.emit(RunStarted(
-                run_id=_run_id,
-                trace_id=_trace_id,
-                agent_key=prepared.resolved_request.agent_key or "",
-                agent_version=definition.version_number if definition else "",
-                input_text=prepared.resolved_request.user_message,
-                session_id=prepared.resolved_request.session_id,
-                user_id=execution_context.user_id,
-                span_id=execution_context.root_span_id,
-            ))
-            _run_started = True
 
         async def _finalize_obs(*, terminal_status: str | None = None, **terminal_kwargs: Any) -> None:
             # The terminal event must precede the bridge flush so the projector
@@ -1830,6 +1826,7 @@ class AgentRuntime:
         request: AgentTurnRequest,
         *,
         workflow: WorkflowDef | None = None,
+        cancel_token: CancelToken | None = None,
     ) -> WorkflowResult:
         """Execute a deterministic workflow.
 
@@ -1848,6 +1845,22 @@ class AgentRuntime:
         resolved_workflow = await resolve_workflow(
             request, self.definition_loader, workflow,
         )
+        target = RunTarget(
+            type="workflow", agent_key=request.agent_key,
+            agent_version=str(request.agent_version) if request.agent_version else None,
+            workflow_id=resolved_workflow.workflow_id,
+            workflow_version=str(resolved_workflow.version),
+        )
+        context = ExecutionContext(
+            user_id=request.user_id, session_id=request.session_id or "",
+            agent_key=target.agent_key, agent_version=target.agent_version,
+            target=target, metadata=dict(request.metadata or {}),
+        )
+        lifecycle = RunLifecycle(
+            context=context, request=request, event_bus=self._event_bus,
+            cancel=cancel_token or CancelToken(), target=target,
+        )
+        await lifecycle.start(agent_key=target.agent_key, agent_version=target.agent_version)
         engine = build_workflow_engine(
             runner=self,
             definition_loader=self.definition_loader,
@@ -1855,17 +1868,31 @@ class AgentRuntime:
         )
         tool_context = build_tool_context(request)
 
-        return await engine.run_workflow(
-            workflow=resolved_workflow,
-            user_input=request.user_message,
-            context=tool_context,
+        try:
+            result = await engine.run_workflow(
+                workflow=resolved_workflow,
+                user_input=request.user_message,
+                context=tool_context,
+            )
+        except asyncio.CancelledError:
+            await lifecycle.finish(status=RunStatus.CANCELLED, reason="workflow_cancelled")
+            raise
+        except Exception as exc:
+            await lifecycle.finish(status=RunStatus.FAILED, error=exc)
+            raise
+        await lifecycle.finish(
+            status=RunStatus.COMPLETED,
+            output=result.final_output,
+            reason="human_handoff" if result.status == "waiting_human" else "",
         )
+        return result
 
     async def stream_workflow(
         self,
         request: AgentTurnRequest,
         *,
         workflow: WorkflowDef | None = None,
+        cancel_token: CancelToken | None = None,
     ) -> AsyncIterator[WorkflowStreamEvent]:
         """Execute a deterministic workflow in streaming mode.
 
@@ -1882,6 +1909,22 @@ class AgentRuntime:
         resolved_workflow = await resolve_workflow(
             request, self.definition_loader, workflow,
         )
+        target = RunTarget(
+            type="workflow", agent_key=request.agent_key,
+            agent_version=str(request.agent_version) if request.agent_version else None,
+            workflow_id=resolved_workflow.workflow_id,
+            workflow_version=str(resolved_workflow.version),
+        )
+        context = ExecutionContext(
+            user_id=request.user_id, session_id=request.session_id or "",
+            agent_key=target.agent_key, agent_version=target.agent_version,
+            target=target, metadata=dict(request.metadata or {}),
+        )
+        lifecycle = RunLifecycle(
+            context=context, request=request, event_bus=self._event_bus,
+            cancel=cancel_token or CancelToken(), target=target,
+        )
+        await lifecycle.start(agent_key=target.agent_key, agent_version=target.agent_version)
         engine = build_workflow_engine(
             runner=self,
             definition_loader=self.definition_loader,
@@ -1889,12 +1932,30 @@ class AgentRuntime:
         )
         tool_context = build_tool_context(request)
 
-        async for event in engine.stream_workflow(
-            workflow=resolved_workflow,
-            user_input=request.user_message,
-            context=tool_context,
-        ):
-            yield event
+        completed_event = None
+        try:
+            async for event in engine.stream_workflow(
+                workflow=resolved_workflow,
+                user_input=request.user_message,
+                context=tool_context,
+            ):
+                if event.event_type == "workflow_completed":
+                    completed_event = event
+                    continue
+                yield event
+            result = completed_event.workflow_result if completed_event is not None else None
+            await lifecycle.finish(
+                status=RunStatus.COMPLETED,
+                output=result.final_output if result is not None else None,
+            )
+            if completed_event is not None:
+                yield completed_event
+        except asyncio.CancelledError:
+            await lifecycle.finish(status=RunStatus.CANCELLED, reason="workflow_cancelled")
+            raise
+        except Exception as exc:
+            await lifecycle.finish(status=RunStatus.FAILED, error=exc)
+            raise
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # Memory helpers

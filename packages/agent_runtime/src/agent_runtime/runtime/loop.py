@@ -285,7 +285,7 @@ async def run_agent_loop(
     run_id: str = "",
     trace_id: str = "",
     agent_key: str = "",
-    skip_run_lifecycle: bool = False,
+    emit_run_lifecycle: bool = True,
     root_span_id: str | None = None,
 ) -> LoopResult:
     """Run the agent loop in **blocking** mode.
@@ -302,12 +302,10 @@ async def run_agent_loop(
         run_id: Optional run ID for semantic v2 events.
         trace_id: Optional trace ID for semantic v2 events.
         agent_key: Agent key for cost attribution.
-        skip_run_lifecycle: When True, the caller has already emitted RunStarted
-            and will handle terminal events. The loop skips RunStarted emission
-            but still emits Agent/Tool/LLM events and terminal events.
-        root_span_id: Optional root span ID from ExecutionContext. When provided
-            (with skip_run_lifecycle), used instead of generating a new one so
-            RunStarted and RunCompleted share the same span_id.
+        emit_run_lifecycle: Whether this low-level compatibility entry emits
+            run lifecycle events. Runtime public boundaries set this false and
+            own the lifecycle through RunLifecycle.
+        root_span_id: Optional root span ID from ExecutionContext.
 
     Returns:
         A :class:`LoopResult` with all produced messages and the final directive.
@@ -329,7 +327,7 @@ async def run_agent_loop(
     span_ctx.push(run_span_id)
 
     await _emit(AgentStartEvent())
-    if not skip_run_lifecycle:
+    if emit_run_lifecycle:
         await _sem(RunStarted(
             input_text=prompts[0].content if prompts else "",
             span_id=run_span_id,
@@ -364,14 +362,14 @@ async def run_agent_loop(
         # Pop remaining spans
         while span_ctx.current_span_id is not None:
             span_ctx.pop()
-        if not skip_run_lifecycle:
+        if emit_run_lifecycle:
             await _sem(RunCancelled(reason="cancelled", span_id=run_span_id))
         raise
     except Exception as exc:
         # ── Run terminal invariant: failure path (2.1) ────────────
         while span_ctx.current_span_id is not None:
             span_ctx.pop()
-        if not skip_run_lifecycle:
+        if emit_run_lifecycle:
             await _sem(RunFailed(
                 error_code="RUNTIME_ERROR",
                 error_message=str(exc),
@@ -388,7 +386,7 @@ async def run_agent_loop(
         await _emit(AgentEndEvent(messages=result.messages))
         await _sem(AgentTurnCompleted(turn_index=0, output_text=final_text, span_id=turn_span_id))
         await _sem(AgentCompleted(span_id=agent_span_id))
-        if not skip_run_lifecycle:
+        if emit_run_lifecycle:
             await _sem(RunCompleted(output_text=final_text, span_id=run_span_id))
         return result
 
@@ -404,7 +402,7 @@ async def stream_agent_loop(
     run_id: str = "",
     trace_id: str = "",
     agent_key: str = "",
-    skip_run_lifecycle: bool = False,
+    emit_run_lifecycle: bool = True,
     root_span_id: str | None = None,
 ) -> AsyncIterator[AgentEvent]:
     """Run the agent loop in **streaming** mode.
@@ -426,7 +424,7 @@ async def stream_agent_loop(
     run_span_id = root_span_id or uuid4().hex[:16]
     span_ctx.push(run_span_id)
     yield AgentStartEvent()
-    if not skip_run_lifecycle:
+    if emit_run_lifecycle:
         await _sem(RunStarted(input_text=prompts[0].content if prompts else "", span_id=run_span_id))
     agent_span_id = uuid4().hex[:16]
     span_ctx.push(agent_span_id)
