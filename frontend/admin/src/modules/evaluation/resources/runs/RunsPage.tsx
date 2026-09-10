@@ -70,15 +70,15 @@ export function RunsPage() {
   return (
     <div className="flex flex-col gap-4 p-6">
       <div className="flex items-center justify-between gap-4">
-        <div><h1 className="text-lg font-semibold text-text">Evaluation Runs</h1></div>
+        <div><h1 className="text-lg font-semibold text-text">{t('evaluation:runs.title')}</h1></div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setEvaluateOpen(true)} className="rounded-[2px] bg-primary px-3 py-1.5 text-sm text-background">New Evaluation</button>
+          <button type="button" onClick={() => setEvaluateOpen(true)} className="rounded-[2px] bg-primary px-3 py-1.5 text-sm text-background">{t('evaluation:runs.newEvaluation')}</button>
           <select
             className="rounded-[2px] border border-border bg-background px-3 py-1.5 text-sm"
             value={selectedConfig}
             onChange={(e) => setSelectedConfig(e.target.value)}
           >
-            <option value="">选择配置…</option>
+            <option value="">{t('evaluation:runs.selectConfig')}</option>
             {configs?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <button
@@ -86,20 +86,20 @@ export function RunsPage() {
             disabled={!selectedConfig || triggerMutation.isPending}
             className="rounded-[2px] bg-primary px-3 py-1.5 text-xs text-background disabled:opacity-30"
           >
-            Run saved configuration
+            {t('evaluation:runs.runSavedConfig')}
           </button>
           <button
             onClick={() => setCreateConfigOpen(true)}
             className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-raised"
           >
-            Saved configurations
+            {t('evaluation:runs.savedConfigs')}
           </button>
         </div>
       </div>
 
       {selectedRuns.length === 2 && (
         <div className="flex flex-wrap items-center gap-3 border border-border bg-surface px-3 py-2 text-sm">
-          <span className="text-text-muted">选择对比角色（勾选顺序不代表语义）</span>
+          <span className="text-text-muted">{t('evaluation:runs.compareRolesHint')}</span>
           <label className="flex items-center gap-1">
             <span className="font-medium text-text">Baseline</span>
             <select
@@ -128,7 +128,7 @@ export function RunsPage() {
             onClick={() => navigate(`/evaluation/runs/compare?left=${baselineRunId}&right=${candidateRunId}`)}
             className="rounded-[2px] bg-primary px-3 py-1.5 text-xs text-background disabled:opacity-30"
           >
-            Compare baseline vs candidate
+            {t('evaluation:runs.compareCta')}
           </button>
         </div>
       )}
@@ -142,14 +142,14 @@ export function RunsPage() {
           <thead>
             <tr className="border-b border-border text-left text-text-muted">
               <th className="w-10 pb-2 font-medium" aria-label="Select" />
-              <th className="pb-2 font-medium">Run</th>
-              <th className="pb-2 font-medium">Agent</th>
-              <th className="pb-2 font-medium">Dataset</th>
-              <th className="pb-2 font-medium text-center">Status</th>
-              <th className="pb-2 font-medium text-right">平均分</th>
-              <th className="pb-2 font-medium text-right">用例数</th>
-              <th className="pb-2 font-medium text-right">错误数</th>
-              <th className="pb-2 font-medium">时间</th>
+              <th className="pb-2 font-medium">{t('evaluation:runs.columns.run')}</th>
+              <th className="pb-2 font-medium">{t('evaluation:runs.columns.agent')}</th>
+              <th className="pb-2 font-medium">{t('evaluation:runs.columns.dataset')}</th>
+              <th className="pb-2 font-medium text-center">{t('evaluation:runs.columns.status')}</th>
+              <th className="pb-2 font-medium text-right">{t('evaluation:runs.columns.avgScore')}</th>
+              <th className="pb-2 font-medium text-right">{t('evaluation:runs.columns.caseCount')}</th>
+              <th className="pb-2 font-medium text-right">{t('evaluation:runs.columns.errorCount')}</th>
+              <th className="pb-2 font-medium">{t('evaluation:runs.columns.createdAt')}</th>
             </tr>
           </thead>
           <tbody>
@@ -159,7 +159,7 @@ export function RunsPage() {
                 <td className="py-2 font-mono text-xs text-primary">#{r.id}</td>
                 <td className="py-2 text-text">{configs?.find((config) => String(config.id) === String(r.configId))?.targetKey ?? '—'}</td>
                 <td className="py-2 text-text-secondary">{datasets.find((dataset) => String(dataset.id) === String(configs?.find((config) => String(config.id) === String(r.configId))?.datasetId))?.name ?? '—'}</td>
-                <td className={`py-2 text-center text-xs font-medium ${STATUS_COLORS[r.status] || ''}`}>{r.status}</td>
+                <td className={`py-2 text-center text-xs font-medium ${STATUS_COLORS[r.status] || ''}`}>{t(`evaluation:runs.status.${r.status}`, { defaultValue: r.status })}</td>
                 <td className="py-2 text-right font-medium text-text">{typeof r.summary?.avg_score === 'number' ? (r.summary.avg_score as number).toFixed(3) : '—'}</td>
                 <td className="py-2 text-right text-text-secondary">{(r.summary?.total_cases as number) ?? '—'}</td>
                 <td className="py-2 text-right text-text-secondary">{typeof r.summary?.error_count === 'number' ? r.summary.error_count as number : '—'}</td>
@@ -175,7 +175,7 @@ export function RunsPage() {
         datasets={datasets}
         agents={agents?.items ?? []}
         loading={createConfigMutation.isPending || triggerMutation.isPending}
-        error={createConfigMutation.error || triggerMutation.error ? '无法启动评估，请重试。' : null}
+        error={createConfigMutation.error || triggerMutation.error ? t('evaluation:runs.startError') : null}
         onClose={() => { setEvaluateOpen(false); createConfigMutation.reset(); triggerMutation.reset(); }}
         onSubmit={handleEvaluate}
       />

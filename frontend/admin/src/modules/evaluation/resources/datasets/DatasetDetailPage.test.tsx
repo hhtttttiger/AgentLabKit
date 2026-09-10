@@ -98,7 +98,7 @@ describe('DatasetDetailPage evaluate continuity', () => {
     renderPage('?evaluate=1');
 
     const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent('Evaluate Dataset');
+    expect(dialog).toHaveTextContent('评估数据集');
     // Deep link + refresh reopen the same modal; the dataset comes from the
     // route param, never from ephemeral state.
     await settledSelect();
@@ -110,7 +110,7 @@ describe('DatasetDetailPage evaluate continuity', () => {
     renderPage();
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Evaluate Dataset' }));
+    fireEvent.click(screen.getByRole('button', { name: '评估数据集' }));
 
     await screen.findByRole('dialog');
     await settledSelect();

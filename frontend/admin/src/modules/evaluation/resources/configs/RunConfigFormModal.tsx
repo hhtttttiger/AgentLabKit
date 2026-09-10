@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { FormModal } from '@/shared/ui/FormModal';
 import { Button } from '@/shared/ui/Button';
 import { SelectField, TextField } from '@/shared/ui/FormFields';
@@ -26,18 +27,14 @@ export interface CreateRunConfigDraft {
   judgeModelKey: string;
 }
 
-const DEFAULT_METRICS = [
-  { name: 'answer_relevance', label: '答案相关性' },
-  { name: 'faithfulness', label: '忠实度' },
-  { name: 'context_relevance', label: '上下文相关性' },
-];
+const DEFAULT_METRICS = ['answer_relevance', 'faithfulness', 'context_relevance'] as const;
 
 const emptyDraft: CreateRunConfigDraft = {
   name: 'Evaluation',
   datasetId: '',
   targetType: 'agent',
   targetKey: '',
-  metricConfigs: DEFAULT_METRICS.map((m) => m.name),
+  metricConfigs: [...DEFAULT_METRICS],
   judgeModelKey: '',
 };
 
@@ -51,7 +48,8 @@ export function RunConfigFormModal({
   initialDatasetId,
   agents = [],
 }: RunConfigFormModalProps) {
-  const { t } = useTranslation('evaluation');
+  const { t } = useTranslation(['common', 'evaluation']);
+  const navigate = useNavigate();
   const [draft, setDraft] = useState<CreateRunConfigDraft>(emptyDraft);
 
   useEffect(() => {
@@ -72,20 +70,20 @@ export function RunConfigFormModal({
   return (
     <FormModal
       open={open}
-      title="Evaluate Dataset"
-      description="选择数据集、Agent 和指标，然后运行评估。配置会保存下来供后续 Run Again 使用。"
+      title={t('evaluation:runs.evaluateDataset')}
+      description={t('evaluation:runs.formDescription')}
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            取消
+            {t('common:actions.cancel')}
           </Button>
           <Button
             variant="primary"
             onClick={() => onSubmit(draft)}
             disabled={loading || !isValid}
           >
-            {loading ? '运行准备中...' : 'Run Evaluation'}
+            {loading ? t('evaluation:runs.preparing') : t('evaluation:runs.runEvaluation')}
           </Button>
         </div>
       }
@@ -93,62 +91,71 @@ export function RunConfigFormModal({
       <div className="flex flex-col gap-4">
         {error && <InlineMessage tone="error">{error}</InlineMessage>}
 
+        {datasets.length === 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[2px] border border-warning/30 bg-warning-subtle px-4 py-3 text-sm">
+            <span className="text-text-secondary">{t('evaluation:runs.noDatasetsPrereq')}</span>
+            <Button variant="secondary" onClick={() => navigate('/evaluation/datasets')}>
+              {t('evaluation:overview.openDatasets')}
+            </Button>
+          </div>
+        )}
+
         <SelectField
-          label={t('form.dataset')}
+          label={t('evaluation:form.dataset')}
           value={draft.datasetId}
           onChange={(e) => setDraft((p) => ({ ...p, datasetId: e.target.value }))}
         >
-          <option value="">选择数据集...</option>
+          <option value="">{t('evaluation:runs.selectDataset')}</option>
           {datasets.map((ds) => (
             <option key={ds.id} value={ds.id}>
-              {ds.name} ({ds.caseCount} 条用例)
+              {t('evaluation:runs.datasetOption', { name: ds.name, count: ds.caseCount })}
             </option>
           ))}
         </SelectField>
 
         {draft.targetType === 'agent' && (
           <SelectField
-            label={t('form.agent')}
+            label={t('evaluation:form.agent')}
             value={draft.targetKey}
             onChange={(e) => setDraft((p) => ({ ...p, targetKey: e.target.value }))}
           >
-            <option value="">选择 Agent...</option>
+            <option value="">{t('evaluation:runs.selectAgent')}</option>
             {agents.map((agent) => <option key={agent.agentKey} value={agent.agentKey}>{agent.displayName} ({agent.agentKey})</option>)}
           </SelectField>
         )}
 
         <div>
           <label className="mb-1 block text-xs font-medium text-text-muted">
-            评估指标
+            {t('evaluation:runs.metrics')}
           </label>
           <div className="flex flex-wrap gap-2">
             {DEFAULT_METRICS.map((metric) => (
               <label
-                key={metric.name}
+                key={metric}
                 className="flex cursor-pointer items-center gap-1.5 rounded-[2px] border border-border bg-background px-3 py-1.5 text-xs"
               >
                 <input
                   type="checkbox"
-                  checked={draft.metricConfigs.includes(metric.name)}
-                  onChange={() => toggleMetric(metric.name)}
+                  checked={draft.metricConfigs.includes(metric)}
+                  onChange={() => toggleMetric(metric)}
                 />
-                {metric.label}
+                {t(`evaluation:runs.metric.${metric}`)}
               </label>
             ))}
           </div>
         </div>
 
         <details className="border-t border-border pt-3">
-          <summary className="cursor-pointer text-sm font-medium text-text">{t('form.advanced')}</summary>
+          <summary className="cursor-pointer text-sm font-medium text-text">{t('evaluation:form.advanced')}</summary>
           <div className="mt-3 flex flex-col gap-4">
             <TextField
-              label={t('form.configurationName')}
+              label={t('evaluation:form.configurationName')}
               value={draft.name}
               onChange={(e) => setDraft((p) => ({ ...p, name: e.target.value }))}
               placeholder="Evaluation"
             />
             <SelectField
-              label={t('form.targetMode')}
+              label={t('evaluation:form.targetMode')}
               value={draft.targetType}
               onChange={(e) => setDraft((p) => ({ ...p, targetType: e.target.value as 'agent' | 'rag_pipeline' }))}
             >
@@ -157,18 +164,18 @@ export function RunConfigFormModal({
             </SelectField>
             {draft.targetType === 'rag_pipeline' && (
               <TextField
-                label={t('form.ragPipeline')}
+                label={t('evaluation:form.ragPipeline')}
                 value={draft.targetKey}
                 onChange={(e) => setDraft((p) => ({ ...p, targetKey: e.target.value }))}
-                placeholder="例如：kb-123"
+                placeholder={t('evaluation:runs.ragPipelinePlaceholder')}
               />
             )}
             <TextField
-              label={t('form.judgeBinding')}
+              label={t('evaluation:form.judgeBinding')}
               value={draft.judgeModelKey}
               onChange={(e) => setDraft((p) => ({ ...p, judgeModelKey: e.target.value }))}
-              placeholder="留空则使用默认模型"
-              hint="LLM-as-Judge 使用的模型 binding key"
+              placeholder={t('evaluation:runs.judgePlaceholder')}
+              hint={t('evaluation:runs.judgeHint')}
             />
           </div>
         </details>
