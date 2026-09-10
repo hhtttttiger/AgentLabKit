@@ -14,6 +14,7 @@ from typing import Any
 
 from ..contracts import EvalCase, EvalMetricResult, EvalRunConfig, EvalRunResult
 from ..evidence import (
+    REASON_EVIDENCE_NOT_PROVIDED,
     REASON_MISSING_ACTUAL_OUTPUT,
     REASON_MISSING_REFERENCE,
     REASON_NO_RETRIEVAL,
@@ -108,13 +109,17 @@ def _resolve_case_inputs(
     else:
         response = case.expected_output or ""
     if ev is None:
-        # Legacy dataset-only 模式：case.context 是数据集 expectation 字段。
+        # 没有 canonical evidence：caller 没有提供 candidate 执行事实。
+        # DatasetExample.context 是数据集 expectation 字段 —— 绝不能被解释成
+        # candidate retrieved_contexts（向后兼容只意味着"仍可调用"，不意味着
+        # "恢复 Dataset context 语义"）。retrieval-aware metric 如实
+        # unavailable；answer-only / reference-only metric 继续工作。
         return _CaseInputs(
             user_input=case.input_text,
             response=response,
             reference=case.expected_output,
-            contexts=list(case.context or []),
-            retrieval_reason=None,
+            contexts=None,
+            retrieval_reason=REASON_EVIDENCE_NOT_PROVIDED,
             evidence_summary=None,
         )
 
@@ -158,6 +163,7 @@ _UNAVAILABLE_TEXT = {
     REASON_NO_RETRIEVAL: "unavailable: no retrieval occurred for this run",
     REASON_RETRIEVAL_FAILED: "unavailable: all retrieval attempts failed",
     REASON_TRACE_UNAVAILABLE: "unavailable: candidate trace evidence unavailable",
+    REASON_EVIDENCE_NOT_PROVIDED: "unavailable: candidate evidence not provided by caller",
 }
 
 
@@ -193,12 +199,17 @@ class _RAGASMetricAdapter:
     provider: str = "ragas"
 
     async def score(self, case: EvalCase) -> float:
-        """单个 case 评分 — 构造最小 dataset 调用 RAGAS。"""
+        """单个 case 评分 — 构造最小 dataset 调用 RAGAS。
+
+        没有 candidate evidence：DatasetExample.context 是数据集 expectation
+        字段，绝不作为 retrieved_contexts 喂给 ragas；context 依赖的 metric
+        会因空 contexts 得到 NaN → ValueError（truthful unavailable）。
+        """
         from ragas import EvaluationDataset, evaluate
 
         dataset = EvaluationDataset.from_list([{
             "user_input": case.input_text,
-            "retrieved_contexts": case.context or [],
+            "retrieved_contexts": [],
             "response": case.expected_output or "",
             "reference": case.expected_output or "",
         }])
@@ -364,8 +375,9 @@ class RAGASEvalProvider:
 
         ``evidence``（与 cases 等长）是 canonical candidate evidence。
         提供时 ``retrieved_contexts`` 只来自 evidence 中 successful retrieval
-        attempts 的 bounded previews；缺省时回退 ``case.context``
-        （dataset expectation，不是 candidate 检索证据）。
+        attempts 的 bounded previews。未提供时 retrieval-aware metric 得到
+        truthful unavailable（DatasetExample.context 是数据集 expectation
+        字段，永远不是 candidate 检索证据）。
 
         缺少 metric 声明需要的 evidence 时，该 metric 得到
         ``score=None / passed=None`` 加 machine-readable reason（truthful

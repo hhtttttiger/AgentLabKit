@@ -208,12 +208,32 @@ class TestRAGASEvalProvider:
             dataset_cls=mock_ds_cls,
         )
 
+        from evaluation.evidence import (
+            EvidenceAvailability, EvaluationEvidence, RetrievalAttempt,
+            RetrievalContextRef, RetrievalEvidence,
+        )
+        evidence = [
+            EvaluationEvidence(
+                example_id=str(case.id), run_id="run", trace_id="trace",
+                input_text=case.input_text, actual_output="out",
+                expected_output=case.expected_output,
+                retrieval=RetrievalEvidence(
+                    availability=EvidenceAvailability.AVAILABLE,
+                    attempts=(RetrievalAttempt(
+                        succeeded=True, query="q", result_count=1,
+                        refs=(RetrievalContextRef(content_preview="ctx"),),
+                    ),),
+                ),
+            )
+            for case in sample_cases
+        ]
         with patch.dict("sys.modules", {"ragas": ragas_mod}):
             provider = RAGASEvalProvider(llm=MagicMock())
             results = await provider.evaluate(
                 sample_cases,
                 ["faithfulness"],
                 sample_config,
+                evidence=evidence,
             )
             assert len(results) == 1
             assert results[0].error_message is not None

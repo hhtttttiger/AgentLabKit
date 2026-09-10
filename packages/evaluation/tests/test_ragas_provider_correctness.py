@@ -44,6 +44,31 @@ class _FakeEvaluationResult:
         return self._per_metric[metric_name]
 
 
+
+def _evidence_with_contexts(n: int = 2) -> list[Any]:
+    """Canonical evidence with successful retrieval so retrieval-aware
+    metrics are computable (these tests exercise score plumbing, not the
+    no-evidence gating)."""
+    from evaluation.evidence import (
+        EvidenceAvailability, EvaluationEvidence, RetrievalAttempt,
+        RetrievalContextRef, RetrievalEvidence,
+    )
+    return [
+        EvaluationEvidence(
+            example_id=str(i + 1), run_id="run", trace_id="trace",
+            input_text=f"q{i}", actual_output="out", expected_output=f"a{i}",
+            retrieval=RetrievalEvidence(
+                availability=EvidenceAvailability.AVAILABLE,
+                attempts=(RetrievalAttempt(
+                    succeeded=True, query="q", result_count=1,
+                    refs=(RetrievalContextRef(content_preview=f"ctx{i}"),),
+                ),),
+            ),
+        )
+        for i in range(n)
+    ]
+
+
 def _make_provider(**kwargs: Any) -> RAGASEvalProvider:
     # Direct llm injection skips gateway resolution in these tests.
     kwargs.setdefault("llm", MagicMock())
@@ -59,6 +84,7 @@ async def test_result_access_uses_getitem_and_preserves_zero_scores():
     with patch("ragas.evaluate", return_value=fake):
         results = await provider.evaluate(
             _cases(2), ["faithfulness"], EvalRunConfig(),
+            evidence=_evidence_with_contexts(2),
         )
 
     assert len(results) == 2
@@ -85,6 +111,7 @@ async def test_unavailable_rows_do_not_fail_the_whole_evaluation():
     with patch("ragas.evaluate", return_value=fake):
         results = await provider.evaluate(
             _cases(2), ["faithfulness", "context_precision"], EvalRunConfig(),
+            evidence=_evidence_with_contexts(2),
         )
 
     assert all(r.error_message is None for r in results)
@@ -171,16 +198,17 @@ def test_summary_avg_skips_unavailable():
 @pytest.mark.asyncio
 async def test_actual_outputs_are_the_evaluated_response():
     """The agent's real output is the response ragas sees — not the expected
-    output (which would make the evaluation expected-vs-expected)."""
+    output (which would make the evaluation expected-vs-expected).
+
+    Without canonical evidence the answer-only metric still runs, fed by the
+    ``actual_outputs`` channel; retrieval-aware metrics stay gated (their
+    inputs would be invented, and dataset context is never a substitute).
+    """
     provider = _make_provider()
     captured = {}
 
-    class _CapturingResult(_FakeEvaluationResult):
-        pass
-
     def fake_evaluate(*args, **kwargs):
-        captured["dataset"] = args[0] if args else kwargs.get("dataset")
-        return _FakeEvaluationResult({"faithfulness": [0.9]})
+        return _FakeEvaluationResult({"answer_relevancy": [0.9]})
 
     with patch("ragas.evaluate", side_effect=fake_evaluate):
         # Patch EvaluationDataset.from_list to capture the raw items
@@ -190,13 +218,14 @@ async def test_actual_outputs_are_the_evaluated_response():
             captured["items"] = [dict(i) for i in items]
             return orig_from_list(items)
         with patch.object(ragas_mod.EvaluationDataset, "from_list", staticmethod(spy_from_list)):
-            await provider.evaluate(
-                _cases(1), ["faithfulness"], EvalRunConfig(),
+            results = await provider.evaluate(
+                _cases(1), ["answer_relevancy"], EvalRunConfig(),
                 actual_outputs=["真实输出"],
             )
 
     assert captured["items"][0]["response"] == "真实输出"
     assert captured["items"][0]["reference"] == "a0"  # expected stays the reference
+    assert results[0].metric_results[0].score == 0.9
 
 
 def test_error_rows_carry_no_score():

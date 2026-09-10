@@ -154,15 +154,27 @@ def test_metric_receives_candidate_contexts_not_dataset_context(captured_items):
     assert items[0]["retrieved_contexts"] == ["BETA-candidate-context"]
 
 
-def test_legacy_mode_without_evidence_still_uses_dataset_context(captured_items):
+def test_legacy_mode_without_evidence_gates_retrieval_metrics(captured_items):
+    """Backward compatibility means 'old callers can still evaluate', NOT
+    'DatasetExample.context silently becomes candidate retrieved_contexts'."""
     provider = RAGASEvalProvider(llm=MagicMock())
     case = EvalCase(
         id=1, input_text="q", expected_output="ref",
         context=["dataset-context"],
     )
-    results, items = _evaluate_sync(provider, [case], ["faithfulness"], run_config_fixture())
-    assert items[0]["retrieved_contexts"] == ["dataset-context"]
-    assert results[0].metric_results[0].score == 0.8
+    results, items = _evaluate_sync(
+        provider, [case], ["faithfulness", "answer_relevancy"], run_config_fixture(),
+    )
+    by_name = {m.metric_name: m for m in results[0].metric_results}
+    # Retrieval-aware metric: truthfully unavailable, never dataset context.
+    assert by_name["faithfulness"].score is None
+    assert by_name["faithfulness"].passed is None
+    assert by_name["faithfulness"].reason == "evidence_not_provided"
+    # Answer-only metric keeps working.
+    assert by_name["answer_relevancy"].score == 0.7
+    # faithfulness is never submitted with invented inputs.
+    assert len(items) == 1
+    assert items[0]["retrieved_contexts"] == []
 
 
 # ── Missing evidence → truthful unavailable, per metric ─────────────
@@ -303,3 +315,52 @@ def test_retry_evidence_feeds_only_successful_contexts(captured_items):
 )
     assert results[0].metric_results[0].score == 0.8
     assert items[0]["retrieved_contexts"] == ["BETA"]
+
+
+# ── T11: DatasetExample.context is never candidate retrieved_contexts ──
+
+
+def test_t11_evidence_none_never_leaks_dataset_context_to_provider(captured_items):
+    """EvaluationContext.evidence=None + example.context='SOURCE_ALPHA':
+    the provider must never receive SOURCE_ALPHA as retrieved_contexts."""
+    import json
+
+    from evaluation.contracts_v2 import AgentRunSummary, DatasetExample, EvaluationContext
+    from evaluation.evaluators.ragas_evaluator import RagasEvaluator
+
+    provider = RAGASEvalProvider(llm=MagicMock())
+    context = EvaluationContext(
+        example=DatasetExample(
+            example_id="1", dataset_id="1", input_text="q",
+            expected_output="ref", context=["SOURCE_ALPHA"],
+        ),
+        # Run with a real actual output.
+        run=AgentRunSummary(
+            run_id="candidate-run", input_text="q", output_text="candidate answer",
+        ),
+        spans=[],
+        evidence=None,  # legacy caller: no canonical evidence composed
+    )
+    evaluator = RagasEvaluator(provider, metric_names=["faithfulness", "answer_relevancy"])
+
+    ragas_mod = _make_ragas_module(
+        evaluate_fn=lambda *a, **k: _result_with({
+            "faithfulness": [0.8], "answer_relevancy": [0.7],
+        }),
+        dataset_cls=_capturing_dataset_cls(captured_items),
+    )
+    with patch.dict("sys.modules", {"ragas": ragas_mod, "ragas.metrics": ragas_mod.metrics}):
+        import asyncio
+        result = asyncio.run(evaluator.evaluate(context))
+
+    # The dataset expectation string never reaches the provider as a
+    # retrieval context.
+    assert "SOURCE_ALPHA" not in json.dumps(captured_items)
+    by_name = {m.metric_name: m for m in result.metric_results}
+    assert by_name["faithfulness"].score is None
+    assert by_name["faithfulness"].passed is None
+    assert by_name["faithfulness"].reason == "evidence_not_provided"
+    # Overall score comes only from the answer-only metric — the gated
+    # retrieval metric contributes neither 0.0 nor a FAIL.
+    assert result.score == 0.7
+    assert by_name["answer_relevancy"].score == 0.7
