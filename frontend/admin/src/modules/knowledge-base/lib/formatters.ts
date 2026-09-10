@@ -19,14 +19,16 @@ export type ProcessingStage =
   | 'Completed'
   | 'Failed';
 
-const STAGE_LABELS: Record<ProcessingStage, string> = {
-  Pending: '等待中',
-  Loading: '加载文件',
-  Splitting: '文本切分',
-  Indexing: '构建索引',
-  GraphBuilding: '图谱构建',
-  Completed: '已完成',
-  Failed: '失败',
+// Labels are locale keys under knowledgeBase:documentDetail.*; callers
+// translate them. Unknown backend step names render as raw text.
+const STAGE_LABEL_KEYS: Record<ProcessingStage, string> = {
+  Pending: 'documentDetail.stage.Pending',
+  Loading: 'documentDetail.stage.Loading',
+  Splitting: 'documentDetail.stage.Splitting',
+  Indexing: 'documentDetail.stage.Indexing',
+  GraphBuilding: 'documentDetail.stage.GraphBuilding',
+  Completed: 'documentDetail.stage.Completed',
+  Failed: 'documentDetail.stage.Failed',
 };
 
 const PIPELINE_STEPS: ProcessingStage[] = [
@@ -42,15 +44,15 @@ export interface PipelineStep {
   status: 'pending' | 'active' | 'done' | 'failed';
 }
 
-/** Backend step name → Chinese label mapping */
-const BACKEND_STEP_LABELS: Record<string, string> = {
-  DocumentLoaderStep: '加载文件',
-  DocumentSplitterStep: '文本切分',
-  TokenizerStep: '分词处理',
-  TerminologyStep: '术语匹配',
-  GCStep: '内存回收',
-  IndexBuilderStep: '构建索引',
-  GraphBuilderStep: '图谱构建',
+/** Backend step name → locale key mapping */
+const BACKEND_STEP_KEYS: Record<string, string> = {
+  DocumentLoaderStep: 'documentDetail.backendStep.DocumentLoaderStep',
+  DocumentSplitterStep: 'documentDetail.backendStep.DocumentSplitterStep',
+  TokenizerStep: 'documentDetail.backendStep.TokenizerStep',
+  TerminologyStep: 'documentDetail.backendStep.TerminologyStep',
+  GCStep: 'documentDetail.backendStep.GCStep',
+  IndexBuilderStep: 'documentDetail.backendStep.IndexBuilderStep',
+  GraphBuilderStep: 'documentDetail.backendStep.GraphBuilderStep',
 };
 
 export type StageProgressItem = {
@@ -68,7 +70,7 @@ export function getPipelineStepsFromProgress(progress: StageProgressItem[]): Pip
   if (!progress || progress.length === 0) return null;
   return progress.map((item) => ({
     stage: item.name,
-    label: BACKEND_STEP_LABELS[item.name] ?? item.name,
+    label: BACKEND_STEP_KEYS[item.name] ?? item.name,
     status: item.status === 'running' ? 'active' : item.status,
   }));
 }
@@ -76,31 +78,36 @@ export function getPipelineStepsFromProgress(progress: StageProgressItem[]): Pip
 /** Legacy fallback: derive pipeline steps from a single stage name. */
 export function getPipelineSteps(currentStage: ProcessingStage): PipelineStep[] {
   if (currentStage === 'Pending') {
-    return PIPELINE_STEPS.map((s) => ({ stage: s, label: STAGE_LABELS[s], status: 'pending' as const }));
+    return PIPELINE_STEPS.map((s) => ({ stage: s, label: STAGE_LABEL_KEYS[s], status: 'pending' as const }));
   }
 
   if (currentStage === 'Completed') {
-    return PIPELINE_STEPS.map((s) => ({ stage: s, label: STAGE_LABELS[s], status: 'done' as const }));
+    return PIPELINE_STEPS.map((s) => ({ stage: s, label: STAGE_LABEL_KEYS[s], status: 'done' as const }));
   }
 
   if (currentStage === 'Failed') {
-    return PIPELINE_STEPS.map((s) => ({ stage: s, label: STAGE_LABELS[s], status: 'failed' as const }));
+    return PIPELINE_STEPS.map((s) => ({ stage: s, label: STAGE_LABEL_KEYS[s], status: 'failed' as const }));
   }
 
   const idx = PIPELINE_STEPS.indexOf(currentStage);
   if (idx === -1) {
-    return PIPELINE_STEPS.map((s) => ({ stage: s, label: STAGE_LABELS[s], status: 'pending' as const }));
+    return PIPELINE_STEPS.map((s) => ({ stage: s, label: STAGE_LABEL_KEYS[s], status: 'pending' as const }));
   }
 
   return PIPELINE_STEPS.map((step, i) => ({
     stage: step,
-    label: STAGE_LABELS[step],
+    label: STAGE_LABEL_KEYS[step],
     status: i < idx ? ('done' as const) : i === idx ? ('active' as const) : ('pending' as const),
   }));
 }
 
+/** Returns a locale key when known, otherwise the raw stage text. */
 export function getStageLabel(stage: string): string {
-  return STAGE_LABELS[stage as ProcessingStage] ?? BACKEND_STEP_LABELS[stage] ?? stage;
+  return STAGE_LABEL_KEYS[stage as ProcessingStage] ?? BACKEND_STEP_KEYS[stage] ?? stage;
+}
+
+export function isDocumentStageKey(label: string): boolean {
+  return label.startsWith('documentDetail.');
 }
 
 export function isIngestPolling(status: IngestStatus | undefined): boolean {

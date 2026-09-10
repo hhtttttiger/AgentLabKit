@@ -149,6 +149,103 @@ export const knowledgeBase = {
     Completed: 'Completed',
     Failed: 'Failed'
   },
+  documentDetail: {
+    tabs: {
+      overview: 'Overview',
+      pipeline: 'Processing pipeline',
+      segments: 'Segments'
+    },
+    fields: {
+      type: 'Type',
+      status: 'Status',
+      fileSize: 'File size',
+      createdAt: 'Created',
+      recallTotal: 'Total recalls',
+      lastRecall: 'Last recalled',
+      error: 'Error'
+    },
+    question: 'Question',
+    answer: 'Answer',
+    pipeline: {
+      statusTitle: 'Processing status',
+      autoRefresh: '(auto-refreshing...)',
+      indexTitle: 'Index status'
+    },
+    stage: {
+      Pending: 'Pending',
+      Loading: 'Load file',
+      Splitting: 'Text splitting',
+      Indexing: 'Build index',
+      GraphBuilding: 'Graph building',
+      Completed: 'Completed',
+      Failed: 'Failed'
+    },
+    backendStep: {
+      DocumentLoaderStep: 'Load file',
+      DocumentSplitterStep: 'Text splitting',
+      TokenizerStep: 'Tokenization',
+      TerminologyStep: 'Terminology matching',
+      GCStep: 'Memory cleanup',
+      IndexBuilderStep: 'Build index',
+      GraphBuilderStep: 'Graph building'
+    }
+  },
+  qaImport: {
+    title: 'Import QA pairs',
+    description: 'Upload a CSV or XLSX file. The first row is a header and is ignored; column 1 is the question, column 2 is the answer.',
+    importing: 'Importing...',
+    confirm: 'Import',
+    uploadPrompt: 'Click to upload a file',
+    formatsHint: 'Supports .csv / .xlsx',
+    replaceFile: 'Click to choose another file',
+    noTemplate: 'Need a template?',
+    downloadTemplate: 'Download import template',
+    failed: 'Import failed. Please try again later.',
+    createdCount: 'Created {{count}}',
+    updatedCount: 'Updated {{count}}',
+    skippedCount: 'Skipped {{count}}',
+    rowNumber: 'Row {{number}}',
+    noRowErrors: 'No row-level errors.',
+    templateHeader: 'Question,Answer',
+    templateRow: 'Question example {{number}},Answer example {{number}}'
+  },
+  qaEditor: {
+    titleCreate: 'Create QA pair',
+    titleEdit: 'Edit QA pair',
+    question: 'Question',
+    questionPlaceholder: 'Enter the question',
+    answer: 'Answer',
+    answerPlaceholder: 'Enter the answer'
+  },
+  folders: {
+    managerTitle: 'Manage folders',
+    managerDescription: 'Organize knowledge base content in levels. Create, rename, move, and delete folders.',
+    createRoot: 'New root folder',
+    createSubTitle: 'New subfolder',
+    createSubAria: 'Create a subfolder under {{name}}',
+    renameAria: 'Rename {{name}}',
+    moveAria: 'Move {{name}}',
+    deleteAria: 'Delete {{name}}',
+    deleteGeneric: 'Delete this folder? Its subfolders and documents will be deleted too.'
+  },
+  folderCreate: {
+    description: 'Folders organize documents in your knowledge base and support multiple levels.',
+    nameLabel: 'Folder name',
+    namePlaceholder: 'e.g. Product docs',
+    nameRequired: 'Folder name is required.',
+    creating: 'Creating...',
+    submit: 'Create folder'
+  },
+  folderMove: {
+    title: 'Move to folder',
+    description: 'Choose a new location. Root means the item is not placed in any folder.',
+    rootOption: 'Root',
+    moving: 'Moving...'
+  },
+  segments: {
+    totalCount: '{{count}} segments in total',
+    pageIndicator: 'Page {{page}} of {{total}}'
+  },
   detail: {
     eyebrow: 'Knowledge base',
     fallbackTitle: 'Knowledge base',

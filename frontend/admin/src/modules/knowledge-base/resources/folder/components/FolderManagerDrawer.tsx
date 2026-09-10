@@ -100,8 +100,8 @@ export function FolderManagerDrawer({ kbId, open, onClose }: Props) {
                   setCreateParentId(folder.id);
                   setCreateOpen(true);
                 }}
-                aria-label={`在 ${folder.name} 下新建子文件夹`}
-                title="新建子文件夹"
+                aria-label={t('knowledgeBase:folders.createSubAria', { name: folder.name })}
+                title={t('knowledgeBase:folders.createSubTitle')}
               >
                 <Plus size={14} />
               </Button>
@@ -109,7 +109,7 @@ export function FolderManagerDrawer({ kbId, open, onClose }: Props) {
                 variant="ghost"
                 className="h-8 px-2 text-xs"
                 onClick={() => startRenaming(folder)}
-                aria-label={`重命名 ${folder.name}`}
+                aria-label={t('knowledgeBase:folders.renameAria', { name: folder.name })}
               >
                 <Pencil size={14} />
               </Button>
@@ -117,7 +117,7 @@ export function FolderManagerDrawer({ kbId, open, onClose }: Props) {
                 variant="ghost"
                 className="h-8 px-2 text-xs"
                 onClick={() => setMovingFolder(folder)}
-                aria-label={`移动 ${folder.name}`}
+                aria-label={t('knowledgeBase:folders.moveAria', { name: folder.name })}
               >
                 <Move size={14} />
               </Button>
@@ -125,7 +125,7 @@ export function FolderManagerDrawer({ kbId, open, onClose }: Props) {
                 variant="ghost"
                 className={cn('h-8 px-2 text-xs text-error-text hover:bg-error-subtle hover:text-error-text')}
                 onClick={() => setDeletingFolder(folder)}
-                aria-label={`删除 ${folder.name}`}
+                aria-label={t('knowledgeBase:folders.deleteAria', { name: folder.name })}
               >
                 <Trash2 size={14} />
               </Button>
@@ -142,8 +142,8 @@ export function FolderManagerDrawer({ kbId, open, onClose }: Props) {
     <>
       <FormModal
         open={open}
-        title="管理文件夹"
-        description="按层级整理知识库内容。支持新建、重命名、移动和删除。"
+        title={t('knowledgeBase:folders.managerTitle')}
+        description={t('knowledgeBase:folders.managerDescription')}
         onClose={onClose}
         widthClassName="max-w-xl"
         footer={(
@@ -155,7 +155,7 @@ export function FolderManagerDrawer({ kbId, open, onClose }: Props) {
               }}
             >
               <Plus size={16} />
-              新建根文件夹
+              {t('knowledgeBase:folders.createRoot')}
             </Button>
           </div>
         )}
@@ -189,11 +189,11 @@ export function FolderManagerDrawer({ kbId, open, onClose }: Props) {
 
       <ConfirmDialog
         open={!!deletingFolder}
-        title="删除文件夹"
+        title={t('knowledgeBase:documents.deleteFolderTitle')}
         description={deletingFolder
-          ? `确认删除「${deletingFolder.name}」？该文件夹下的子文件夹和文档也会被一并删除。`
-          : '确认删除当前文件夹？'}
-        confirmLabel="删除"
+          ? t('knowledgeBase:documents.deleteFolderDescription', { name: deletingFolder.name })
+          : t('knowledgeBase:folders.deleteGeneric')}
+        confirmLabel={t('common:actions.delete')}
         loading={remove.isPending}
         onConfirm={() => {
           if (!deletingFolder) {

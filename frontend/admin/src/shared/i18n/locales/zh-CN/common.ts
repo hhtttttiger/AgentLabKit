@@ -147,7 +147,8 @@ export const common = {
     addInstance: '添加实例',
     addBinding: '添加绑定',
     moreActions: '更多操作',
-    close: '关闭'
+    close: '关闭',
+    save: '保存'
   },
   pagination: {
     totalPrefix: '共 ',

@@ -10,11 +10,13 @@ describe('knowledge base formatters', () => {
   });
 
   it('maps intermediate pipeline stages to done, active, and pending steps', () => {
+    // Labels are locale keys under knowledgeBase:documentDetail.stage.*;
+    // surfaces translate them at render time.
     expect(getPipelineSteps('Indexing')).toEqual([
-      { stage: 'Loading', label: '加载文件', status: 'done' },
-      { stage: 'Splitting', label: '文本切分', status: 'done' },
-      { stage: 'Indexing', label: '构建索引', status: 'active' },
-      { stage: 'Completed', label: '已完成', status: 'pending' },
+      { stage: 'Loading', label: 'documentDetail.stage.Loading', status: 'done' },
+      { stage: 'Splitting', label: 'documentDetail.stage.Splitting', status: 'done' },
+      { stage: 'Indexing', label: 'documentDetail.stage.Indexing', status: 'active' },
+      { stage: 'Completed', label: 'documentDetail.stage.Completed', status: 'pending' },
     ]);
   });
 });

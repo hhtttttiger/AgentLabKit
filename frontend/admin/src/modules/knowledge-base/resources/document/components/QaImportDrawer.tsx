@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, Upload } from 'lucide-react';
 import { FormModal } from '@/shared/ui/FormModal';
 import { Button } from '@/shared/ui/Button';
 import type { KbQaImportResult } from '../../../lib/contracts';
 import { useDocumentMutations } from '../hooks';
 
-function downloadTemplate() {
-  const csv = '\uFEFF问题,答案\n问题示例1,答案示例1\n问题示例2,答案示例2\n';
+function buildTemplateCsv(header: string, row: (number: number) => string): string {
+  return `\uFEFF${header}\n${row(1)}\n${row(2)}\n`;
+}
+
+function downloadTemplate(csv: string) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -27,6 +31,7 @@ export function QaImportDrawer({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const { importQa } = useDocumentMutations(kbId);
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<KbQaImportResult | null>(null);
@@ -55,7 +60,7 @@ export function QaImportDrawer({
           createdCount: 0,
           updatedCount: 0,
           skippedCount: 0,
-          errors: [{ rowNumber: 0, errorCode: 'import_failed', message: '导入失败，请稍后重试。' }],
+          errors: [{ rowNumber: 0, errorCode: 'import_failed', message: t('knowledgeBase:qaImport.failed') }],
         });
       },
     });
@@ -64,16 +69,16 @@ export function QaImportDrawer({
   return (
     <FormModal
       open={open}
-      title="导入 QA"
-      description="上传 CSV 或 XLSX 文件，第一行为标题行（将被忽略），第二列起：第一列为问题，第二列为答案。"
+      title={t('knowledgeBase:qaImport.title')}
+      description={t('knowledgeBase:qaImport.description')}
       onClose={handleClose}
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={handleClose}>
-            取消
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={!file || importQa.isPending}>
-            {importQa.isPending ? '导入中...' : '确认导入'}
+            {importQa.isPending ? t('knowledgeBase:qaImport.importing') : t('knowledgeBase:qaImport.confirm')}
           </Button>
         </div>
       }
@@ -99,25 +104,32 @@ export function QaImportDrawer({
           {file ? (
             <>
               <div className="text-sm font-medium text-text">{file.name}</div>
-              <div className="text-xs text-text-muted">点击重新选择文件</div>
+              <div className="text-xs text-text-muted">{t('knowledgeBase:qaImport.replaceFile')}</div>
             </>
           ) : (
             <>
-              <div className="text-sm font-medium text-text">点击上传文件</div>
-              <div className="text-xs text-text-muted">支持 .csv / .xlsx 格式</div>
+              <div className="text-sm font-medium text-text">{t('knowledgeBase:qaImport.uploadPrompt')}</div>
+              <div className="text-xs text-text-muted">{t('knowledgeBase:qaImport.formatsHint')}</div>
             </>
           )}
         </label>
 
         <div className="flex items-center justify-center gap-2 text-sm text-text-muted">
-          <span>没有模板？</span>
+          <span>{t('knowledgeBase:qaImport.noTemplate')}</span>
           <button
             type="button"
-            onClick={downloadTemplate}
+            onClick={() =>
+              downloadTemplate(
+                buildTemplateCsv(
+                  t('knowledgeBase:qaImport.templateHeader'),
+                  (number) => t('knowledgeBase:qaImport.templateRow', { number }),
+                ),
+              )
+            }
             className="inline-flex items-center gap-1 font-medium text-primary transition hover:underline"
           >
             <Download size={14} />
-            下载导入模板
+            {t('knowledgeBase:qaImport.downloadTemplate')}
           </button>
         </div>
 
@@ -125,13 +137,13 @@ export function QaImportDrawer({
           <div className="space-y-3 rounded-[2px] border border-border bg-surface/70 p-4">
             <div className="flex flex-wrap gap-4 text-sm">
               <span className="text-text">
-                新建 <strong className="text-primary">{result.createdCount}</strong> 条
+                {t('knowledgeBase:qaImport.createdCount', { count: result.createdCount })}
               </span>
               <span className="text-text">
-                更新 <strong className="text-primary">{result.updatedCount}</strong> 条
+                {t('knowledgeBase:qaImport.updatedCount', { count: result.updatedCount })}
               </span>
-              <span className="text-text">
-                跳过 <strong className="text-text-muted">{result.skippedCount}</strong> 条
+              <span className="text-text-muted">
+                {t('knowledgeBase:qaImport.skippedCount', { count: result.skippedCount })}
               </span>
             </div>
             {result.errors.length > 0 ? (
@@ -139,14 +151,14 @@ export function QaImportDrawer({
                 {result.errors.map((err) => (
                   <li key={`${err.rowNumber}-${err.errorCode}`} className="flex gap-2">
                     {err.rowNumber > 0 && (
-                      <span className="shrink-0 font-medium text-text-muted">第 {err.rowNumber} 行</span>
+                      <span className="shrink-0 font-medium text-text-muted">{t('knowledgeBase:qaImport.rowNumber', { number: err.rowNumber })}</span>
                     )}
                     <span>{err.message}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-text-secondary">无行级错误。</p>
+              <p className="text-sm text-text-secondary">{t('knowledgeBase:qaImport.noRowErrors')}</p>
             )}
           </div>
         ) : null}

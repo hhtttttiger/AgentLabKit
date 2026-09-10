@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui/Button';
 import { TextField } from '@/shared/ui/FormFields';
 import { Modal } from '@/shared/ui/Modal';
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function FolderCreateModal({ kbId, parentFolderId, open, onClose }: Props) {
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const { create } = useFolderMutations(kbId);
@@ -26,7 +28,7 @@ export function FolderCreateModal({ kbId, parentFolderId, open, onClose }: Props
   const handleSubmit = async () => {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError('文件夹名称不能为空');
+      setError(t('knowledgeBase:folderCreate.nameRequired'));
       return;
     }
 
@@ -43,28 +45,28 @@ export function FolderCreateModal({ kbId, parentFolderId, open, onClose }: Props
   return (
     <Modal
       open={open}
-      title="新建文件夹"
-      description="文件夹用于整理知识库中的文档，支持多层级管理。"
+      title={t('knowledgeBase:documents.createFolder')}
+      description={t('knowledgeBase:folderCreate.description')}
       onClose={onClose}
       widthClassName="max-w-lg"
       footer={(
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            取消
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={create.isPending}>
-            {create.isPending ? '创建中...' : '创建文件夹'}
+            {create.isPending ? t('knowledgeBase:folderCreate.creating') : t('knowledgeBase:folderCreate.submit')}
           </Button>
         </div>
       )}
     >
       <div className="space-y-4">
         <TextField
-          label="文件夹名称"
+          label={t('knowledgeBase:folderCreate.nameLabel')}
           value={name}
           autoFocus
           maxLength={200}
-          placeholder="例如：产品文档"
+          placeholder={t('knowledgeBase:folderCreate.namePlaceholder')}
           error={error}
           onChange={(event) => {
             setName(event.target.value);

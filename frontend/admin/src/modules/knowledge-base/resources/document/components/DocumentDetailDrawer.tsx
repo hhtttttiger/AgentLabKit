@@ -11,16 +11,18 @@ import { ProcessingStatusBadge } from './ProcessingStatusBadge';
 import { ProcessingPipeline } from './ProcessingPipeline';
 import { SegmentViewer } from '../../segment/components/SegmentViewer';
 import { useProcessingStatus, useDocumentIndexes, useDocumentMutations } from '../hooks';
-import { formatFileSize, getStageLabel, type ProcessingStage } from '../../../lib/formatters';
+import { formatFileSize, getStageLabel, isDocumentStageKey, type ProcessingStage } from '../../../lib/formatters';
 import { formatRecallTime, getKnowledgeDocumentTypeLabel } from '../../../lib/ranking';
 import type { KbDocumentView } from '../../../lib/contracts';
 
 type Tab = 'overview' | 'pipeline' | 'segments';
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'overview', label: '概览' },
-  { key: 'pipeline', label: '处理流水线' },
-  { key: 'segments', label: '分段' },
+// Keys are prefixed with the namespace: this component's translate hook
+// lists ['common', 'knowledgeBase'], so unprefixed keys hit `common`.
+const TABS: { key: Tab; labelKey: string }[] = [
+  { key: 'overview', labelKey: 'knowledgeBase:documentDetail.tabs.overview' },
+  { key: 'pipeline', labelKey: 'knowledgeBase:documentDetail.tabs.pipeline' },
+  { key: 'segments', labelKey: 'knowledgeBase:documentDetail.tabs.segments' },
 ];
 
 export function DocumentDetailDrawer({
@@ -55,25 +57,27 @@ export function DocumentDetailDrawer({
   return (
     <FormModal
       open={!!document}
-      title={document.sourceType === 'File' ? (document.fileName ?? '文件') : 'QA 对'}
+      title={document.sourceType === 'File'
+        ? (document.fileName ?? t('knowledgeBase:document.untitledFile'))
+        : (document.qaQuestion ?? t('knowledgeBase:documents.qaPairFallback'))}
       description={document.sourceType === 'File' ? document.contentType : undefined}
       onClose={onClose}
       widthClassName="max-w-2xl"
     >
       {/* Tab bar */}
       <div className="mb-5 flex gap-1 border-b border-border">
-        {TABS.map((t) => (
+        {TABS.map((tabDef) => (
           <button
-            key={t.key}
+            key={tabDef.key}
             type="button"
             className={`px-4 pb-2.5 text-sm font-medium transition ${
-              tab === t.key
+              tab === tabDef.key
                 ? 'border-b-2 border-primary text-text'
                 : 'text-text-muted hover:text-text'
             }`}
-            onClick={() => setTab(t.key)}
+            onClick={() => setTab(tabDef.key)}
           >
-            {t.label}
+            {t(tabDef.labelKey)}
           </button>
         ))}
       </div>
@@ -119,7 +123,7 @@ function OverviewTab({
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <InfoField label="类型">
+        <InfoField label={t('documentDetail.fields.type')}>
           <Badge tone={document.sourceType === 'File' ? 'neutral' : 'success'}>
             {document.sourceType === 'File' ? (
               <span className="flex items-center gap-1"><FileText size={12} /> {t('document.typeFile')}</span>
@@ -128,18 +132,18 @@ function OverviewTab({
             )}
           </Badge>
         </InfoField>
-        <InfoField label="状态">
+        <InfoField label={t('documentDetail.fields.status')}>
           <ProcessingStatusBadge status={document.ingestStatus} />
         </InfoField>
         {document.sourceType === 'File' && (
-          <InfoField label="文件大小">{formatFileSize(document.fileSize)}</InfoField>
+          <InfoField label={t('documentDetail.fields.fileSize')}>{formatFileSize(document.fileSize)}</InfoField>
         )}
-        <InfoField label="创建时间">{formatAdminDateTime(document.createdAtUtc)}</InfoField>
-        <InfoField label="累计被召回次数">{t('document.recallCountTotal', { count: document.recallCount ?? 0 })}</InfoField>
-        <InfoField label="最近召回时间">{formatRecallTime(document.lastRecalledAtUtc) ?? t('document.neverRecalled')}</InfoField>
+        <InfoField label={t('documentDetail.fields.createdAt')}>{formatAdminDateTime(document.createdAtUtc)}</InfoField>
+        <InfoField label={t('documentDetail.fields.recallTotal')}>{t('document.recallCountTotal', { count: document.recallCount ?? 0 })}</InfoField>
+        <InfoField label={t('documentDetail.fields.lastRecall')}>{formatRecallTime(document.lastRecalledAtUtc) ?? t('document.neverRecalled')}</InfoField>
         {document.ingestError && (
           <div className="col-span-2">
-            <InfoField label="错误信息">
+            <InfoField label={t('documentDetail.fields.error')}>
               <span className="text-error">{document.ingestError}</span>
             </InfoField>
           </div>
@@ -150,11 +154,11 @@ function OverviewTab({
       {document.sourceType === 'QaPair' && (
         <div className="space-y-2 rounded-[2px] border border-border p-4">
           <div>
-            <span className="text-xs font-semibold text-text-muted">问题</span>
+            <span className="text-xs font-semibold text-text-muted">{t('documentDetail.question')}</span>
             <p className="mt-1 text-sm text-text">{document.qaQuestion}</p>
           </div>
           <div>
-            <span className="text-xs font-semibold text-text-muted">回答</span>
+            <span className="text-xs font-semibold text-text-muted">{t('documentDetail.answer')}</span>
             <p className="mt-1 text-sm text-text">{document.qaAnswer}</p>
           </div>
         </div>
@@ -163,7 +167,7 @@ function OverviewTab({
       <div className="flex gap-2">
         <Button variant="secondary" onClick={onReindex}>
           <RotateCw size={14} />
-          重新索引
+          {t('documents.reindex')}
         </Button>
       </div>
     </div>
@@ -185,13 +189,19 @@ function PipelineTab({
   ingestError?: string;
   indexes: import('../../../lib/contracts').DocumentIndexView[];
 }) {
+  const { t } = useTranslation('knowledgeBase');
+  // Unknown index statuses arrive as raw lowercase backend values.
+  const translateStageLabel = (label: string) => {
+    if (isDocumentStageKey(label)) return t(label);
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  };
   return (
     <div className="space-y-5">
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <h4 className="text-sm font-semibold uppercase tracking-wide text-text-muted">处理状态</h4>
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-text-muted">{t('documentDetail.pipeline.statusTitle')}</h4>
           {isProcessing && (
-            <span className="text-xs text-text-muted">（自动刷新中…）</span>
+            <span className="text-xs text-text-muted">{t('documentDetail.pipeline.autoRefresh')}</span>
           )}
         </div>
         <div className="rounded-[2px] border border-border p-4">
@@ -206,13 +216,13 @@ function PipelineTab({
 
       {indexes.length > 0 && (
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold uppercase tracking-wide text-text-muted">索引状态</h4>
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-text-muted">{t('documentDetail.pipeline.indexTitle')}</h4>
           <div className="space-y-2">
             {indexes.map((idx) => (
               <div key={idx.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-2 text-sm">
                 <span className="text-text">{idx.indexType}</span>
                 <Badge tone={idx.status === 'Completed' ? 'success' : idx.status === 'Failed' ? 'danger' : 'warning'}>
-                  {getStageLabel(idx.status)}
+                  {translateStageLabel(getStageLabel(idx.status))}
                 </Badge>
               </div>
             ))}

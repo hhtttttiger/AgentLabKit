@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, Folder } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { Modal } from '@/shared/ui/Modal';
@@ -27,6 +28,7 @@ export function FolderMoveModal({
   onClose,
   onMoveDocument,
 }: Props) {
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isMoving, setIsMoving] = useState(false);
   const { data: folders = [] } = useFolderList(kbId);
@@ -48,13 +50,13 @@ export function FolderMoveModal({
       id: ROOT_ID,
       knowledgeBaseId: kbId,
       parentFolderId: null,
-      name: '根目录',
+      name: t('knowledgeBase:folderMove.rootOption'),
       sortOrder: -1,
       createdAtUtc: '',
     };
 
     return [rootOption, ...visibleFolders];
-  }, [excludeFolderId, folders, itemType, kbId]);
+  }, [excludeFolderId, folders, itemType, kbId, t]);
 
   const handleMove = async () => {
     if (!selectedId) {
@@ -83,17 +85,17 @@ export function FolderMoveModal({
   return (
     <Modal
       open={open}
-      title="移动到文件夹"
-      description="选择新的目标位置。根目录表示不放入任何文件夹。"
+      title={t('knowledgeBase:folderMove.title')}
+      description={t('knowledgeBase:folderMove.description')}
       onClose={onClose}
       widthClassName="max-w-lg"
       footer={(
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose}>
-            取消
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={handleMove} disabled={!selectedId || isMoving}>
-            {isMoving ? '移动中...' : '移动'}
+            {isMoving ? t('knowledgeBase:folderMove.moving') : t('knowledgeBase:documents.move')}
           </Button>
         </div>
       )}

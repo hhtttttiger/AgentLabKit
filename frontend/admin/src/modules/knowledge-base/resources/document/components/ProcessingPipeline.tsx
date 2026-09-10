@@ -1,5 +1,6 @@
 import { CheckCircle, Circle, Loader2, XCircle } from 'lucide-react';
-import { getPipelineSteps, getPipelineStepsFromProgress } from '../../../lib/formatters';
+import { useTranslation } from 'react-i18next';
+import { getPipelineSteps, getPipelineStepsFromProgress, isDocumentStageKey } from '../../../lib/formatters';
 import type { PipelineStep, ProcessingStage, StageProgressItem } from '../../../lib/formatters';
 
 export function ProcessingPipeline({
@@ -9,6 +10,7 @@ export function ProcessingPipeline({
   currentStage: ProcessingStage;
   stageProgress?: StageProgressItem[];
 }) {
+  const { t } = useTranslation('knowledgeBase');
   // Prefer real backend progress data; fall back to legacy stage-based inference
   const steps: PipelineStep[] =
     (stageProgress && getPipelineStepsFromProgress(stageProgress)) ||
@@ -33,7 +35,7 @@ export function ProcessingPipeline({
                     : 'text-text-muted'
             }
           >
-            {step.label}
+            {isDocumentStageKey(step.label) ? t(step.label) : step.label}
           </span>
         </div>
       ))}

@@ -52,7 +52,7 @@ export function KbUnifiedList({
   if (items.length === 0) {
     return (
       <div className="rounded-[2px] border border-dashed border-border bg-background-subtle px-6 py-16 text-center text-sm text-text-secondary">
-        {t('documents.emptyFolder')}
+        {t('knowledgeBase:documents.emptyFolder')}
       </div>
     );
   }
@@ -68,7 +68,7 @@ export function KbUnifiedList({
               onChange={onToggleAllDocuments}
               className="accent-primary"
             />
-            <span>{t('documents.selectAllInFolder')}</span>
+            <span>{t('knowledgeBase:documents.selectAllInFolder')}</span>
           </div>
         ) : null}
         {items.map((item, index) => {
@@ -88,9 +88,9 @@ export function KbUnifiedList({
                   <Folder size={16} className="shrink-0 text-text-secondary" />
                   <span className="truncate text-sm font-medium text-text">{folder.name}</span>
                 </button>
-                <span className="text-xs text-text-muted">{t('documents.rowFolder')}</span>
+                <span className="text-xs text-text-muted">{t('knowledgeBase:documents.rowFolder')}</span>
                 <RowActions actions={[
-                  { label: t('documents.move'), onClick: () => setMovingFolderId(folder.id) },
+                  { label: t('knowledgeBase:documents.move'), onClick: () => setMovingFolderId(folder.id) },
                   { label: t('common:actions.delete'), onClick: () => onFolderDelete(folder), variant: 'danger' },
                 ]} />
               </div>
@@ -126,8 +126,8 @@ export function KbUnifiedList({
                 ...(doc.sourceType === 'QaPair' && onDocumentEdit
                   ? [{ label: t('common:actions.edit'), onClick: () => onDocumentEdit(doc) }]
                   : []),
-                ...(onDocumentReindex ? [{ label: t('documents.reindex'), onClick: () => onDocumentReindex(doc) }] : []),
-                { label: t('documents.move'), onClick: () => setMovingDocId(doc.id) },
+                ...(onDocumentReindex ? [{ label: t('knowledgeBase:documents.reindex'), onClick: () => onDocumentReindex(doc) }] : []),
+                { label: t('knowledgeBase:documents.move'), onClick: () => setMovingDocId(doc.id) },
                 { label: t('common:actions.delete'), onClick: () => onDocumentDelete(doc), variant: 'danger' },
               ]} />
             </div>

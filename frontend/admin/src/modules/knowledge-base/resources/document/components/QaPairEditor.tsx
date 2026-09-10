@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { TextAreaField } from '@/shared/ui/FormFields';
@@ -19,6 +20,7 @@ export function QaPairEditor({
   onSubmit: (data: { question: string; answer: string }) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const [question, setQuestion] = useState(initialValue?.qaQuestion ?? '');
   const [answer, setAnswer] = useState(initialValue?.qaAnswer ?? '');
 
@@ -36,32 +38,36 @@ export function QaPairEditor({
   return (
     <Modal
       open={open}
-      title={mode === 'create' ? '创建 QA 对' : '编辑 QA 对'}
+      title={mode === 'create' ? t('knowledgeBase:qaEditor.titleCreate') : t('knowledgeBase:qaEditor.titleEdit')}
       onClose={handleClose}
       widthClassName="max-w-2xl"
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={handleClose}>
-            取消
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={loading || !question.trim() || !answer.trim()}>
-            {loading ? '处理中...' : mode === 'create' ? '创建' : '保存'}
+            {loading
+              ? t('common:states.processing')
+              : mode === 'create'
+                ? t('common:actions.create')
+                : t('common:actions.save')}
           </Button>
         </div>
       }
     >
       <div className="space-y-5">
         <TextAreaField
-          label="问题"
+          label={t('knowledgeBase:qaEditor.question')}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="输入问题内容"
+          placeholder={t('knowledgeBase:qaEditor.questionPlaceholder')}
         />
         <TextAreaField
-          label="回答"
+          label={t('knowledgeBase:qaEditor.answer')}
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
-          placeholder="输入回答内容"
+          placeholder={t('knowledgeBase:qaEditor.answerPlaceholder')}
         />
       </div>
     </Modal>

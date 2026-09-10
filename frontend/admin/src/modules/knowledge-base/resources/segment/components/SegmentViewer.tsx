@@ -18,9 +18,9 @@ export function SegmentViewer({ kbId, docId }: { kbId: string; docId: string }) 
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-text-muted">共 {totalCount} 个分段</p>
+      <p className="text-xs text-text-muted">{t('knowledgeBase:segments.totalCount', { count: totalCount })}</p>
 
-      {query.isLoading && <p className="text-sm text-text-muted">加载中…</p>}
+      {query.isLoading && <p className="text-sm text-text-muted">{t('common:states.loading')}</p>}
 
       {!query.isLoading && segments.length === 0 && (
         <EmptyState title={t('knowledgeBase:detail.segmentEmptyTitle')} />
@@ -35,7 +35,7 @@ export function SegmentViewer({ kbId, docId }: { kbId: string; docId: string }) 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between pt-2 text-xs text-text-muted">
-          <span>第 {page} / {totalPages} 页</span>
+          <span>{t('knowledgeBase:segments.pageIndicator', { page, total: totalPages })}</span>
           <div className="flex gap-2">
             <button
               type="button"
@@ -43,7 +43,7 @@ export function SegmentViewer({ kbId, docId }: { kbId: string; docId: string }) 
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
             >
-              上一页
+              {t('common:pagination.previousPage')}
             </button>
             <button
               type="button"
@@ -51,7 +51,7 @@ export function SegmentViewer({ kbId, docId }: { kbId: string; docId: string }) 
               disabled={page >= totalPages}
               onClick={() => setPage(page + 1)}
             >
-              下一页
+              {t('common:pagination.nextPage')}
             </button>
           </div>
         </div>

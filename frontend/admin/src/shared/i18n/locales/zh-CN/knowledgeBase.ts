@@ -149,6 +149,103 @@ export const knowledgeBase = {
     Completed: '已完成',
     Failed: '失败'
   },
+  documentDetail: {
+    tabs: {
+      overview: '概览',
+      pipeline: '处理流水线',
+      segments: '分段'
+    },
+    fields: {
+      type: '类型',
+      status: '状态',
+      fileSize: '文件大小',
+      createdAt: '创建时间',
+      recallTotal: '累计被召回次数',
+      lastRecall: '最近召回时间',
+      error: '错误信息'
+    },
+    question: '问题',
+    answer: '回答',
+    pipeline: {
+      statusTitle: '处理状态',
+      autoRefresh: '（自动刷新中…）',
+      indexTitle: '索引状态'
+    },
+    stage: {
+      Pending: '等待中',
+      Loading: '加载文件',
+      Splitting: '文本切分',
+      Indexing: '构建索引',
+      GraphBuilding: '图谱构建',
+      Completed: '已完成',
+      Failed: '失败'
+    },
+    backendStep: {
+      DocumentLoaderStep: '加载文件',
+      DocumentSplitterStep: '文本切分',
+      TokenizerStep: '分词处理',
+      TerminologyStep: '术语匹配',
+      GCStep: '内存回收',
+      IndexBuilderStep: '构建索引',
+      GraphBuilderStep: '图谱构建'
+    }
+  },
+  qaImport: {
+    title: '导入 QA',
+    description: '上传 CSV 或 XLSX 文件，第一行为标题行（将被忽略），第一列为问题，第二列为答案。',
+    importing: '导入中...',
+    confirm: '确认导入',
+    uploadPrompt: '点击上传文件',
+    formatsHint: '支持 .csv / .xlsx 格式',
+    replaceFile: '点击重新选择文件',
+    noTemplate: '没有模板？',
+    downloadTemplate: '下载导入模板',
+    failed: '导入失败，请稍后重试。',
+    createdCount: '新建 {{count}} 条',
+    updatedCount: '更新 {{count}} 条',
+    skippedCount: '跳过 {{count}} 条',
+    rowNumber: '第 {{number}} 行',
+    noRowErrors: '无行级错误。',
+    templateHeader: '问题,答案',
+    templateRow: '问题示例{{number}},答案示例{{number}}'
+  },
+  qaEditor: {
+    titleCreate: '创建 QA 对',
+    titleEdit: '编辑 QA 对',
+    question: '问题',
+    questionPlaceholder: '输入问题内容',
+    answer: '回答',
+    answerPlaceholder: '输入回答内容'
+  },
+  folders: {
+    managerTitle: '管理文件夹',
+    managerDescription: '按层级整理知识库内容。支持新建、重命名、移动和删除。',
+    createRoot: '新建根文件夹',
+    createSubTitle: '新建子文件夹',
+    createSubAria: '在 {{name}} 下新建子文件夹',
+    renameAria: '重命名 {{name}}',
+    moveAria: '移动 {{name}}',
+    deleteAria: '删除 {{name}}',
+    deleteGeneric: '确认删除当前文件夹？其子文件夹和文档将被一并删除。'
+  },
+  folderCreate: {
+    description: '文件夹用于整理知识库中的文档，支持多层级管理。',
+    nameLabel: '文件夹名称',
+    namePlaceholder: '例如：产品文档',
+    nameRequired: '文件夹名称不能为空',
+    creating: '创建中...',
+    submit: '创建文件夹'
+  },
+  folderMove: {
+    title: '移动到文件夹',
+    description: '选择新的目标位置。根目录表示不放入任何文件夹。',
+    rootOption: '根目录',
+    moving: '移动中...'
+  },
+  segments: {
+    totalCount: '共 {{count}} 个分段',
+    pageIndicator: '第 {{page}} / {{total}} 页'
+  },
   detail: {
         eyebrow: '知识库',
         fallbackTitle: '知识库',
