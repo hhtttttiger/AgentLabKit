@@ -11,6 +11,12 @@ from .contracts import (
     TraceRecord,
     TraceStats,
 )
+from .finalization import (
+    TRACE_INGESTED_CHANNEL,
+    TRACE_INGESTED_KEY_PREFIX,
+    TraceIngestionFinalizer,
+    ingestion_ack_key,
+)
 from .module import ObservabilityModule, create_observability_module
 from .projector import TraceProjector
 from .publisher import AsyncTracePublisher
@@ -32,14 +38,18 @@ __all__ = [
     "PostgresTraceStore",
     "SpanEnvelope",
     "SpanRecord",
+    "TRACE_INGESTED_CHANNEL",
+    "TRACE_INGESTED_KEY_PREFIX",
     "TRACE_QUEUE_NAME",
     "TRACE_SCHEMA_VERSION",
     "TraceBufferSpanProcessor",
     "TraceEnvelope",
+    "TraceIngestionFinalizer",
     "TracePage",
     "TraceProjector",
     "TraceRecord",
     "TraceStats",
     "TraceStore",
     "create_observability_module",
+    "ingestion_ack_key",
 ]

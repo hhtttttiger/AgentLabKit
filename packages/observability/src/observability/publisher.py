@@ -40,6 +40,15 @@ class AsyncTracePublisher:
         )
         self.stats = PublisherStats()
 
+    @property
+    def has_backend(self) -> bool:
+        """Whether envelopes can leave this process at all.
+
+        False (no queue backend) means every envelope is dropped locally, so
+        waiting for durable ingestion could never succeed.
+        """
+        return self._backend is not None
+
     async def start(self) -> None:
         if self._running or self._backend is None:
             return

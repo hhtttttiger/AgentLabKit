@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 from alkit_infra.queue import NonRetryableQueueError
-from observability import TRACE_SCHEMA_VERSION, TraceEnvelope
+from observability import TRACE_SCHEMA_VERSION, TraceEnvelope, TraceIngestionFinalizer
 from observability.trace_store import PostgresTraceStore
 from pydantic import ValidationError
 
@@ -15,8 +15,12 @@ def create_trace_ingestion_handler(
     *,
     retention_days: int,
     retention_batch_size: int,
+    finalizer: TraceIngestionFinalizer | None = None,
 ):
     store = PostgresTraceStore(session_factory)
+    # The finalization ACK is observability infrastructure, emitted strictly
+    # after the Postgres commit — never on the failure path.
+    finalizer = finalizer or TraceIngestionFinalizer()
     next_retention_at = 0.0
 
     async def handler(message) -> None:
@@ -31,6 +35,10 @@ def create_trace_ingestion_handler(
             )
 
         await store.ingest_trace(envelope)
+        # ingest_trace commits before returning; the ACK therefore means
+        # "authoritative projection persisted, TraceReader has
+        # read-your-writes" — not "message received".
+        await finalizer.acknowledge_persisted(envelope.trace_id)
 
         now = time.monotonic()
         if now >= next_retention_at:

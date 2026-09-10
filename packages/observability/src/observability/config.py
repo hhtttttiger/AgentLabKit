@@ -25,5 +25,13 @@ class ObservabilitySettings(BaseSettings):
     publish_interval_ms: int = Field(default=100, ge=10)
     publish_max_retries: int = Field(default=3, ge=0, le=10)
     flush_timeout_seconds: float = Field(default=5.0, ge=0.1)
+    # Bounded wait for the worker-side ingestion ACK (Postgres commit done),
+    # consumed through the observability finalization seam — publish/flush
+    # only proves the envelope reached Redis, not that the trace is readable.
+    finalization_timeout_seconds: float = Field(default=10.0, ge=0.1)
+    # Level-observable ACK lifetime. Must comfortably exceed the longest
+    # finalization wait plus worker redelivery back-off; expiry only loses
+    # the "already persisted" hint for late waiters, never fabricates one.
+    finalization_ack_ttl_seconds: int = Field(default=900, ge=1)
     retention_days: int = Field(default=30, ge=1)
     retention_batch_size: int = Field(default=1_000, ge=1, le=100_000)
