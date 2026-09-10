@@ -1,17 +1,22 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Bot, FlaskConical, MessageSquare, Play, Plus, AlertTriangle } from 'lucide-react';
+import { Bot, FlaskConical, MessageSquare, Play, Plus } from 'lucide-react';
 import { useRunList } from '@/modules/runs/hooks';
+import { useAgentList } from '@/modules/agent-management/resources/agents/hooks';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
+import { Button } from '@/shared/ui/Button';
 import { formatAdminDateTime } from '@/shared/i18n/formatters';
 
 export function OverviewPage() {
   const { t } = useTranslation(['common', 'overview']);
   const navigate = useNavigate();
   const { data: runsData, isLoading: runsLoading } = useRunList();
+  const { data: agentsData, isLoading: agentsLoading } = useAgentList({ page: 1, pageSize: 1 });
 
   const recentRuns = runsData?.items.slice(0, 5) ?? [];
   const totalRuns = runsData?.total ?? 0;
+  const totalAgents = agentsData?.totalCount ?? 0;
+  const isFreshStart = !agentsLoading && totalAgents === 0;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -26,32 +31,66 @@ export function OverviewPage() {
           </p>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mb-8 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/playground')}
-            className="inline-flex items-center gap-2 rounded-[2px] bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-          >
-            <Play size={16} />
-            {t('overview:actions.testAgent')}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/agents')}
-            className="inline-flex items-center gap-2 rounded-[2px] border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text transition hover:bg-surface-hover"
-          >
-            <Plus size={16} />
-            {t('overview:actions.createAgent')}
-          </button>
-        </div>
+        {/* First-run guidance: driven by actual product state (no agents yet) */}
+        {isFreshStart && (
+          <div className="mb-8 rounded-[2px] border border-primary/25 bg-primary-subtle px-6 py-8">
+            <h2 className="text-xl font-semibold text-text">
+              {t('overview:guidance.title')}
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
+              {t('overview:guidance.description')}
+            </p>
+            <div className="mt-5 flex flex-wrap items-center gap-4">
+              <Button onClick={() => navigate('/agents?create=1')}>
+                <Plus size={16} />
+                {t('overview:guidance.cta')}
+              </Button>
+              <button
+                type="button"
+                onClick={() => navigate('/knowledge')}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                {t('overview:guidance.addKnowledge')}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/evaluation')}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                {t('overview:guidance.exploreEvaluation')}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions (once there is something to test) */}
+        {!isFreshStart && (
+          <div className="mb-8 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/playground')}
+              className="inline-flex items-center gap-2 rounded-[2px] bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+            >
+              <Play size={16} />
+              {t('overview:actions.testAgent')}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/agents?create=1')}
+              className="inline-flex items-center gap-2 rounded-[2px] border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text transition hover:bg-surface-hover"
+            >
+              <Plus size={16} />
+              {t('overview:actions.createAgent')}
+            </button>
+          </div>
+        )}
 
         {/* Summary Metrics */}
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             icon={Bot}
             label={t('overview:metrics.agents')}
-            value="—"
+            value={agentsLoading ? '...' : String(totalAgents)}
             subtitle={t('overview:metrics.manageAgents')}
             onClick={() => navigate('/agents')}
           />
@@ -66,7 +105,8 @@ export function OverviewPage() {
             icon={FlaskConical}
             label={t('overview:metrics.evaluation')}
             value="—"
-            subtitle={t('overview:metrics.evaluationUnavailable')}
+            subtitle={t('overview:metrics.evaluationHint')}
+            onClick={() => navigate('/evaluation')}
           />
           <MetricCard
             icon={MessageSquare}
@@ -77,7 +117,7 @@ export function OverviewPage() {
         </div>
 
         {/* Recent Runs */}
-        <div className="mb-8">
+        <div>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-text">
               {t('overview:recentRuns.title')}
@@ -103,13 +143,15 @@ export function OverviewPage() {
                   <p className="text-sm text-text-muted">
                     {t('overview:recentRuns.empty')}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/playground')}
-                    className="mt-3 text-sm font-medium text-primary hover:underline"
-                  >
-                    {t('overview:recentRuns.openPlayground')}
-                  </button>
+                  {!isFreshStart && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/playground')}
+                      className="mt-3 text-sm font-medium text-primary hover:underline"
+                    >
+                      {t('overview:recentRuns.openPlayground')}
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -142,23 +184,6 @@ export function OverviewPage() {
             )}
           </div>
         </div>
-
-        {/* Needs Attention */}
-        <div>
-          <h2 className="mb-4 text-lg font-semibold text-text">
-            {t('overview:needsAttention.title')}
-          </h2>
-          <div className="rounded-[2px] border border-border bg-surface">
-            <div className="flex items-center justify-center px-6 py-12">
-              <div className="text-center">
-                <AlertTriangle className="mx-auto mb-2 h-8 w-8 text-text-muted" />
-                <p className="text-sm text-text-muted">
-                  {t('overview:needsAttention.empty')}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -175,7 +200,7 @@ function MetricCard({ icon: Icon, label, value, subtitle, onClick }: {
   return (
     <Component
       onClick={onClick}
-      className={`rounded-[2px] border border-border bg-surface p-4 ${onClick ? 'cursor-pointer transition hover:bg-surface-hover' : ''}`}
+      className={`rounded-[2px] border border-border bg-surface p-4 text-left ${onClick ? 'cursor-pointer transition hover:bg-surface-hover' : ''}`}
     >
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-[2px] bg-primary/10 text-primary">

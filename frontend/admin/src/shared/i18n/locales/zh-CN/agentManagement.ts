@@ -39,7 +39,8 @@ export const agentManagement = {
           newAgent: '新建 Agent',
           ownerTeamLabel: '负责团队',
           ownerTeamPlaceholder: '搜索团队',
-          emptyTitle: '暂无 Agent 定义'
+          emptyTitle: '暂无 Agent',
+          emptyDescription: 'Agent 将指令、模型、工具和知识组合成可以发布和测试的对象。创建你的第一个 Agent 开始使用。'
         },
         columns: {
           status: '状态',
@@ -95,6 +96,7 @@ export const agentManagement = {
           versionLabel: '当前版本',
           draftNotPublished: '草稿 v{{versionNumber}} · 未发布',
           draftChangesNotPublished: '草稿变更尚未发布。测试将使用已发布版本。',
+          publishDraftToTest: '发布草稿后才能测试。测试始终运行已发布版本。',
           model: '模型',
           instructions: 'Instructions',
           instructionsHelp: '此 Agent 使用的系统提示词',
@@ -104,7 +106,8 @@ export const agentManagement = {
           configure: '配置 Agent',
           configured: '已配置',
           default: '默认',
-          bindings: '个绑定',
+          bindings_one: '1 个知识库',
+          bindings_other: '{{count}} 个知识库',
           noneConfigured: '未配置',
           notConfigured: '未配置',
           setupTitle: 'Agent 尚未准备好运行',
@@ -538,6 +541,17 @@ export const agentManagement = {
         statusDraft: '草稿',
         statusPublished: '已发布',
         statusArchived: '已归档',
+        errors: {
+          systemPromptRequired: '请输入 Agent 的 Instructions（系统提示词）。',
+          modelRequired: '请为该 Agent 选择一个模型。',
+          toolNameRequired: '工具 #{{number}} 需要名称。',
+          toolNameDuplicate: '工具 #{{number}} 与工具 #{{otherNumber}} 重名。',
+          mcpServerRequired: 'MCP 绑定 #{{number}} 需要选择 MCP 服务器。',
+          knowledgeBaseRequired: '知识库绑定 #{{number}} 需要选择知识库。',
+          knowledgeBaseDuplicate: '知识库绑定 #{{number}} 与绑定 #{{otherNumber}} 重复。',
+          skillRequired: '技能绑定 #{{number}} 需要选择技能。',
+          skillToolNameRequired: '技能绑定 #{{number}} 的工具覆盖 #{{toolNumber}} 需要名称。'
+        },
         columns: {
           versionNumber: '版本号',
           status: '状态',
@@ -585,6 +599,8 @@ export const agentManagement = {
           modelLabel: '模型',
           modelLoading: '加载中...',
           modelPlaceholder: '请选择模型',
+          noModelsConfigured: '暂无可用模型。请先在模型页完成配置，再回到这里选择。',
+          configureModels: '前往配置模型',
           versionLabel: '版本标签',
           versionPlaceholder: '例如 v1-beta',
           localeLabel: '默认语言',

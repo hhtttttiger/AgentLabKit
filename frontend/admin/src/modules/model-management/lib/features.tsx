@@ -115,7 +115,7 @@ export function CardFeatureBadges({
   limit?: number;
 }) {
   const { t } = useTranslation(['common', 'modelManagement']);
-  const resolvedEmptyLabel = emptyLabel ?? t('modelManagement:models.featureSection.noFeatures');
+  const resolvedEmptyLabel = emptyLabel ?? t('modelManagement:models.featureSection.empty');
   if (features.length === 0) {
     return <span className="text-xs text-text-muted">{resolvedEmptyLabel}</span>;
   }

@@ -39,7 +39,8 @@ export const agentManagement = {
       newAgent: 'New agent',
       ownerTeamLabel: 'Owning team',
       ownerTeamPlaceholder: 'Search teams',
-      emptyTitle: 'No agents'
+      emptyTitle: 'No agents yet',
+      emptyDescription: 'Agents combine instructions, models, tools, and knowledge into something you can publish and test. Create your first Agent to get started.'
     },
     columns: {
       status: 'Status',
@@ -95,6 +96,7 @@ export const agentManagement = {
       versionLabel: 'Current version',
       draftNotPublished: 'Draft v{{versionNumber}} · Not published',
       draftChangesNotPublished: 'Draft changes not published. Test uses the published version.',
+      publishDraftToTest: 'Publish this draft to enable testing. Test always runs the published version.',
       model: 'Model',
       instructions: 'Instructions',
       instructionsHelp: 'System prompt used by this Agent',
@@ -104,7 +106,8 @@ export const agentManagement = {
       configure: 'Configure agent',
       configured: 'Configured',
       default: 'Default',
-      bindings: 'bindings',
+      bindings_one: '1 knowledge base',
+      bindings_other: '{{count}} knowledge bases',
       noneConfigured: 'None configured',
       notConfigured: 'Not configured',
       setupTitle: 'Your agent is not ready to run yet',
@@ -538,6 +541,17 @@ export const agentManagement = {
     statusDraft: 'Draft',
     statusPublished: 'Published',
     statusArchived: 'Archived',
+    errors: {
+      systemPromptRequired: 'Enter instructions (system prompt) for this Agent.',
+      modelRequired: 'Choose a model for this Agent.',
+      toolNameRequired: 'Tool #{{number}} needs a name.',
+      toolNameDuplicate: 'Tool #{{number}} duplicates tool #{{otherNumber}}.',
+      mcpServerRequired: 'MCP binding #{{number}} needs an MCP server.',
+      knowledgeBaseRequired: 'Knowledge binding #{{number}} needs a knowledge base.',
+      knowledgeBaseDuplicate: 'Knowledge binding #{{number}} duplicates binding #{{otherNumber}}.',
+      skillRequired: 'Skill binding #{{number}} needs a skill.',
+      skillToolNameRequired: 'Tool override #{{toolNumber}} in skill binding #{{number}} needs a name.'
+    },
     columns: {
       versionNumber: 'Version',
       status: 'Status',
@@ -585,6 +599,8 @@ export const agentManagement = {
       modelLabel: 'Model',
       modelLoading: 'Loading...',
       modelPlaceholder: 'Select model',
+      noModelsConfigured: 'No usable model is configured yet. Set one up in Models, then come back and select it here.',
+      configureModels: 'Configure Models',
       versionLabel: 'Version label',
       versionPlaceholder: 'e.g. v1-beta',
       localeLabel: 'Default locale',

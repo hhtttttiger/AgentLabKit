@@ -108,20 +108,22 @@ export function createEmptySkillBinding(sortOrder: number): SkillBindingWriteMod
   };
 }
 
-export function validateVersionDraft(draft: VersionEditorDraft) {
+// Validation returns locale keys under `agentManagement:versions.errors.*`
+// so surfaces translate them; the keys are the contract, not the copy.
+export function validateVersionDraft(draft: VersionEditorDraft): Record<string, string> {
   const errors: Record<string, string> = {};
 
   if (!(draft.systemPromptTemplate ?? '').trim()) {
-    errors.systemPromptTemplate = '请输入 System Prompt。';
+    errors.systemPromptTemplate = 'versions.errors.systemPromptRequired';
   }
 
   if (!(draft.modelKey ?? '').trim()) {
-    errors.modelKey = '请输入模型绑定标识。';
+    errors.modelKey = 'versions.errors.modelRequired';
   }
 
   draft.toolBindings.forEach((binding, index) => {
     if (!(binding.toolName ?? '').trim()) {
-      errors[`tool_${index}_toolName`] = `工具 #${index + 1} 名称不能为空。`;
+      errors[`tool_${index}_toolName`] = 'versions.errors.toolNameRequired';
       return;
     }
 
@@ -129,19 +131,22 @@ export function validateVersionDraft(draft: VersionEditorDraft) {
       (item, itemIndex) => itemIndex !== index && (item.toolName ?? '').trim() === (binding.toolName ?? '').trim(),
     );
     if (duplicateIndex >= 0) {
-      errors[`tool_${index}_toolName`] = `工具 #${index + 1} 与工具 #${duplicateIndex + 1} 名称重复。`;
+      errors[`tool_${index}_toolName`] = JSON.stringify({
+        key: 'versions.errors.toolNameDuplicate',
+        params: { otherNumber: duplicateIndex + 1 },
+      });
     }
   });
 
   draft.mcpBindings.forEach((binding, index) => {
     if (!(binding.serverName ?? '').trim()) {
-      errors[`mcp_${index}_serverName`] = `MCP 绑定 #${index + 1} 需要选择 MCP Server。`;
+      errors[`mcp_${index}_serverName`] = 'versions.errors.mcpServerRequired';
     }
   });
 
   draft.knowledgeBaseBindings.forEach((binding, index) => {
     if (!(binding.knowledgeBaseId ?? '').trim()) {
-      errors[`kb_${index}_knowledgeBaseId`] = `知识库绑定 #${index + 1} 需要选择知识库。`;
+      errors[`kb_${index}_knowledgeBaseId`] = 'versions.errors.knowledgeBaseRequired';
       return;
     }
 
@@ -149,24 +154,45 @@ export function validateVersionDraft(draft: VersionEditorDraft) {
       (item, itemIndex) => itemIndex !== index && (item.knowledgeBaseId ?? '').trim() === (binding.knowledgeBaseId ?? '').trim(),
     );
     if (duplicateIndex >= 0) {
-      errors[`kb_${index}_knowledgeBaseId`] = `知识库绑定 #${index + 1} 与知识库绑定 #${duplicateIndex + 1} 选择重复。`;
+      errors[`kb_${index}_knowledgeBaseId`] = JSON.stringify({
+        key: 'versions.errors.knowledgeBaseDuplicate',
+        params: { otherNumber: duplicateIndex + 1 },
+      });
     }
   });
 
   draft.skillBindings.forEach((binding, skillIndex) => {
     if (!(binding.skillKey ?? '').trim()) {
-      errors[`skill_${skillIndex}_skillKey`] = `技能绑定 #${skillIndex + 1} 需要选择技能。`;
+      errors[`skill_${skillIndex}_skillKey`] = 'versions.errors.skillRequired';
     }
 
     binding.toolOverrides.forEach((tool, toolIndex) => {
       if (!(tool.toolName ?? '').trim()) {
-        errors[`skill_${skillIndex}_tool_${toolIndex}_toolName`] =
-          `技能绑定 #${skillIndex + 1} 的工具覆盖 #${toolIndex + 1} 名称不能为空。`;
+        errors[`skill_${skillIndex}_tool_${toolIndex}_toolName`] = JSON.stringify({
+          key: 'versions.errors.skillToolNameRequired',
+          params: { toolNumber: toolIndex + 1 },
+        });
       }
     });
   });
 
   return errors;
+}
+
+export function translateVersionValidationErrors(
+  errors: Record<string, string>,
+  translate: (key: string, params?: Record<string, string | number>) => string,
+): Record<string, string> {
+  const translated: Record<string, string> = {};
+  for (const [field, message] of Object.entries(errors)) {
+    if (message.startsWith('{')) {
+      const parsed = JSON.parse(message) as { key: string; params?: Record<string, string | number> };
+      translated[field] = translate(parsed.key, parsed.params);
+    } else {
+      translated[field] = translate(message);
+    }
+  }
+  return translated;
 }
 
 export function policyToDisplay(obj: Record<string, unknown> | null): string {

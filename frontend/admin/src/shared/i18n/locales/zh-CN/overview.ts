@@ -5,6 +5,13 @@ export const overview = {
     testAgent: '测试 Agent',
     createAgent: '创建 Agent',
   },
+  guidance: {
+    title: '创建你的第一个 Agent',
+    description: '创建 Agent，配置模型，发布后即可测试真实运行。',
+    cta: '创建 Agent',
+    addKnowledge: '添加知识库',
+    exploreEvaluation: '了解评估',
+  },
   metrics: {
     agents: 'Agents',
     runs: '运行次数',
@@ -14,7 +21,7 @@ export const overview = {
     noRuns: '暂无运行',
     totalRuns: '总运行次数',
     manageAgents: '管理 Agents',
-    evaluationUnavailable: '当前暂无评估数据。',
+    evaluationHint: '用数据集评估 Agent 行为',
     costComingSoon: '即将推出',
   },
   recentRuns: {
@@ -22,9 +29,5 @@ export const overview = {
     empty: '暂无运行记录。测试或执行 Agent 后，运行记录将显示在此处。',
     openPlayground: '打开 Playground',
     viewAll: '查看全部运行',
-  },
-  needsAttention: {
-    title: '需要关注',
-    empty: '未检测到问题',
   },
 } as const;

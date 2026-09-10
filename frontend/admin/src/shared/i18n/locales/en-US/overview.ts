@@ -5,6 +5,13 @@ export const overview = {
     testAgent: 'Test an Agent',
     createAgent: 'Create Agent',
   },
+  guidance: {
+    title: 'Build your first Agent',
+    description: 'Create an Agent, configure a model, publish it, and test a real run.',
+    cta: 'Create Agent',
+    addKnowledge: 'Add Knowledge',
+    exploreEvaluation: 'Explore Evaluation',
+  },
   metrics: {
     agents: 'Agents',
     runs: 'Runs',
@@ -14,7 +21,7 @@ export const overview = {
     noRuns: 'No runs yet',
     totalRuns: 'Total runs',
     manageAgents: 'Manage agents',
-    evaluationUnavailable: 'Evaluation data is not available yet.',
+    evaluationHint: 'Evaluate Agent behavior against datasets',
     costComingSoon: 'Coming soon',
   },
   recentRuns: {
@@ -22,9 +29,5 @@ export const overview = {
     empty: 'No runs yet. Runs will appear here after you test or execute an Agent.',
     openPlayground: 'Open Playground',
     viewAll: 'View all runs',
-  },
-  needsAttention: {
-    title: 'Needs Attention',
-    empty: 'No issues detected',
   },
 } as const;

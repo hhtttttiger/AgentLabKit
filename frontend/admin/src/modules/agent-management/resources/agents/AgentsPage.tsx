@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ToolbarButton } from '@/shared/ui/ToolbarButton';
@@ -32,9 +32,25 @@ export function AgentsPage() {
   const { t } = useTranslation(['common', 'agentManagement']);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState(defaultAgentFilters);
   const [editingAgentKey, setEditingAgentKey] = useState<string | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(() => searchParams.get('create') === '1');
+
+  // The create action is carried in the URL so entry points like the Home
+  // first-run guidance land directly in the create drawer; strip it once
+  // consumed so refresh doesn't re-open the drawer.
+  useEffect(() => {
+    if (!searchParams.get('create')) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('create');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
 
   const query = useMemo(() => toAgentListQuery(filters), [filters]);
   const listQuery = useAgentList(query);
@@ -174,7 +190,8 @@ export function AgentsPage() {
           emptyState={
             <EmptyState
               title={t(`${am}agents.page.emptyTitle`)}
-              action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}common.createNow`)}</Button>}
+              description={t(`${am}agents.page.emptyDescription`)}
+              action={<Button onClick={() => setCreateOpen(true)}>{t(`${am}agents.page.newAgent`)}</Button>}
             />
           }
         />

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import { listKnowledgeBases } from '@/modules/knowledge-base/resources/knowledge-base/api';
 import { kbQueryKeys } from '@/modules/knowledge-base/resources/knowledge-base/queryKeys';
@@ -32,6 +33,7 @@ import {
   emptyToolOverride,
   ensureVersionDefaultPolicy,
   policyToDisplay,
+  translateVersionValidationErrors,
   validateVersionDraft,
   versionDetailToDraft,
 } from './draft';
@@ -364,6 +366,7 @@ export function VersionDrawer({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const mutations = useVersionMutations(agentKey);
   const knowledgeBasesQuery = useQuery({
     queryKey: kbQueryKeys.list({ status: 'active', pageSize: 100 }),
@@ -374,7 +377,13 @@ export function VersionDrawer({
   const skillsQuery = useSkillList({ publishedOnly: true });
   const toolDefinitionsQuery = useToolDefinitionList({ status: 'active' });
   const activeMutation = isEdit ? mutations.update : mutations.create;
-  const validationErrors = validateVersionDraft(draft);
+  const validationErrors = useMemo(
+    () =>
+      translateVersionValidationErrors(validateVersionDraft(draft), (key, params) =>
+        t(`${am}${key}`, { ...params }),
+      ),
+    [draft, t],
+  );
   const editorSessionKey = open
     ? `${readOnly ? 'read' : isEdit ? 'edit' : 'create'}:${sourceVersionNumber ?? 'new'}`
     : null;
@@ -560,6 +569,7 @@ export function VersionDrawer({
             label={t(`${am}versions.drawer.modelLabel`)}
             value={draft.modelKey}
             disabled={readOnly}
+            error={validationErrors.modelKey}
             onChange={(e) => updateDraft((current) => ({ ...current, modelKey: e.target.value }))}
           >
             <option value="">{modelsQuery.isLoading ? t(`${am}versions.drawer.modelLoading`) : t(`${am}versions.drawer.modelPlaceholder`)}</option>
@@ -569,6 +579,14 @@ export function VersionDrawer({
               </option>
             ))}
           </SelectField>
+          {!readOnly && !modelsQuery.isLoading && modelOptions.length === 0 && (
+            <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-[2px] border border-warning/30 bg-warning/5 px-4 py-3 text-sm">
+              <span className="text-text-secondary">{t(`${am}versions.drawer.noModelsConfigured`)}</span>
+              <Button variant="secondary" onClick={() => navigate('/models')}>
+                {t(`${am}versions.drawer.configureModels`)}
+              </Button>
+            </div>
+          )}
           <TextField
             label={t(`${am}versions.drawer.versionLabel`)}
             value={draft.versionLabel ?? ''}

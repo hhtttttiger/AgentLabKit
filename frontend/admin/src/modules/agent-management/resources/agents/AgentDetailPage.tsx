@@ -473,6 +473,7 @@ function AgentBuildTab({
   return (
     <div className="space-y-4 p-6">
       {!isEditable && <InlineMessage tone="info">{t(`${am}agents.detail.publishedReadonlyInfo`)}</InlineMessage>}
+      {isEditable && !canTestPublished && <InlineMessage tone="info">{t(`${am}agents.detail.publishDraftToTest`)}</InlineMessage>}
       {isEditable && canTestPublished && <InlineMessage tone="info">{t(`${am}agents.detail.draftChangesNotPublished`)}</InlineMessage>}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -493,7 +494,7 @@ function AgentBuildTab({
       <BuildSummary title={t(`${am}agents.detail.model`)} value={version.modelKey || t(`${am}agents.detail.notConfigured`)} />
       <BuildSummary title={t(`${am}agents.detail.instructions`)} help={t(`${am}agents.detail.instructionsHelp`)} value={version.systemPromptTemplate || t(`${am}agents.detail.notConfigured`)} multiline />
       <BuildSummary title={t(`${am}agents.detail.tools`)} value={version.toolBindings.length ? version.toolBindings.map((item) => item.displayName || item.toolName).join(', ') : t(`${am}agents.detail.noneConfigured`)} />
-      <BuildSummary title={t(`${am}agents.detail.knowledge`)} value={version.knowledgeBaseBindings.length ? `${version.knowledgeBaseBindings.length} ${t(`${am}agents.detail.bindings`)}` : t(`${am}agents.detail.noneConfigured`)} />
+      <BuildSummary title={t(`${am}agents.detail.knowledge`)} value={version.knowledgeBaseBindings.length ? t(`${am}agents.detail.bindings`, { count: version.knowledgeBaseBindings.length }) : t(`${am}agents.detail.noneConfigured`)} />
       <BuildSummary title={t(`${am}agents.detail.skillsMcp`)} value={bindingCount - version.toolBindings.length - version.knowledgeBaseBindings.length ? `${version.skillBindings.length} skills · ${version.mcpBindings.length} MCP` : t(`${am}agents.detail.noneConfigured`)} />
       <BuildSummary title={t(`${am}agents.detail.advanced`)} value={Object.keys(version.runtimeOptions ?? {}).length || Object.keys(version.guardrailsPolicy ?? {}).length ? t(`${am}agents.detail.configured`) : t(`${am}agents.detail.default`)} />
     </div>
