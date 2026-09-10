@@ -28,6 +28,10 @@ from typing import Any
 from uuid import uuid4
 
 from ..tools.contracts import ToolExecutionCallback, ToolExecutionMode, ToolExecutionObservers, ToolResult
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .retrieval_observer import RetrievalSpanSink
 from ..contracts.models import AgentMessage, AgentRole
 from ..errors import AgentError, AgentErrorCode
 from ..event_bus import EventBus
@@ -287,6 +291,7 @@ async def run_agent_loop(
     agent_key: str = "",
     emit_run_lifecycle: bool = True,
     root_span_id: str | None = None,
+    retrieval_span_sink: "RetrievalSpanSink | None" = None,
 ) -> LoopResult:
     """Run the agent loop in **blocking** mode.
 
@@ -306,6 +311,10 @@ async def run_agent_loop(
             run lifecycle events. Runtime public boundaries set this false and
             own the lifecycle through RunLifecycle.
         root_span_id: Optional root span ID from ExecutionContext.
+        retrieval_span_sink: Optional OTel sink so blocking-mode executions
+            record the same bounded retrieval spans as the streaming path.
+            Retrieval is an execution fact; without it the projected trace
+            legitimately contains no retrieval evidence.
 
     Returns:
         A :class:`LoopResult` with all produced messages and the final directive.
@@ -356,6 +365,7 @@ async def run_agent_loop(
             semantic_emit=_sem,
             span_ctx=span_ctx,
             agent_key=agent_key,
+            retrieval_span_sink=retrieval_span_sink,
         )
     except asyncio.CancelledError:
         # ── Cancellation as first-class status (2.5) ──────────────
@@ -561,6 +571,7 @@ async def _run_loop_body(
     semantic_emit: SemanticEventSink | None = None,
     span_ctx: _SpanContext | None = None,
     agent_key: str = "",
+    retrieval_span_sink: "RetrievalSpanSink | None" = None,
 ) -> LoopResult:
     """Core loop logic shared by blocking and streaming modes.
 
@@ -723,7 +734,10 @@ async def _run_loop_body(
                 try:
                     from .retrieval_observer import RuntimeRetrievalObserver
                     observers = ToolExecutionObservers(
-                        retrieval=RuntimeRetrievalObserver(semantic_emit, span_ctx)
+                        retrieval=RuntimeRetrievalObserver(
+                            semantic_emit, span_ctx,
+                            span_sink=retrieval_span_sink,
+                        )
                     ) if semantic_emit is not None and span_ctx is not None else None
                     tool_result = await _execute_tool(
                         tool_name=directive.tool_name,

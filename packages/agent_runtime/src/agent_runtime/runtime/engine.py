@@ -758,6 +758,10 @@ class AgentRuntime:
                 agent_key=resolved_request.agent_key or "",
                 emit_run_lifecycle=execution_context is None,
                 root_span_id=execution_context.root_span_id if execution_context else None,
+                # Blocking-mode executions must project the same bounded
+                # retrieval execution facts as the streaming path; parent the
+                # span beneath the run root (no per-tool OTel span here).
+                retrieval_span_sink=_RetrievalSpanSink(_span_mgr, None) if _span_mgr else None,
             )
             loop_result = (
                 await cancel_token.race(loop_coro)
