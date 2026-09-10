@@ -89,6 +89,7 @@ export const agentManagement = {
           test: '测试',
           testPublished: '测试已发布版本',
           testInPlayground: '在 Playground 中测试',
+          returnToEvaluation: '返回评估',
           editAgent: '编辑 Agent',
           publishDraft: '发布草稿',
           versionLabel: '当前版本',

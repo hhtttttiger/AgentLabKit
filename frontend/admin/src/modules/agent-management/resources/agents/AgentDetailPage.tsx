@@ -184,6 +184,11 @@ export function AgentDetailPage() {
   const canTestPublished = hasPublished;
   const testLabel = hasDraft ? `${am}agents.detail.testPublished` : `${am}agents.detail.test`;
 
+  // Journey context, not domain state: when the user arrived from an
+  // evaluation run (Improve leg), keep the way back in the URL so refresh and
+  // browser Back keep working without any navigation history machinery.
+  const returnEvaluation = searchParams.get('returnEvaluation');
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'build', label: t(`${am}agents.detail.tabBuild`) },
     { key: 'runs', label: t(`${am}agents.detail.tabRuns`) },
@@ -213,6 +218,11 @@ export function AgentDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {returnEvaluation && (
+              <Button variant="secondary" onClick={() => navigate(`/evaluation/runs/${encodeURIComponent(returnEvaluation)}`)}>
+                {t(`${am}agents.detail.returnToEvaluation`)}
+              </Button>
+            )}
             {activeTab === 'build' && canTestPublished && (
               <Button variant="secondary" onClick={testAgent}><Play size={16} />{t(testLabel)}</Button>
             )}

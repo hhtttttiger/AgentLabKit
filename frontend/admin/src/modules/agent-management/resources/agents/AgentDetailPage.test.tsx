@@ -169,6 +169,25 @@ describe('AgentDetailPage', () => {
     );
   };
 
+  it('offers Return to Evaluation when arriving from an evaluation run', () => {
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/agent-management/agents/agent.docs?tab=build&returnEvaluation=9007199254740993']}>
+        <Routes>
+          <Route path="/agent-management/agents/:agentKey" element={<AgentDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '返回评估' }));
+    expect(navigateMock).toHaveBeenCalledWith('/evaluation/runs/9007199254740993');
+  });
+
+  it('does not offer Return to Evaluation on a direct visit', () => {
+    renderBuild();
+
+    expect(screen.queryByRole('button', { name: '返回评估' })).not.toBeInTheDocument();
+  });
+
   it('hides Test when the agent only has a draft', () => {
     useAgentMock.mockReturnValue({
       data: { ...agent, status: 'draft', publishedVersionNumber: null, publishedVersion: null },

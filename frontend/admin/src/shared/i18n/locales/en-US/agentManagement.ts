@@ -89,6 +89,7 @@ export const agentManagement = {
       test: 'Test',
       testPublished: 'Test Published',
       testInPlayground: 'Test in Playground',
+      returnToEvaluation: 'Return to Evaluation',
       editAgent: 'Edit agent',
       publishDraft: 'Publish draft',
       versionLabel: 'Current version',
