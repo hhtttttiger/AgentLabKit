@@ -1,4 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/cn';
 import { Button } from './Button';
 
@@ -18,6 +19,7 @@ export function Modal({
   onClose: () => void;
   widthClassName?: string;
 }>) {
+  const { t } = useTranslation('common');
   if (!open) {
     return null;
   }
@@ -38,7 +40,7 @@ export function Modal({
             {description ? <p className="mt-2 text-sm leading-6 text-text-secondary">{description}</p> : null}
           </div>
           <Button variant="ghost" onClick={onClose}>
-            关闭
+            {t('actions.close')}
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>

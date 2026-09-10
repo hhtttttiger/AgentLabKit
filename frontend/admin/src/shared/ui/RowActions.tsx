@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export type RowAction = {
   label: string;
@@ -10,6 +11,7 @@ export type RowAction = {
 };
 
 export function RowActions({ actions }: { actions: RowAction[] }) {
+  const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -66,7 +68,7 @@ export function RowActions({ actions }: { actions: RowAction[] }) {
       <button
         ref={triggerRef}
         type="button"
-        aria-label="更多操作"
+        aria-label={t('actions.moreActions')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => {

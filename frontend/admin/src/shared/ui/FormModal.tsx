@@ -1,4 +1,5 @@
 import { type PropsWithChildren, type ReactNode, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { Button } from './Button';
@@ -20,6 +21,7 @@ export function FormModal({
   onClose: () => void;
   widthClassName?: string;
 }>) {
+  const { t } = useTranslation('common');
   const [render, setRender] = useState(false);
 
   useEffect(() => {
@@ -74,7 +76,7 @@ export function FormModal({
             variant="ghost"
             onClick={onClose}
             className="!min-h-0 !p-1.5 text-text-muted hover:text-text"
-            aria-label="关闭"
+            aria-label={t('actions.close')}
           >
             <X className="h-5 w-5" />
           </Button>

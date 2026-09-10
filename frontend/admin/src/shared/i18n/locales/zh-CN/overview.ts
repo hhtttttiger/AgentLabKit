@@ -1,5 +1,10 @@
 export const overview = {
   greeting: '{{time}}好',
+  timeOfDay: {
+    morning: '早上',
+    afternoon: '下午',
+    evening: '晚上',
+  },
   subtitle: '你想做什么？',
   actions: {
     testAgent: '测试 Agent',

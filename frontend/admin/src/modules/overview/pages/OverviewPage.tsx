@@ -24,7 +24,7 @@ export function OverviewPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-text">
-            {t('overview:greeting', { time: getTimeOfDay() })}
+            {t('overview:greeting', { time: t(`overview:timeOfDay.${getTimeOfDay()}`) })}
           </h1>
           <p className="mt-2 text-text-secondary">
             {t('overview:subtitle')}

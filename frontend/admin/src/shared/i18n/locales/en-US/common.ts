@@ -145,7 +145,9 @@ export const common = {
     cancel: 'Cancel',
     backToList: 'Back to list',
     addInstance: 'Add instance',
-    addBinding: 'Add binding'
+    addBinding: 'Add binding',
+    moreActions: 'More actions',
+    close: 'Close'
   },
   pagination: {
     totalPrefix: '',

@@ -64,7 +64,7 @@ export function KbOverviewTab() {
                 { label: t('knowledgeBase:overview.totalRecalls'), value: formatAdminNumber(totalRecalls), hint: t('knowledgeBase:overview.totalRecallsHint') },
                 {
                   label: t('knowledgeBase:overview.status'),
-                  value: <Badge tone={statusTone[kb.status] ?? 'neutral'}>{t(`knowledgeBase:kbStatus.${kb.status}`, { defaultValue: kb.status })}</Badge>,
+                  value: <Badge tone={statusTone[kb.status] ?? 'neutral'}>{t(`knowledgeBase:kbStatus.${kb.status}`, { defaultValue: formatKbStatus(kb.status) })}</Badge>,
                   hint: t('knowledgeBase:overview.statusHint'),
                 },
               ]}
@@ -77,7 +77,7 @@ export function KbOverviewTab() {
                   <span className="text-sm text-text">{kb.name}</span>
                 </PropertyRow>
                 <PropertyRow icon={<Activity size={14} />} label={t('knowledgeBase:overview.fieldStatus')}>
-                  <Badge tone={statusTone[kb.status] ?? 'neutral'}>{t(`knowledgeBase:kbStatus.${kb.status}`, { defaultValue: kb.status })}</Badge>
+                  <Badge tone={statusTone[kb.status] ?? 'neutral'}>{t(`knowledgeBase:kbStatus.${kb.status}`, { defaultValue: formatKbStatus(kb.status) })}</Badge>
                 </PropertyRow>
                 <PropertyRow icon={<FileText size={14} />} label={t('knowledgeBase:overview.fieldDocuments')}>
                   <span className="text-sm text-text">{formatAdminNumber(kb.documentCount)}</span>
@@ -161,4 +161,8 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
       <div className="mt-2 text-sm text-text">{value}</div>
     </div>
   );
+}
+
+function formatKbStatus(status: KbStatus) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }

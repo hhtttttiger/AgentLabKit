@@ -1,5 +1,10 @@
 export const overview = {
   greeting: 'Good {{time}}',
+  timeOfDay: {
+    morning: 'morning',
+    afternoon: 'afternoon',
+    evening: 'evening',
+  },
   subtitle: 'What do you want to do?',
   actions: {
     testAgent: 'Test an Agent',

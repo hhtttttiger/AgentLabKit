@@ -98,9 +98,13 @@ export function KbCardView({
 
       {/* Footer */}
       <div className="mt-4 flex items-center justify-between">
-        <Badge tone={statusTone[kb.status]}>{t(`knowledgeBase:kbStatus.${kb.status}`, { defaultValue: kb.status })}</Badge>
+        <Badge tone={statusTone[kb.status]}>{t(`knowledgeBase:kbStatus.${kb.status}`, { defaultValue: formatKbStatus(kb.status) })}</Badge>
         <span className="text-xs text-text-muted">{t('knowledgeBase:card.documentCount', { count: kb.documentCount })}</span>
       </div>
     </div>
   );
+}
+
+function formatKbStatus(status: KbStatus) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }

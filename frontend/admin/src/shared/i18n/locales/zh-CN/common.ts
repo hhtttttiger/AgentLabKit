@@ -145,7 +145,9 @@ export const common = {
     cancel: '取消',
     backToList: '返回列表',
     addInstance: '添加实例',
-    addBinding: '添加绑定'
+    addBinding: '添加绑定',
+    moreActions: '更多操作',
+    close: '关闭'
   },
   pagination: {
     totalPrefix: '共 ',
