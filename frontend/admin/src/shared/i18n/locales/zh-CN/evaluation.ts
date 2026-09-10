@@ -90,6 +90,7 @@ export const evaluation = {
           available: '检索 {{attempts}} 次 · 成功 {{successful}} 次 · 使用 {{contexts}} 条上下文',
           noRetrieval: '本次运行没有发生检索',
           unavailable: '检索证据不可用',
+          traceNotFullyAvailable: 'Trace 未完全可用',
           openRun: '查看运行',
           inspectTrace: '查看 Trace'
         },

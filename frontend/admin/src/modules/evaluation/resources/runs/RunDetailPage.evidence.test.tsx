@@ -151,6 +151,24 @@ describe('Evaluation retrieval evidence surface', () => {
     expect(within(dialog).getByText('trace_unavailable')).toBeInTheDocument();
   });
 
+  it.each(['trace_finalization_timeout', 'trace_incomplete'] as const)('maps %s to the unavailable label with the truthful secondary reason', (reason) => {
+    renderPage({
+      run: { id: RUN_ID, configId: config.id, status: 'completed', startedAtUtc: null, completedAtUtc: null, summary: {}, createdAtUtc: '2026-09-10T00:00:00Z' } satisfies RunData,
+      results: [result({
+        metricResults: [metric({
+          reason,
+          evidence: { availability: 'unavailable', attempts: 0, successfulAttempts: 0, contextsUsed: 0, reason },
+        })],
+      })],
+    });
+
+    fireEvent.click(screen.getByText('Tuesday 03:00 UTC.'));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Retrieval evidence unavailable')).toBeInTheDocument();
+    expect(within(dialog).getByText('Trace was not fully available')).toBeInTheDocument();
+    expect(within(dialog).queryByText('No retrieval occurred for this run')).not.toBeInTheDocument();
+  });
+
   it('links the candidate Run identity', () => {
     renderPage({
       run: { id: RUN_ID, configId: config.id, status: 'completed', startedAtUtc: null, completedAtUtc: null, summary: {}, createdAtUtc: '2026-09-10T00:00:00Z' } satisfies RunData,

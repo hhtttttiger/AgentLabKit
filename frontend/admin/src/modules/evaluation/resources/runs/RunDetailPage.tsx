@@ -73,7 +73,12 @@ function RetrievalEvidence({ evidence }: { evidence: RetrievalEvidenceSummary | 
     : evidence.availability === 'not_applicable'
       ? t('runs.evidence.noRetrieval')
       : t('runs.evidence.unavailable');
-  return <div><h3 className="mb-2 font-semibold text-text">{t('runs.evidence.title')}</h3><div className="rounded-[2px] border border-border bg-background-subtle px-3 py-2 text-text-secondary">{label}</div></div>;
+  // Trace-level unavailability (not persisted in time / truncated projection)
+  // keeps the unavailable label and adds the truthful secondary reason —
+  // never "No retrieval occurred".
+  const traceNotFullyAvailable = evidence.availability === 'unavailable'
+    && ['trace_unavailable', 'trace_finalization_timeout', 'trace_incomplete'].includes(evidence.reason ?? '');
+  return <div><h3 className="mb-2 font-semibold text-text">{t('runs.evidence.title')}</h3><div className="rounded-[2px] border border-border bg-background-subtle px-3 py-2 text-text-secondary">{label}{traceNotFullyAvailable && <p className="mt-1 text-xs text-text-muted">{t('runs.evidence.traceNotFullyAvailable')}</p>}</div></div>;
 }
 function Detail({ label, value }: { label: string; value?: string | null }) { return <div><h3 className="mb-1 text-xs font-semibold text-text-muted">{label}</h3><pre className="whitespace-pre-wrap rounded-[2px] border border-border bg-background-subtle p-3 text-text">{value ?? '—'}</pre></div>; }
 function formatScore(value: unknown) { return typeof value === 'number' ? value.toFixed(3) : '—'; }

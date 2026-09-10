@@ -90,6 +90,7 @@ export const evaluation = {
       available: '{{attempts}} retrieval attempt(s) · {{successful}} successful · {{contexts}} context(s) used',
       noRetrieval: 'No retrieval occurred for this run',
       unavailable: 'Retrieval evidence unavailable',
+      traceNotFullyAvailable: 'Trace was not fully available',
       openRun: 'Open Run',
       inspectTrace: 'Inspect Trace'
     },
