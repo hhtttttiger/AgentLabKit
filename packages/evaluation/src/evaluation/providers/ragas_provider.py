@@ -13,6 +13,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..contracts import EvalCase, EvalMetricResult, EvalRunConfig, EvalRunResult
+from ..evidence import (
+    REASON_MISSING_ACTUAL_OUTPUT,
+    REASON_MISSING_REFERENCE,
+    REASON_NO_RETRIEVAL,
+    REASON_RETRIEVAL_FAILED,
+    REASON_TRACE_UNAVAILABLE,
+    EvidenceAvailability,
+)
 from .base import EvalMetric, EvalProvider
 
 # RAGAS 是 optional dependency — 顶层不导入，延迟到函数内部
@@ -28,6 +36,18 @@ _RAGAS_METRIC_MAP: dict[str, str] = {
     "context_precision": "ContextPrecision",
 }
 
+# 每个 metric 声明它需要哪些 canonical evidence 字段（§14）。
+# 不写 provider name 特判，也不在 orchestration 散落 if metric == ...；
+# provider 用这张小映射决定 missing evidence 时的 truthful unavailable。
+_RAGAS_METRIC_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+    # faithfulness: 回答是否忠实于 candidate 实际检索到的 contexts
+    "faithfulness": ("actual_output", "retrieved_contexts"),
+    # answer_relevancy: 只需要回答本身（answer-only metric）
+    "answer_relevancy": ("actual_output",),
+    # context_precision: 检索 contexts 是否支撑 reference 答案
+    "context_precision": ("retrieved_contexts", "reference"),
+}
+
 
 def _score_or_none(value: Any) -> float | None:
     """ragas 用 NaN 表示该行该指标评估失败；NaN/Inf 不允许进入结果。
@@ -41,6 +61,123 @@ def _score_or_none(value: Any) -> float | None:
     if math.isnan(score) or math.isinf(score):
         return None
     return score
+
+
+# ── Canonical evidence → provider inputs ─────────────────────────────
+
+
+class _CaseInputs:
+    """单个 case 已解析的 provider 输入与 evidence 摘要。"""
+
+    __slots__ = ("user_input", "response", "reference", "contexts",
+                 "retrieval_reason", "evidence_summary")
+
+    def __init__(
+        self,
+        *,
+        user_input: str,
+        response: str,
+        reference: str | None,
+        contexts: list[str] | None,
+        retrieval_reason: str | None,
+        evidence_summary: dict[str, Any] | None,
+    ) -> None:
+        self.user_input = user_input
+        self.response = response
+        self.reference = reference
+        # None 表示 retrieval evidence 不可用/不适用（不能喂给 ragas）；
+        # [] 是 AVAILABLE 的零结果，是合法输入。
+        self.contexts = contexts
+        self.retrieval_reason = retrieval_reason
+        self.evidence_summary = evidence_summary
+
+
+def _resolve_case_inputs(
+    index: int,
+    case: EvalCase,
+    actual_outputs: list[str] | None,
+    evidence: list[Any] | None,
+) -> _CaseInputs:
+    ev = evidence[index] if evidence is not None and index < len(evidence) else None
+    if ev is not None:
+        # Candidate evidence is the single source of truth for the actual
+        # output (it carries the Runtime-owned Run output verbatim).
+        response = ev.actual_output if ev.actual_output is not None else ""
+    elif actual_outputs is not None and index < len(actual_outputs):
+        response = actual_outputs[index]
+    else:
+        response = case.expected_output or ""
+    if ev is None:
+        # Legacy dataset-only 模式：case.context 是数据集 expectation 字段。
+        return _CaseInputs(
+            user_input=case.input_text,
+            response=response,
+            reference=case.expected_output,
+            contexts=list(case.context or []),
+            retrieval_reason=None,
+            evidence_summary=None,
+        )
+
+    retrieval = ev.retrieval
+    summary = ev.retrieval_summary()
+    if retrieval.availability is EvidenceAvailability.UNAVAILABLE:
+        contexts, reason = None, (retrieval.reason or REASON_TRACE_UNAVAILABLE)
+    elif retrieval.availability is EvidenceAvailability.NOT_APPLICABLE:
+        contexts, reason = None, REASON_NO_RETRIEVAL
+    elif retrieval.successful_attempts == 0:
+        # 有 retrieval 事实但全部失败：没有可评分的 contexts。
+        contexts, reason = None, REASON_RETRIEVAL_FAILED
+    else:
+        # AVAILABLE（包括成功但 0 结果 → 空列表是合法输入）
+        contexts, reason = list(retrieval.contexts), None
+    return _CaseInputs(
+        user_input=case.input_text,
+        response=response,
+        reference=case.expected_output,
+        contexts=contexts,
+        retrieval_reason=reason,
+        evidence_summary=summary,
+    )
+
+
+def _metric_unavailable_reason(metric_name: str, inputs: _CaseInputs) -> str | None:
+    """按 metric 声明的 evidence 需求判断缺失；返回 machine-readable reason。"""
+    for requirement in _RAGAS_METRIC_REQUIREMENTS.get(metric_name, ()):
+        if requirement == "actual_output" and not inputs.response:
+            return REASON_MISSING_ACTUAL_OUTPUT
+        if requirement == "reference" and not inputs.reference:
+            return REASON_MISSING_REFERENCE
+        if requirement == "retrieved_contexts" and inputs.contexts is None:
+            return inputs.retrieval_reason or REASON_TRACE_UNAVAILABLE
+    return None
+
+
+_UNAVAILABLE_TEXT = {
+    REASON_MISSING_ACTUAL_OUTPUT: "unavailable: candidate produced no output",
+    REASON_MISSING_REFERENCE: "unavailable: dataset example has no reference answer",
+    REASON_NO_RETRIEVAL: "unavailable: no retrieval occurred for this run",
+    REASON_RETRIEVAL_FAILED: "unavailable: all retrieval attempts failed",
+    REASON_TRACE_UNAVAILABLE: "unavailable: candidate trace evidence unavailable",
+}
+
+
+def _unavailable_text(reason: str | None) -> str:
+    if reason is None:
+        return "metric unavailable"
+    return _UNAVAILABLE_TEXT.get(
+        reason, f"metric unavailable ({reason})",
+    )
+
+
+def _ragas_item(inputs: _CaseInputs) -> dict[str, Any]:
+    item: dict[str, Any] = {
+        "user_input": inputs.user_input,
+        "retrieved_contexts": inputs.contexts or [],
+        "response": inputs.response,
+    }
+    if inputs.reference:
+        item["reference"] = inputs.reference
+    return item
 
 
 # ── 内部 EvalMetric 适配 ──────────────────────────────────────────────
@@ -215,11 +352,21 @@ class RAGASEvalProvider:
         config: EvalRunConfig,
         *,
         actual_outputs: list[str] | None = None,
+        evidence: list[Any] | None = None,
     ) -> list[EvalRunResult]:
         """批量评估 — 返回 per-case 结果列表，与 legacy 行为一致。
 
         ``actual_outputs`` 是目标对每个 case 的真实输出（被评估对象）；
         缺省时回退到 ``case.expected_output``（dataset-only 模式）。
+
+        ``evidence``（与 cases 等长）是 canonical candidate evidence。
+        提供时 ``retrieved_contexts`` 只来自 evidence 中 successful retrieval
+        attempts 的 bounded previews；缺省时回退 ``case.context``
+        （dataset expectation，不是 candidate 检索证据）。
+
+        缺少 metric 声明需要的 evidence 时，该 metric 得到
+        ``score=None / passed=None`` 加 machine-readable reason（truthful
+        unavailable），绝不折算成 0 或 FAIL。多个 metric 可以部分可用。
         """
         import time as _time
 
@@ -266,75 +413,112 @@ class RAGASEvalProvider:
             )
             return [err]
 
-        # 构建 RAGAS dataset
-        dataset_items = []
-        for i, case in enumerate(cases):
-            if actual_outputs is not None and i < len(actual_outputs):
-                response = actual_outputs[i]
-            else:
-                response = case.expected_output or ""
-            item = {
-                "user_input": case.input_text,
-                "retrieved_contexts": case.context or [],
-                "response": response,
-            }
-            if case.expected_output:
-                item["reference"] = case.expected_output
-            dataset_items.append(item)
+        # ── Canonical evidence → per-case provider inputs ────────────
+        per_case = [
+            _resolve_case_inputs(i, case, actual_outputs, evidence)
+            for i, case in enumerate(cases)
+        ]
 
-        dataset = EvaluationDataset.from_list(dataset_items)
-
-        # 异步执行（RAGAS evaluate() 是同步的）
-        try:
-            result = await asyncio.to_thread(
-                evaluate,
-                dataset=dataset,
-                metrics=ragas_metrics,
-                llm=self._llm,
+        # 按"gated-in metric 集合"分组；每组一次 ragas evaluate 调用。
+        # gated-out 的 (case, metric) 直接得到 truthful unavailable。
+        grouped: dict[tuple[str, ...], list[int]] = {}
+        for i, inputs in enumerate(per_case):
+            computable = tuple(
+                name for name in resolved_names
+                if _metric_unavailable_reason(
+                    name, inputs,
+                ) is None
             )
-        except Exception as e:
-            logger.error("RAGAS evaluate() failed: %s", e, exc_info=True)
-            err = EvalRunResult(
-                error_message=f"RAGAS evaluation failed: {e}",
-                duration_ms=int((_time.monotonic() - start) * 1000),
-            )
-            return [err]
+            grouped.setdefault(computable, []).append(i)
 
-        # 拆分为 per-case 结果
+        metric_results_by_case: list[list[EvalMetricResult]] = [
+            [] for _ in cases
+        ]
+        for computable, case_indices in grouped.items():
+            if not computable:
+                continue
+            group_metrics = [self._resolve_ragas_metric(n) for n in computable]
+            dataset = EvaluationDataset.from_list([
+                _ragas_item(per_case[i]) for i in case_indices
+            ])
+            try:
+                result = await asyncio.to_thread(
+                    evaluate,
+                    dataset=dataset,
+                    metrics=group_metrics,
+                    llm=self._llm,
+                )
+            except Exception as e:
+                # 引擎级失败沿用既有契约：整体返回单个 error 结果，
+                # 不把异常折算成 per-case 分数。
+                logger.error("RAGAS evaluate() failed: %s", e, exc_info=True)
+                return [EvalRunResult(
+                    error_message=f"RAGAS evaluation failed: {e}",
+                    duration_ms=int((_time.monotonic() - start) * 1000),
+                )]
+
+            for row, i in enumerate(case_indices):
+                inputs = per_case[i]
+                for metric_name in computable:
+                    # ragas 0.4.3 EvaluationResult: result[name] 是 per-row 分数
+                    # 列表（无 .get()）；raise_exceptions=False 时失败行为 NaN。
+                    try:
+                        row_scores = list(result[metric_name])
+                    except (KeyError, IndexError, TypeError):
+                        logger.warning("ragas result missing metric %r", metric_name)
+                        continue
+                    val: float | None = None
+                    if row < len(row_scores):
+                        val = _score_or_none(row_scores[row])
+                    if val is not None:
+                        metric_results_by_case[i].append(
+                            EvalMetricResult(
+                                metric_name=metric_name, score=val,
+                                reasoning=None, evidence=inputs.evidence_summary,
+                            )
+                        )
+                    else:
+                        # unavailable ≠ 0.0，且不据此判 FAIL
+                        metric_results_by_case[i].append(
+                            EvalMetricResult(
+                                metric_name=metric_name, score=None, passed=None,
+                                reasoning="metric unavailable (ragas returned no score)",
+                                reason="ragas_no_score",
+                                evidence=inputs.evidence_summary,
+                            )
+                        )
+
+        # gated-out + grouped 结果合并为 per-case 有序结果
         duration = int((_time.monotonic() - start) * 1000)
         results: list[EvalRunResult] = []
         for i, case in enumerate(cases):
-            case_scores: list[float] = []
+            inputs = per_case[i]
             case_metric_results: list[EvalMetricResult] = []
             for metric_name in resolved_names:
-                # ragas 0.4.3 EvaluationResult: result[name] 是 per-row 分数
-                # 列表（无 .get()）；raise_exceptions=False 时失败行为 NaN。
-                try:
-                    row_scores = list(result[metric_name])
-                except (KeyError, IndexError, TypeError):
-                    logger.warning("ragas result missing metric %r", metric_name)
+                already = next(
+                    (m for m in metric_results_by_case[i]
+                     if m.metric_name == metric_name),
+                    None,
+                )
+                if already is not None:
+                    case_metric_results.append(already)
                     continue
-                val: float | None = None
-                if i < len(row_scores):
-                    val = _score_or_none(row_scores[i])
-                if val is not None:
-                    case_metric_results.append(
-                        EvalMetricResult(metric_name=metric_name, score=val, reasoning=None)
-                    )
-                    case_scores.append(val)
-                else:
-                    # unavailable ≠ 0.0，且不据此判 FAIL
-                    case_metric_results.append(
-                        EvalMetricResult(
-                            metric_name=metric_name, score=None, passed=None,
-                            reasoning="metric unavailable (ragas returned no score)",
-                        )
-                    )
+                reason = _metric_unavailable_reason(metric_name, inputs)
+                case_metric_results.append(EvalMetricResult(
+                    metric_name=metric_name,
+                    score=None,
+                    passed=None,
+                    reasoning=_unavailable_text(reason),
+                    reason=reason,
+                    evidence=inputs.evidence_summary,
+                ))
 
+            scores = [m.score for m in case_metric_results if m.score is not None]
             results.append(EvalRunResult(
                 case_id=case.id,
                 metric_results=case_metric_results,
-                overall_score=round(sum(case_scores) / len(case_scores), 4) if case_scores else None,
+                # None = 没有任何可用分数（unavailable ≠ 0.0）
+                overall_score=round(sum(scores) / len(scores), 4) if scores else None,
                 duration_ms=duration,
             ))
         return results
