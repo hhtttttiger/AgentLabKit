@@ -219,37 +219,40 @@ class _RAGASMetricAdapter:
 # ── RAGAS LLM 构建桥接 ───────────────────────────────────────────────
 
 
-def _build_ragas_llm(provider_config: Any) -> Any:
+def _build_ragas_llm(provider_config: Any, model_name: str = "") -> Any:
     """从 RuntimeProviderConfig 构建 RAGAS LLM。
 
     Args:
         provider_config: 需要 ``api_key``、``base_url``、``provider`` 属性。
             典型来源: ``llm_gateway.provider_runtime.RuntimeProviderConfig``。
+        model_name: 已解析的 judge 模型名。``RuntimeProviderConfig`` 是
+            provider 无关的传输配置，刻意不携带 model 字段；模型名必须由
+            调用方（gateway 路由 / per-run judge 配置）显式传入，
+            绝不默认到某个供应商模型。
     """
     from ragas.llms import llm_factory
 
     provider_name = getattr(provider_config, "provider", "openai") or "openai"
     api_key = getattr(provider_config, "api_key", None)
     base_url = getattr(provider_config, "base_url", None)
+    model = (model_name or "").strip()
+    if not model:
+        raise RuntimeError(
+            "RAGAS LLM requires an explicit judge model name; refusing to "
+            "guess a vendor default."
+        )
 
     if provider_name == "anthropic":
         from anthropic import Anthropic
 
         client = Anthropic(api_key=api_key, base_url=base_url)
-        return llm_factory(
-            getattr(provider_config, "model", "claude-sonnet-4-20250514"),
-            provider="anthropic",
-            client=client,
-        )
+        return llm_factory(model, provider="anthropic", client=client)
 
     # 默认: OpenAI SDK client（兼容 OpenAI 及 OpenAI-compatible 端点）
     from openai import OpenAI
 
     client = OpenAI(api_key=api_key, base_url=base_url)
-    return llm_factory(
-        getattr(provider_config, "model", "gpt-4o"),
-        client=client,
-    )
+    return llm_factory(model, client=client)
 
 
 # ── RAGASEvalProvider ────────────────────────────────────────────────
@@ -328,7 +331,7 @@ class RAGASEvalProvider:
                     f"Judge model {model!r} could not be resolved through the "
                     f"LLM gateway: {exc}"
                 ) from exc
-            self._llm = _build_ragas_llm(config)
+            self._llm = _build_ragas_llm(config, model)
             self._config_resolved = True
             return self._llm
 
