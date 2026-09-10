@@ -19,7 +19,9 @@ from dataclasses import dataclass, field
 import pytest
 
 from application.evaluation import EvaluateDataset, EvaluateDatasetCommand
-from evaluation.contracts_v2 import DatasetExample, EvaluationContext, EvaluationResult
+from evaluation.contracts_v2 import (
+    DatasetExample, EvaluationContext, EvaluationResult, TraceProjection,
+)
 from evaluation.evidence import EvidenceAvailability
 
 
@@ -73,11 +75,17 @@ class Span:
 class TraceStore:
     """Trace projection keyed by the Runtime-owned candidate trace_id."""
 
-    def __init__(self, traces):
+    def __init__(self, traces, dropped_span_counts=None):
         self._traces = traces
+        self._dropped = dropped_span_counts or {}
 
-    async def get_spans(self, trace_id):
-        return self._traces.get(trace_id)
+    async def get_trace_projection(self, trace_id):
+        spans = self._traces.get(trace_id)
+        if spans is None:
+            return None
+        return TraceProjection(
+            spans=spans, dropped_span_count=self._dropped.get(trace_id, 0),
+        )
 
 
 class Store:
@@ -274,3 +282,51 @@ async def test_retry_evidence_preserved_for_candidate():
     retrieval = evaluator.contexts[0].evidence.retrieval
     assert [a.succeeded for a in retrieval.attempts] == [False, True]
     assert retrieval.contexts == ("BETA",)
+
+
+# ── Trace truncation truthfulness (closeout EF-02) ───────────────────
+
+
+@pytest.mark.asyncio
+async def test_truncated_trace_zero_visible_retrieval_spans_is_unavailable_not_applicable():
+    example = Example()
+    candidate = CandidateRun("run-1", "trace-1")
+    traces = {"trace-1": [Span(span_id="root", name="agent.run", kind="RUN")]}
+    store = Store()
+    traces_store = TraceStore(
+        traces, dropped_span_counts={"trace-1": 3},
+    )
+    evaluator = CapturingEvaluator()
+    await EvaluateDataset(
+        _DatasetReader([example]), Agents(), Executor([candidate]), evaluator,
+        store, traces=traces_store,
+    ).execute(EvaluateDatasetCommand("dataset-1", "agent"))
+
+    retrieval = evaluator.contexts[0].evidence.retrieval
+    assert retrieval.availability is EvidenceAvailability.UNAVAILABLE
+    assert retrieval.reason == "trace_incomplete"
+
+
+@pytest.mark.asyncio
+async def test_truncated_trace_with_visible_retrieval_keeps_incomplete_state():
+    example = Example()
+    candidate = CandidateRun("run-1", "trace-1")
+    traces = {"trace-1": _candidate_spans("BETA")}
+    store = Store()
+    traces_store = TraceStore(
+        traces, dropped_span_counts={"trace-1": 2},
+    )
+    evaluator = CapturingEvaluator()
+    await EvaluateDataset(
+        _DatasetReader([example]), Agents(), Executor([candidate]), evaluator,
+        store, traces=traces_store,
+    ).execute(EvaluateDatasetCommand("dataset-1", "agent"))
+
+    evidence = evaluator.contexts[0].evidence
+    retrieval = evidence.retrieval
+    # Existing authoritative retrieval evidence stays usable...
+    assert retrieval.availability is EvidenceAvailability.AVAILABLE
+    assert retrieval.contexts == ("BETA",)
+    # ...but the summary preserves the incompleteness truth.
+    assert retrieval.reason == "trace_incomplete"
+    assert evidence.retrieval_summary()["reason"] == "trace_incomplete"

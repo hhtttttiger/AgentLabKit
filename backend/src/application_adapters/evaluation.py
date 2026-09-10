@@ -15,6 +15,7 @@ from evaluation.contracts_v2 import (
     DatasetExample,
     EvaluationResult,
     SpanSummary,
+    TraceProjection,
     eval_run_result_to_evaluation_result,
 )
 from modules.evaluation.models import EvalCase as EvalCaseModel, EvalRun, EvalRunConfig as EvalRunConfigModel, EvalRunResult
@@ -266,19 +267,25 @@ class BackendTraceReader:
             self._store = PostgresTraceStore(self._factory)
         return self._store
 
-    async def get_spans(self, trace_id: str) -> list[SpanSummary] | None:
-        spans = await self._trace_store().get_trace_spans(trace_id)
-        if not spans:
+    async def get_trace_projection(self, trace_id: str) -> TraceProjection | None:
+        store = self._trace_store()
+        record = await store.get_trace(trace_id)
+        if record is None:
             # Trace not (yet) persisted — evidence stays truthfully
             # unavailable instead of being reconstructed.
-            return []
-        return [
-            SpanSummary(
-                span_id=span.span_id, name=span.name, kind=span.kind,
-                duration_ms=span.duration_ms,
-                attributes=dict(span.attributes),
-                status=span.status,
-                error_message=span.error_message,
-            )
-            for span in spans
-        ]
+            return None
+        spans = await store.get_trace_spans(trace_id)
+        return TraceProjection(
+            spans=[
+                SpanSummary(
+                    span_id=span.span_id, name=span.name, kind=span.kind,
+                    duration_ms=span.duration_ms,
+                    attributes=dict(span.attributes),
+                    status=span.status,
+                    error_message=span.error_message,
+                )
+                for span in spans
+            ],
+            # Observability-owned truncation fact — carried, never recomputed.
+            dropped_span_count=record.dropped_span_count,
+        )

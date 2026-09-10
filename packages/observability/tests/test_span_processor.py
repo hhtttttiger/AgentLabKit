@@ -103,6 +103,23 @@ class TestSpanPriority:
         span.status = "ok"
         assert _span_priority(span) == 70
 
+    def test_projected_tool_span_name_medium(self) -> None:
+        # Real projections name tool spans "tool.{tool_name}".
+        span = MagicMock()
+        span.name = "tool.knowledge_base_search"
+        span.status = "ok"
+        assert _span_priority(span) == 70
+
+    def test_retrieval_spans_rank_above_other_execution_spans(self) -> None:
+        # Retrieval spans are the only carrier of bounded retrieval execution
+        # facts; fitting must not drop them before generic/llm/tool spans.
+        for name, kind in (("retrieval.search", "retrieval"), ("custom", "retrieval")):
+            span = MagicMock()
+            span.name = name
+            span.kind = kind
+            span.status = "ok"
+            assert _span_priority(span) == 80
+
     def test_other_low(self) -> None:
         span = MagicMock()
         span.name = "custom.span"

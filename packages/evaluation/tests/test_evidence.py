@@ -13,6 +13,7 @@ import pytest
 
 from evaluation.evidence import (
     EvidenceAvailability,
+    REASON_TRACE_INCOMPLETE,
     REASON_TRACE_UNAVAILABLE,
     compose_evaluation_evidence,
 )
@@ -271,3 +272,66 @@ def test_retrieval_spans_recognized_across_projection_shapes(kind, name):
     })]
     evidence = compose_evaluation_evidence(example=Example(), run=Run(), spans=spans)
     assert evidence.retrieval.successful_attempts == 1
+
+
+# ── Trace completeness truthfulness (closeout T5–T8) ──────────────────
+
+
+def test_t5_complete_trace_zero_retrieval_spans_is_not_applicable():
+    spans = [_span(span_id="root", name="agent.run", kind="RUN")]
+    evidence = compose_evaluation_evidence(
+        example=Example(), run=Run(), spans=spans, trace_complete=True,
+    )
+    assert evidence.retrieval.availability is EvidenceAvailability.NOT_APPLICABLE
+
+
+def test_t6_truncated_trace_zero_visible_retrieval_spans_is_unavailable():
+    """Retrieval may have happened and its spans were dropped: 'No retrieval
+    occurred' would be a false fact."""
+    spans = [_span(span_id="root", name="agent.run", kind="RUN")]
+    evidence = compose_evaluation_evidence(
+        example=Example(), run=Run(), spans=spans, trace_complete=False,
+    )
+    assert evidence.retrieval.availability is EvidenceAvailability.UNAVAILABLE
+    assert evidence.retrieval.reason == REASON_TRACE_INCOMPLETE
+
+
+def test_t7_truncated_trace_with_visible_retrieval_keeps_incomplete_state():
+    spans = [_span(attributes={
+        "retrieval.result_count": 1,
+        "retrieval.results": [_ref("ctx")],
+    })]
+    evidence = compose_evaluation_evidence(
+        example=Example(), run=Run(), spans=spans, trace_complete=False,
+    )
+    # Authoritative retrieval evidence stays usable for metrics...
+    assert evidence.retrieval.availability is EvidenceAvailability.AVAILABLE
+    assert evidence.retrieval.contexts == ("ctx",)
+    # ...but the persisted summary must preserve the incompleteness truth.
+    assert evidence.retrieval.reason == REASON_TRACE_INCOMPLETE
+    assert evidence.retrieval_summary() == {
+        "availability": "available",
+        "attempts": 1,
+        "successful_attempts": 1,
+        "contexts_used": 1,
+        "reason": REASON_TRACE_INCOMPLETE,
+    }
+
+
+def test_t8_unknown_completeness_defaults_to_not_applicable_for_zero_spans():
+    """Callers that cannot know completeness keep the previous semantics —
+    absence of a completeness claim is never an incompleteness claim."""
+    spans = [_span(span_id="root", name="agent.run", kind="RUN")]
+    evidence = compose_evaluation_evidence(
+        example=Example(), run=Run(), spans=spans, trace_complete=None,
+    )
+    assert evidence.retrieval.availability is EvidenceAvailability.NOT_APPLICABLE
+
+
+def test_finalization_timeout_reason_replaces_trace_unavailable_when_known():
+    evidence = compose_evaluation_evidence(
+        example=Example(), run=Run(), spans=[],
+        trace_unavailable_reason="trace_finalization_timeout",
+    )
+    assert evidence.retrieval.availability is EvidenceAvailability.UNAVAILABLE
+    assert evidence.retrieval.reason == "trace_finalization_timeout"

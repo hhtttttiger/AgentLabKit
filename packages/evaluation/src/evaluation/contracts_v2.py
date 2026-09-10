@@ -201,6 +201,22 @@ class SpanSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class TraceProjection:
+    """权威 Trace projection 的读取结果：spans + completeness truth。
+
+    ``dropped_span_count`` 来自 envelope 的 fitting/truncation 事实
+    （Observability 拥有，不复制、不重构）。缺 retrieval spans 是否可信
+    只能由 completeness 回答：dropped > 0 时"没有 retrieval"不是合法结论。
+    """
+    spans: list[SpanSummary] = field(default_factory=list)
+    dropped_span_count: int = 0
+
+    @property
+    def complete(self) -> bool:
+        return self.dropped_span_count == 0
+
+
+@dataclass(frozen=True, slots=True)
 class EvaluationContext:
     """评估上下文 — 包含 DatasetExample 和可选的 Run + Spans。
 
@@ -611,6 +627,7 @@ __all__ = [
     "MetricResult",
     "DatasetExample",
     "SpanSummary",
+    "TraceProjection",
     "EvaluationContext",
     "EvaluationResult",
     "ExampleEvaluation",

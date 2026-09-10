@@ -49,13 +49,17 @@ class EvaluateDataset:
                     session_id=None, user_id=None, history=(),
                     metadata=dict(command.metadata),
                 )
-                spans = []
+                projection = None
                 if self._traces is not None and run.trace_id:
-                    spans = (await self._traces.get_spans(run.trace_id)) or []
+                    projection = await self._traces.get_trace_projection(run.trace_id)
+                spans = list(projection.spans) if projection is not None else []
                 # Candidate evidence composes the candidate Run and candidate
                 # Trace projection only; capture provenance never enters here.
+                # Completeness rides with the projection: an absent span in a
+                # truncated trace is never "no retrieval happened".
                 evidence = compose_evaluation_evidence(
                     example=example, run=run, spans=spans,
+                    trace_complete=(projection.complete if projection is not None else None),
                 )
                 result = await self._evaluator.evaluate(EvaluationContext(
                     example=example, run=run, spans=spans,

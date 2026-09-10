@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from evaluation.contracts_v2 import EvaluationResult, EvaluationRun
+from evaluation.contracts_v2 import EvaluationResult, EvaluationRun, TraceProjection
 
 class EvaluationRunReader(Protocol):
     async def get_run(self, run_id: str) -> EvaluationRun | None: ...
@@ -11,7 +11,14 @@ class EvaluationConfigurationReader(Protocol):
     async def get_configuration(self, config_id: str): ...
 
 class TraceReader(Protocol):
-    async def get_spans(self, trace_id: str) -> list[Any] | None: ...
+    """Authoritative candidate-trace projection reads.
+
+    Returns None when the trace projection does not exist (yet); a
+    projection carries its completeness truth (dropped spans) so consumers
+    can tell "no retrieval happened" from "spans were truncated".
+    """
+
+    async def get_trace_projection(self, trace_id: str) -> TraceProjection | None: ...
 
 class EvaluationRunStore(Protocol):
     async def start(self, *, dataset_id: str, agent_key: str, total_examples: int) -> Any: ...

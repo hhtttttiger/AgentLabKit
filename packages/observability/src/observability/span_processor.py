@@ -360,7 +360,14 @@ def _span_priority(span: SpanEnvelope) -> int:
         return 100
     if span.status != "ok":
         return 90
-    if span.name in {"llm.generate", "tool.execute", "llm_gateway.request"}:
+    if span.kind == "retrieval" or span.name.startswith("retrieval."):
+        # Retrieval spans are the only carrier of bounded retrieval execution
+        # facts (refs previews); dropping them first would turn a truncated
+        # trace into a false "no retrieval occurred" story downstream.
+        return 80
+    if span.name.startswith("tool.") or span.name in {
+        "llm.generate", "tool.execute", "llm_gateway.request",
+    }:
         return 70
     return 10
 

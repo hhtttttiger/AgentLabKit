@@ -37,10 +37,13 @@ class EvidenceAvailability(str, Enum):
 
 # Machine-readable missing-evidence reasons（持久化到 metric entry 的 reason）。
 REASON_TRACE_UNAVAILABLE = "trace_unavailable"
+REASON_TRACE_FINALIZATION_TIMEOUT = "trace_finalization_timeout"
+REASON_TRACE_INCOMPLETE = "trace_incomplete"
 REASON_NO_RETRIEVAL = "no_retrieval_evidence"
 REASON_RETRIEVAL_FAILED = "retrieval_failed"
 REASON_MISSING_REFERENCE = "missing_reference"
 REASON_MISSING_ACTUAL_OUTPUT = "missing_actual_output"
+REASON_EVIDENCE_NOT_PROVIDED = "evidence_not_provided"
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,6 +130,8 @@ def compose_evaluation_evidence(
     example: Any,
     run: Any | None,
     spans: Sequence[Any] | None,
+    trace_complete: bool | None = None,
+    trace_unavailable_reason: str = REASON_TRACE_UNAVAILABLE,
 ) -> EvaluationEvidence:
     """纯函数：DatasetExample + Candidate AgentRun + spans → EvaluationEvidence。
 
@@ -134,8 +139,20 @@ def compose_evaluation_evidence(
     name / kind / status / attributes）。composer 不查询数据库、不执行 agent、
     不推断 identity；``spans`` 为空表示 trace projection 不可取得（UNAVAILABLE），
     而不是"没有 retrieval"。
+
+    ``trace_complete`` 是 projection 的 completeness truth（envelope 的
+    dropped_span_count == 0）；None 表示调用方无法知晓，按 complete 处理 ——
+    不完整时缺 evidence 绝不能被解释为"没有 retrieval"：
+
+    - complete   + zero retrieval spans → NOT_APPLICABLE
+    - incomplete + zero retrieval spans → UNAVAILABLE(trace_incomplete)
+    - incomplete + retrieval spans      → AVAILABLE，summary 保留 incomplete
     """
-    retrieval = _compose_retrieval_evidence(spans)
+    retrieval = _compose_retrieval_evidence(
+        spans,
+        trace_complete=trace_complete,
+        trace_unavailable_reason=trace_unavailable_reason,
+    )
     output = getattr(run, "output", None)
     return EvaluationEvidence(
         example_id=getattr(example, "example_id", ""),
@@ -148,13 +165,18 @@ def compose_evaluation_evidence(
     )
 
 
-def _compose_retrieval_evidence(spans: Sequence[Any] | None) -> RetrievalEvidence:
+def _compose_retrieval_evidence(
+    spans: Sequence[Any] | None,
+    *,
+    trace_complete: bool | None = None,
+    trace_unavailable_reason: str = REASON_TRACE_UNAVAILABLE,
+) -> RetrievalEvidence:
     if not spans:
         # Trace projection 不可查询（包括尚未持久化的 race 窗口）：
         # 如实表达 UNAVAILABLE，禁止从 Run output / ToolResult 拼装 evidence。
         return RetrievalEvidence(
             availability=EvidenceAvailability.UNAVAILABLE,
-            reason=REASON_TRACE_UNAVAILABLE,
+            reason=trace_unavailable_reason,
         )
 
     attempts = tuple(
@@ -163,13 +185,23 @@ def _compose_retrieval_evidence(spans: Sequence[Any] | None) -> RetrievalEvidenc
         if _is_retrieval_span(span)
     )
     if not attempts:
-        # Trace 在，但没有 retrieval span：agent 合法地没有做 retrieval。
+        if trace_complete is False:
+            # Span projection 被截断且看不到 retrieval span：retrieval 可能
+            # 确实发生过但 spans 被丢弃 —— "No retrieval occurred" 是 false
+            # fact，必须如实 unavailable。
+            return RetrievalEvidence(
+                availability=EvidenceAvailability.UNAVAILABLE,
+                reason=REASON_TRACE_INCOMPLETE,
+            )
+        # Trace 在、完整、但没有 retrieval span：agent 合法地没有做 retrieval。
         return RetrievalEvidence(
             availability=EvidenceAvailability.NOT_APPLICABLE,
         )
     return RetrievalEvidence(
         availability=EvidenceAvailability.AVAILABLE,
         attempts=attempts,
+        # 已见的 retrieval evidence 仍可用，但 summary 必须保留 incomplete 状态。
+        reason=REASON_TRACE_INCOMPLETE if trace_complete is False else None,
     )
 
 
@@ -243,10 +275,13 @@ __all__ = [
     "RetrievalAttempt",
     "RetrievalContextRef",
     "RetrievalEvidence",
+    "REASON_EVIDENCE_NOT_PROVIDED",
     "REASON_MISSING_ACTUAL_OUTPUT",
     "REASON_MISSING_REFERENCE",
     "REASON_NO_RETRIEVAL",
     "REASON_RETRIEVAL_FAILED",
+    "REASON_TRACE_FINALIZATION_TIMEOUT",
+    "REASON_TRACE_INCOMPLETE",
     "REASON_TRACE_UNAVAILABLE",
     "compose_evaluation_evidence",
 ]
