@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Play, RotateCcw, Database, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useRunDetail, useRunTrace, useCaptureRun } from '../hooks';
-import { useDatasetList } from '@/modules/evaluation/resources/datasets/hooks';
+import { useCreateDataset, useDatasetList } from '@/modules/evaluation/resources/datasets/hooks';
 import { useToast } from '@/shared/ui/Toast';
 import { Modal } from '@/shared/ui/Modal';
 import { AgentTraceView } from '@/shared/agent-trace/AgentTraceView';
@@ -18,12 +18,20 @@ export function RunDetailPage() {
   const { data: run, isLoading, error } = useRunDetail(runId ?? '');
   const [captureOpen, setCaptureOpen] = useState(false);
   const [addedDatasetId, setAddedDatasetId] = useState<string | null>(null);
+  // Display context for the success banner. The capture response only carries
+  // opaque identity, so the name comes from what the user already picked in
+  // the modal: either the listed dataset or the one just created inline.
+  const [createdDataset, setCreatedDataset] = useState<{ id: string; name: string } | null>(null);
   const captureMutation = useCaptureRun();
+  const createDatasetMutation = useCreateDataset();
   const { data: datasets } = useDatasetList();
   const { toast } = useToast();
 
   if (isLoading) return <State text={t('common:states.loading')} />;
   if (error || !run) return <State text={t('common:states.loadingFailed')} error />;
+
+  const addedDatasetName = datasets?.items.find((dataset) => String(dataset.id) === String(addedDatasetId))?.name
+    ?? (createdDataset && createdDataset.id === addedDatasetId ? createdDataset.name : null);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -41,9 +49,17 @@ export function RunDetailPage() {
       <nav className="flex gap-1 border-b border-border bg-surface px-6">
         {(['overview', 'trace'] as const).map((id) => <button key={id} type="button" onClick={() => setParams({ tab: id }, { replace: true })} className={`border-b-2 px-4 py-3 text-sm font-medium ${tab === id ? 'border-primary text-primary' : 'border-transparent text-text-muted'}`}>{t(`runs:tabs.${id}`)}</button>)}
       </nav>
-      {addedDatasetId && <div role="status" className="flex items-center justify-between border-b border-success/30 bg-success-subtle px-6 py-3 text-sm text-success-text"><span>Added to dataset.</span><button type="button" onClick={() => navigate(`/evaluation/dataset/${addedDatasetId}`)} className="font-medium underline">View Dataset</button></div>}
+      {addedDatasetId && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 border-b border-success/30 bg-success-subtle px-6 py-3 text-sm text-success-text">
+          <span>Added to {addedDatasetName ?? `#${addedDatasetId}`}. Next: evaluate this dataset against an agent.</span>
+          <span className="flex gap-2">
+            <button type="button" onClick={() => navigate(`/evaluation/dataset/${addedDatasetId}?evaluate=1`)} className="bg-success-text px-3 py-1.5 font-medium text-white">Evaluate Dataset</button>
+            <button type="button" onClick={() => navigate(`/evaluation/dataset/${addedDatasetId}`)} className="font-medium underline">Open Dataset</button>
+          </span>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto">{tab === 'overview' ? <Overview run={run} /> : <Trace traceId={run.traceId} />}</div>
-      <CaptureModal open={captureOpen} datasets={datasets?.items ?? []} loading={captureMutation.isPending} error={captureMutation.error ? 'Capture failed. Please try again.' : null} onClose={() => { setCaptureOpen(false); captureMutation.reset(); }} onSubmit={async (datasetId, expectedOutput) => { const result = await captureMutation.mutateAsync({ runId: run.id, request: { datasetId, ...(expectedOutput ? { expectedOutput } : {}) } }); setCaptureOpen(false); setAddedDatasetId(result.datasetId); toast('Added to dataset'); }} />
+      <CaptureModal open={captureOpen} datasets={datasets?.items ?? []} loading={captureMutation.isPending} creatingDataset={createDatasetMutation.isPending} error={captureMutation.error ? 'Capture failed. Please try again.' : null} onClose={() => { setCaptureOpen(false); captureMutation.reset(); }} onCreateDataset={async (name) => { const created = await createDatasetMutation.mutateAsync({ name }); setCreatedDataset({ id: created.id, name: created.name }); return created; }} onSubmit={async (datasetId, expectedOutput) => { const result = await captureMutation.mutateAsync({ runId: run.id, request: { datasetId, ...(expectedOutput ? { expectedOutput } : {}) } }); setCaptureOpen(false); setAddedDatasetId(result.datasetId); toast('Added to dataset'); }} />
     </div>
   );
 }
@@ -66,11 +82,36 @@ function Trace({ traceId }: { traceId: string | null }) {
   return <div className="min-h-[640px] p-6"><AgentTraceView trace={data ?? null} emptyTitle={isLoading ? t('runs:detail.traceLoading') : error ? t('runs:detail.traceLoadError') : t('runs:detail.traceNotAvailable')} emptyDescription={traceId ? t('runs:detail.traceNotAvailableDescription') : 'This Run has no trace identity.'} /></div>;
 }
 
-function CaptureModal({ open, datasets, loading, error, onClose, onSubmit }: { open: boolean; datasets: Array<{ id: string; name: string }>; loading: boolean; error: string | null; onClose: () => void; onSubmit: (datasetId: string, expectedOutput: string) => Promise<void> }) {
+function CaptureModal({ open, datasets, loading, creatingDataset, error, onClose, onCreateDataset, onSubmit }: { open: boolean; datasets: Array<{ id: string; name: string }>; loading: boolean; creatingDataset: boolean; error: string | null; onClose: () => void; onCreateDataset: (name: string) => Promise<{ id: string; name: string }>; onSubmit: (datasetId: string, expectedOutput: string) => Promise<void> }) {
   const [datasetId, setDatasetId] = useState('');
   const [expectedOutput, setExpectedOutput] = useState('');
+  const [newDatasetName, setNewDatasetName] = useState('');
+  const [createdHere, setCreatedHere] = useState<string | null>(null);
+  const hasDatasets = datasets.length > 0;
+  const createDataset = async () => {
+    if (!newDatasetName.trim() || creatingDataset) return;
+    const created = await onCreateDataset(newDatasetName.trim());
+    setDatasetId(created.id);
+    setCreatedHere(created.name);
+    setNewDatasetName('');
+  };
   return <Modal open={open} title="Add run to dataset" description="Save this completed Run as a dataset case. Expected output is optional and remains empty unless you provide it." onClose={onClose} footer={<div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="border border-border px-3 py-2 text-sm">Cancel</button><button type="button" disabled={!datasetId || loading} onClick={() => onSubmit(datasetId, expectedOutput)} className="bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-40">{loading ? 'Adding…' : 'Add to Dataset'}</button></div>}>
-    <div className="space-y-4"><label className="block text-sm text-text"><span className="mb-1 block font-medium">Dataset</span><select value={datasetId} onChange={(e) => setDatasetId(e.target.value)} className="w-full rounded border border-border bg-background px-3 py-2"><option value="">Select a dataset</option>{datasets.map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}</select></label><label className="block text-sm text-text"><span className="mb-1 block font-medium">Expected output <span className="font-normal text-text-muted">(optional)</span></span><textarea value={expectedOutput} onChange={(e) => setExpectedOutput(e.target.value)} rows={4} className="w-full rounded border border-border bg-background px-3 py-2" placeholder="Leave empty to keep this unset" /></label>{error && <p role="alert" className="text-sm text-error">{error}</p>}</div>
+    <div className="space-y-4">
+      {hasDatasets ? (
+        <label className="block text-sm text-text"><span className="mb-1 block font-medium">Dataset</span><select value={datasetId} onChange={(e) => setDatasetId(e.target.value)} className="w-full rounded border border-border bg-background px-3 py-2"><option value="">Select a dataset</option>{datasets.map((dataset) => <option key={dataset.id} value={dataset.id}>{dataset.name}</option>)}</select></label>
+      ) : (
+        <div className="space-y-2 rounded border border-dashed border-border p-4">
+          <p className="text-sm text-text-secondary">No datasets yet. Create one to save this run as its first case.</p>
+          <div className="flex gap-2">
+            <input aria-label="New dataset name" value={newDatasetName} onChange={(e) => setNewDatasetName(e.target.value)} placeholder="Dataset name" className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm" />
+            <button type="button" disabled={!newDatasetName.trim() || creatingDataset} onClick={createDataset} className="shrink-0 border border-border px-3 py-2 text-sm disabled:opacity-40">{creatingDataset ? 'Creating…' : 'Create Dataset'}</button>
+          </div>
+          {createdHere && <p role="status" className="text-sm text-success-text">Created “{createdHere}”. This run will be added to it.</p>}
+        </div>
+      )}
+      <label className="block text-sm text-text"><span className="mb-1 block font-medium">Expected output <span className="font-normal text-text-muted">(optional)</span></span><textarea value={expectedOutput} onChange={(e) => setExpectedOutput(e.target.value)} rows={4} className="w-full rounded border border-border bg-background px-3 py-2" placeholder="Leave empty to keep this unset" /></label>
+      {error && <p role="alert" className="text-sm text-error">{error}</p>}
+    </div>
   </Modal>;
 }
 
