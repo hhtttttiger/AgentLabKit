@@ -21,6 +21,14 @@ from .contracts_v2 import (
 )
 from .cli import load_config, run_evaluation, check_threshold, compare_with_baseline, main, save_result
 from .compare import ComparisonResult, ExampleDiff, ChangeType, IncompatibleEvaluationRuns, compare_runs, format_comparison_report
+from .evidence import (
+    EvidenceAvailability,
+    EvaluationEvidence,
+    RetrievalAttempt,
+    RetrievalContextRef,
+    RetrievalEvidence,
+    compose_evaluation_evidence,
+)
 from .dataset import (
     DatasetManager,
     DatasetStore,
@@ -114,6 +122,13 @@ __all__ = [
     "CostEvaluator",
     "NoErrorEvaluator",
     "TrajectoryEvaluator",
+    # Evidence
+    "EvidenceAvailability",
+    "EvaluationEvidence",
+    "RetrievalAttempt",
+    "RetrievalContextRef",
+    "RetrievalEvidence",
+    "compose_evaluation_evidence",
     "eval_case_to_dataset_example",
     "eval_run_result_to_evaluation_result",
 ]

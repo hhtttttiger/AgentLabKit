@@ -59,7 +59,10 @@ class RagasEvaluator:
             config = EvalRunConfig(
                 metric_configs=[{"name": name} for name in self._metric_names],
             )
-            results = await self._provider.evaluate([case], self._metric_names, config)
+            results = await self._provider.evaluate(
+                [case], self._metric_names, config,
+                evidence=[context.evidence] if context.evidence is not None else None,
+            )
 
             if not results:
                 return EvaluationResult(
@@ -78,6 +81,8 @@ class RagasEvaluator:
                     score=mr.score,
                     reasoning=mr.reasoning,
                     passed=mr.passed,
+                    reason=mr.reason,
+                    evidence=mr.evidence,
                 ))
 
             return EvaluationResult(

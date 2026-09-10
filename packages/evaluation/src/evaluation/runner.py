@@ -34,6 +34,14 @@ def _provider_accepts_actual_outputs(provider: Any) -> bool:
         return False
 
 
+def _provider_accepts_evidence(provider: Any) -> bool:
+    import inspect
+    try:
+        return "evidence" in inspect.signature(provider.evaluate).parameters
+    except (TypeError, ValueError):  # pragma: no cover — exotic callables
+        return False
+
+
 # 用户常用名 → RAGAS 实际 metric 名映射
 METRIC_NAME_MAP = {
     "answer_relevance": "answer_relevancy",      # RAGAS 用这个名字
@@ -120,17 +128,25 @@ class EvaluationRunner:
         config: EvalRunConfig,
         *,
         started_at: float | None = None,
+        evidence: Any | None = None,
     ) -> EvalRunResult:
         """Evaluate one already-executed case through the public domain seam.
 
         Execution is intentionally outside this method.  The evaluation
         package owns provider/metric/judge semantics; Runtime or another
         target domain owns producing ``actual_output``.
+
+        ``evidence`` is the canonical candidate evidence
+        (``evaluation.evidence.EvaluationEvidence``); providers that accept it
+        derive retrieved contexts and availability from it instead of the
+        dataset's ``case.context`` expectation field.
         """
         start = time.monotonic() if started_at is None else started_at
         provider = self._get_provider()
         if provider is not None:
-            return await self._run_with_provider(case, config, provider, start, actual_output)
+            return await self._run_with_provider(
+                case, config, provider, start, actual_output, evidence,
+            )
         return await self._run_with_legacy(case, actual_output, config, start)
 
     async def run_batch(
@@ -173,22 +189,22 @@ class EvaluationRunner:
         provider: EvalProvider,
         start: float,
         actual_output: str | None = None,
+        evidence: Any | None = None,
     ) -> EvalRunResult:
         """通过 EvalProvider 评估单个用例。
 
         ``actual_output`` 是目标的真实输出；缺失时 provider 回退到
         dataset-only 模式（用 expected_output 当 response）。
+        ``evidence`` 是 canonical candidate evidence；不支持 evidence 参数的
+        provider（第三方 EvalProvider）保持 dataset-only 行为。
         """
         metric_names = self._resolve_metric_names(config)
-        # Providers predating the actual_outputs parameter (third-party
-        # EvalProvider implementations) still evaluate; they simply stay in
-        # dataset-only mode.
+        kwargs: dict[str, Any] = {}
         if actual_output is not None and _provider_accepts_actual_outputs(provider):
-            results = await provider.evaluate(
-                [case], metric_names, config, actual_outputs=[actual_output],
-            )
-        else:
-            results = await provider.evaluate([case], metric_names, config)
+            kwargs["actual_outputs"] = [actual_output]
+        if evidence is not None and _provider_accepts_evidence(provider):
+            kwargs["evidence"] = [evidence]
+        results = await provider.evaluate([case], metric_names, config, **kwargs)
         result = results[0] if results else EvalRunResult(case_id=case.id)
         result.case_id = case.id
         if actual_output:

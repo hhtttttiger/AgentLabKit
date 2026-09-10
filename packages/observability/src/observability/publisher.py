@@ -92,6 +92,34 @@ class AsyncTracePublisher:
                     pass
         self.stats.queue_depth = self._queue.qsize()
 
+    async def flush(self, timeout_seconds: float | None = None) -> bool:
+        """Bounded wait until every envelope submitted so far reached the
+        queue backend (the process-side half of trace finalization).
+
+        This is the publisher's own drain primitive — the same semantics as
+        :meth:`shutdown`, exposed as a reusable lifecycle method.  Redis →
+        worker → storage ingestion stays asynchronous by design; consumers
+        must treat a still-missing trace as unavailable, never reconstructed.
+        Returns False when the deadline passed with envelopes still queued.
+        """
+        if not self._running:
+            return self._queue.empty()
+        timeout = (
+            self._settings.flush_timeout_seconds
+            if timeout_seconds is None
+            else timeout_seconds
+        )
+
+        async def _drain() -> None:
+            await self._queue.join()
+
+        try:
+            await asyncio.wait_for(_drain(), timeout=timeout)
+            return True
+        except asyncio.TimeoutError:
+            logger.warning("trace_publisher.flush_timeout pending=%d", self._queue.qsize())
+            return False
+
     def snapshot(self) -> dict[str, int]:
         self.stats.queue_depth = self._queue.qsize()
         return {

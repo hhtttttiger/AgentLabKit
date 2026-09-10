@@ -14,6 +14,7 @@ from evaluation.contracts import EvalCase, EvalRunConfig
 from evaluation.contracts_v2 import (
     DatasetExample,
     EvaluationResult,
+    SpanSummary,
     eval_run_result_to_evaluation_result,
 )
 from modules.evaluation.models import EvalCase as EvalCaseModel, EvalRun, EvalRunConfig as EvalRunConfigModel, EvalRunResult
@@ -163,6 +164,10 @@ class BackendEvaluationRunStore:
                 passed=result.passed,
                 error_message=result.message,
                 duration_ms=result.duration_ms,
+                # Candidate execution identity — carried from the Runtime-owned
+                # Run, never inferred from the example's capture provenance.
+                candidate_run_id=result.run_id,
+                candidate_trace_id=result.details.get("candidate_trace_id"),
             ))
             await session.commit()
 
@@ -221,9 +226,11 @@ class BackendEvaluationEvaluator:
             judge_model_key=self._configuration.judge_model_key,
         )
         # The Evaluation package owns metric/judge semantics and the v1 -> v2
-        # conversion.  The backend only supplies Runtime output and identity.
+        # conversion.  The backend only supplies Runtime output, identity, and
+        # the canonical candidate evidence composed by the use case.
         legacy = await self._runner.evaluate_case(
             case, actual, config, started_at=started,
+            evidence=getattr(context, "evidence", None),
         )
         converted = eval_run_result_to_evaluation_result(
             legacy,
@@ -233,10 +240,45 @@ class BackendEvaluationEvaluator:
         return replace(converted, details={
             **converted.details,
             "actual_output": actual,
+            "candidate_trace_id": getattr(context.run, "trace_id", None),
             "metric_results": [{
                 "metric_name": metric.metric_name,
                 "score": metric.score,
                 "reasoning": metric.reasoning,
                 "passed": metric.passed,
+                "reason": metric.reason,
+                "evidence": metric.evidence,
             } for metric in legacy.metric_results],
         })
+
+
+class BackendTraceReader:
+    """Authoritative trace reads by the Runtime-owned candidate trace_id."""
+
+    def __init__(self, session_factory: Any) -> None:
+        self._store = None
+        self._factory = session_factory
+
+    def _trace_store(self) -> Any:
+        if self._store is None:
+            from observability.trace_store import PostgresTraceStore
+
+            self._store = PostgresTraceStore(self._factory)
+        return self._store
+
+    async def get_spans(self, trace_id: str) -> list[SpanSummary] | None:
+        spans = await self._trace_store().get_trace_spans(trace_id)
+        if not spans:
+            # Trace not (yet) persisted — evidence stays truthfully
+            # unavailable instead of being reconstructed.
+            return []
+        return [
+            SpanSummary(
+                span_id=span.span_id, name=span.name, kind=span.kind,
+                duration_ms=span.duration_ms,
+                attributes=dict(span.attributes),
+                status=span.status,
+                error_message=span.error_message,
+            )
+            for span in spans
+        ]

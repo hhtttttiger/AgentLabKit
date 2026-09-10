@@ -75,8 +75,10 @@ class RunService:
         # runner for rag_pipeline until its target contract is migrated too.
         runtime = getattr(request_app_state, "agent_runtime", None)
         if config and config.target_type == "agent" and runtime is not None:
+            obs_module = getattr(request_app_state, "observability_module", None)
             background_tasks.add_task(
-                self.execute_application_run, int(run.id), config_id, eval_mod, runtime
+                self.execute_application_run, int(run.id), config_id, eval_mod, runtime,
+                getattr(obs_module, "publisher", None),
             )
             return run
 
@@ -110,13 +112,15 @@ class RunService:
         }
 
     @staticmethod
-    async def execute_application_run(run_id: int, config_id: int, eval_mod, runtime) -> None:
+    async def execute_application_run(run_id: int, config_id: int, eval_mod, runtime, trace_publisher=None) -> None:
         from alkit_db.engine import get_session_factory
         from application import EvaluateDataset, EvaluateDatasetCommand
-        from application_adapters.agent_runtime import AgentRuntimeExecutor, BackendAgentReader
+        from application_adapters.agent_runtime import (
+            AgentRuntimeExecutor, BackendAgentReader, TraceFinalizingExecutor,
+        )
         from application_adapters.evaluation import (
             BackendEvaluationConfigurationReader, BackendEvaluationDatasetReader,
-            BackendEvaluationEvaluator, BackendEvaluationRunStore,
+            BackendEvaluationEvaluator, BackendEvaluationRunStore, BackendTraceReader,
         )
 
         session_factory = get_session_factory()
@@ -128,9 +132,12 @@ class RunService:
         use_case = EvaluateDataset(
             BackendEvaluationDatasetReader(session_factory),
             BackendAgentReader(loader),
-            AgentRuntimeExecutor(runtime),
+            # Candidate runs finalize their trace handoff to the durable queue
+            # before the use case reads the trace projection.
+            TraceFinalizingExecutor(AgentRuntimeExecutor(runtime), trace_publisher),
             BackendEvaluationEvaluator(eval_mod.runner, configuration),
             BackendEvaluationRunStore(session_factory, existing_run_id=run_id),
+            traces=BackendTraceReader(session_factory),
             configurations=config_reader,
         )
         await use_case.execute(EvaluateDatasetCommand(
@@ -260,4 +267,6 @@ class RunService:
             passed=r.passed,
             error_message=r.error_message,
             duration_ms=r.duration_ms,
+            candidate_run_id=r.candidate_run_id,
+            candidate_trace_id=r.candidate_trace_id,
         )

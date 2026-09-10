@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from evaluation.contracts_v2 import EvaluationContext, Evaluator
+from evaluation.evidence import compose_evaluation_evidence
 
 from ..ports.agents import AgentDefinitionReader
 from ..ports.datasets import DatasetReader
@@ -51,9 +52,15 @@ class EvaluateDataset:
                 spans = []
                 if self._traces is not None and run.trace_id:
                     spans = (await self._traces.get_spans(run.trace_id)) or []
+                # Candidate evidence composes the candidate Run and candidate
+                # Trace projection only; capture provenance never enters here.
+                evidence = compose_evaluation_evidence(
+                    example=example, run=run, spans=spans,
+                )
                 result = await self._evaluator.evaluate(EvaluationContext(
                     example=example, run=run, spans=spans,
                     extra={"trace_unavailable": not bool(spans)},
+                    evidence=evidence,
                 ))
                 if not result.example_id:
                     result = replace(result, example_id=example.example_id)

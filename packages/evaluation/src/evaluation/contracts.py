@@ -23,11 +23,19 @@ class EvalMetricResult:
 
     ``score=None`` 表示该指标 unavailable（如 ragas 对失败行返回 NaN、
     context-dependent 指标缺 context）。unavailable 不是 0.0，也不据此判 FAIL。
+
+    ``reason`` 是机器可读的 unavailable 原因（如 missing_reference /
+    trace_unavailable）；``reasoning`` 是人类可读说明。
+    ``evidence`` 是该 metric 消费的 bounded retrieval evidence 摘要
+    （availability/attempts/successful_attempts/contexts_used/reason），
+    不是 evidence 本身的副本。
     """
     metric_name: str
     score: float | None = 0.0   # None = unavailable; 0.0 - 1.0 when present
     reasoning: str | None = None
     passed: bool | None = None
+    reason: str | None = None
+    evidence: dict[str, Any] | None = None
 
 
 @dataclass(slots=True)

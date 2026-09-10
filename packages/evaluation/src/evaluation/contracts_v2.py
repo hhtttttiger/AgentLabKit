@@ -16,6 +16,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Protocol, runtime_checkable
 
+from .evidence import EvaluationEvidence
+
 
 # ── Run status (6.6: 复用共享枚举) ─────────────────────────────────
 
@@ -193,6 +195,9 @@ class SpanSummary:
     kind: str
     duration_ms: int
     attributes: dict[str, Any] = field(default_factory=dict)
+    # 权威投影状态：retrieval/tool/llm 失败 span 必须能被 evidence 消费者识别。
+    status: str = "ok"
+    error_message: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,11 +207,16 @@ class EvaluationContext:
     评估器可以通过此上下文访问完整的执行信息。
     允许纯 output evaluator 在没有 trace 时工作，
     但 Agent-native evaluation 不能缺 Run。
+
+    ``evidence`` 是由 EvaluateDataset 用 candidate Run/Trace 组合出的
+    canonical evidence（见 evidence.compose_evaluation_evidence）；
+    没有组合方时保持 None，评估器退回原有行为。
     """
     example: DatasetExample
     run: RunView | None = None
     spans: list[SpanSummary] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
+    evidence: "EvaluationEvidence | None" = None
 
 
 # ── 评估结果 ───────────────────────────────────────────────────────
@@ -224,12 +234,16 @@ class MetricResult:
     """单个指标的评估结果（向后兼容）。
 
     ``score=None`` 表示 unavailable —— 不是 0.0，也不据此判 FAIL。
+    ``reason`` 是机器可读的 unavailable 原因；``evidence`` 是该 metric 消费
+    的 bounded retrieval evidence 摘要。
     """
     metric_name: str
     score: float | None = 0.0  # None = unavailable
     reasoning: str | None = None
     passed: bool | None = None
     details: dict[str, Any] = field(default_factory=dict)
+    reason: str | None = None
+    evidence: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -575,6 +589,8 @@ def eval_run_result_to_evaluation_result(
                 score=m.score,
                 reasoning=m.reasoning,
                 passed=m.passed,
+                reason=getattr(m, "reason", None),
+                evidence=getattr(m, "evidence", None),
                 details=getattr(m, "details", {}),
             )
             for m in metric_results
@@ -600,6 +616,8 @@ __all__ = [
     "ExampleEvaluation",
     "EvaluatorSpec",
     "EvaluationRun",
+    # Evidence
+    "EvaluationEvidence",
     # Protocol
     "RunView",
     "Evaluator",

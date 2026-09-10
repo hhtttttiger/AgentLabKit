@@ -50,11 +50,18 @@ class EvalProvider(Protocol):
         config: EvalRunConfig,
         *,
         actual_outputs: list[str] | None = None,
+        evidence: list[Any] | None = None,
     ) -> list[EvalRunResult]:
         """批量评估：对每个 case 执行指定 metrics，返回 per-case 结果列表。
 
         ``actual_outputs``（可选、与 cases 等长）是目标（Agent/RAG）对每个
         case 的真实输出。提供时它是被评估的 response；缺省时回退到
         ``case.expected_output``（dataset-only 模式）。
+
+        ``evidence``（可选、与 cases 等长）是 canonical candidate evidence
+        （``evaluation.evidence.EvaluationEvidence``）。提供时
+        ``retrieved_contexts`` 只来自 evidence 的 successful retrieval
+        attempts；缺省时 provider 回退到 ``case.context``（dataset-only 模式，
+        数据集 expectation 字段，不是 candidate 检索证据）。
         """
         ...
