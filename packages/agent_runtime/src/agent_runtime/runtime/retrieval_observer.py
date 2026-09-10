@@ -28,6 +28,25 @@ class RetrievalSpanSink(Protocol):
     def fail(self, span: object | None, error_message: str) -> None: ...
 
 
+class ToolSpanScope(RetrievalSpanSink, Protocol):
+    """Per-tool-execution OTel scope opened by the engine.
+
+    Retrieval spans recorded through this scope are parented beneath the
+    ToolCall span, preserving the Runtime's own span hierarchy
+    (ToolCall → Retrieval) in the projection.  ``finish`` ends the ToolCall
+    span on every exit path (success, business error, invocation failure,
+    cancellation).
+    """
+
+    def finish(self, *, is_error: bool) -> None: ...
+
+
+class ToolSpanScopeFactory(Protocol):
+    """Opens one :class:`ToolSpanScope` per tool execution."""
+
+    def open(self, tool_name: str) -> ToolSpanScope: ...
+
+
 class RuntimeRetrievalObserver(RetrievalObserver):
     """Allocates nested retrieval spans without exposing runtime identity to tools."""
 

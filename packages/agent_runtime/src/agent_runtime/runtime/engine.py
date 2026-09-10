@@ -195,6 +195,57 @@ create_agent_runtime = _create_agent_runtime_impl
 _ROOT_ATTR = "agentlabkit.trace.root"
 
 
+class _BlockingToolSpanScope:
+    """Per-tool OTel scope for blocking-mode executions.
+
+    Projects the ToolCall span and parents retrieval spans beneath it — the
+    same ToolCall → Retrieval hierarchy the streaming path records.  The
+    Runtime's own span stack (loop-level ToolCallStarted/Completed) already
+    treats the tool call as the retrieval's parent; this scope keeps the
+    projection honest instead of reparenting retrieval to the run root.
+    """
+
+    def __init__(self, span_mgr: "_TracerSpanManager | None", tool_span: Any) -> None:
+        self._span_mgr = span_mgr
+        self._tool_span = tool_span
+
+    def start(self, *, query: str, source: str, knowledge_base_ids,
+              top_k: int | None, search_mode: str | None) -> Any:
+        if self._span_mgr is None:
+            return None
+        return self._span_mgr.start_retrieval_span(
+            self._tool_span, query=query, source=source,
+            knowledge_base_ids=knowledge_base_ids, top_k=top_k,
+            search_mode=search_mode,
+        )
+
+    def succeed(self, span: Any, *, result_count: int, duration_ms: int, results) -> None:
+        _TracerSpanManager.end_retrieval_span(
+            span, result_count=result_count, duration_ms=duration_ms, results=results,
+        )
+
+    def fail(self, span: Any, error_message: str) -> None:
+        _TracerSpanManager.end_retrieval_span(span, error_message=error_message)
+
+    def finish(self, *, is_error: bool) -> None:
+        if self._tool_span is None:
+            return
+        self._tool_span.end()
+
+
+class _BlockingToolSpanScopeFactory:
+    """Opens one :class:`_BlockingToolSpanScope` per tool execution."""
+
+    def __init__(self, span_mgr: "_TracerSpanManager | None") -> None:
+        self._span_mgr = span_mgr
+
+    def open(self, tool_name: str) -> _BlockingToolSpanScope:
+        tool_span = (
+            self._span_mgr.start_tool_span(tool_name) if self._span_mgr else None
+        )
+        return _BlockingToolSpanScope(self._span_mgr, tool_span)
+
+
 class _RetrievalSpanSink:
     """Bridges the retrieval observer onto the OTel span manager.
 
@@ -758,10 +809,12 @@ class AgentRuntime:
                 agent_key=resolved_request.agent_key or "",
                 emit_run_lifecycle=execution_context is None,
                 root_span_id=execution_context.root_span_id if execution_context else None,
-                # Blocking-mode executions must project the same bounded
-                # retrieval execution facts as the streaming path; parent the
-                # span beneath the run root (no per-tool OTel span here).
-                retrieval_span_sink=_RetrievalSpanSink(_span_mgr, None) if _span_mgr else None,
+                # Blocking-mode executions must project the same ToolCall →
+                # Retrieval hierarchy as the streaming path: the scope opens a
+                # per-tool span and parents the retrieval span beneath it.
+                tool_span_scope_factory=(
+                    _BlockingToolSpanScopeFactory(_span_mgr) if _span_mgr else None
+                ),
             )
             loop_result = (
                 await cancel_token.race(loop_coro)

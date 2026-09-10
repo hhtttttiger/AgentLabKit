@@ -300,3 +300,55 @@ async def test_retrieval_span_lands_under_tool_span_with_execution_facts():
     assert llm_attrs.get("agentlabkit.kind") == "llm"
     tool_attrs = dict(tool_spans[0].attributes or {})
     assert tool_attrs.get("agentlabkit.kind") == "tool"
+
+
+@pytest.mark.asyncio
+async def test_blocking_retrieval_is_parented_to_the_projected_tool_span():
+    """T9 (blocking hierarchy): run() → run_agent_loop must project
+    ToolCall → Retrieval — the retrieval span's parent must be the real
+    projected ToolCall span, never the run root, and the ToolCall span
+    itself must exist in the projection."""
+    import json
+
+    from agent_runtime.contracts.models import KnowledgeChunk
+
+    class _KbProvider:
+        async def search(self, query: str, top_k: int = 5):
+            return [KnowledgeChunk(
+                title="Policy", content="Ships tomorrow", source="kb://policy",
+            )]
+
+    tracer, recorder = _make_tracer_and_recorder()
+    runtime = AgentRuntime(
+        settings=AgentSettings(),
+        gateway=FakeGatewayService([
+            _tool_call("knowledge_search", {"query": "shipping policy"}),
+            _final("done"),
+        ]),
+        tool_registry=ToolRegistry(knowledge_provider=_KbProvider()),
+        tracer=tracer,
+    )
+
+    agent_run: AgentRun = await runtime.run(AgentTurnRequest(
+        user_message="shipping?", session_id="s-blocking-rag",
+    ))
+    assert agent_run.status == RunStatus.COMPLETED
+
+    root = _root_span(recorder)
+    tool_spans = [s for s in recorder.ended if s.name == "tool.knowledge_search"]
+    retrieval_spans = [s for s in recorder.ended if s.name == "retrieval.search"]
+    assert tool_spans, "blocking execution must project the ToolCall span"
+    assert retrieval_spans, "blocking execution must project the retrieval span"
+
+    tool_span = tool_spans[0]
+    retrieval_span = retrieval_spans[0]
+    # Same trace as the run root (Runtime-owned identity).
+    assert tool_span.context.trace_id == root.context.trace_id
+    assert retrieval_span.context.trace_id == root.context.trace_id
+    # Exact parent chain: retrieval.parent_span_id → the ToolCall span,
+    # which must itself exist in the projected trace.
+    assert retrieval_span.parent is not None
+    assert retrieval_span.parent.span_id == tool_span.context.span_id
+    assert any(
+        s.context.span_id == retrieval_span.parent.span_id for s in recorder.ended
+    ), "the retrieval span's parent must be a real projected span"
