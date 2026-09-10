@@ -129,6 +129,20 @@ class RunService:
         loader = getattr(runtime, "definition_loader", None)
         if loader is None:
             raise RuntimeError("AgentRuntime definition loader is unavailable")
+        # Durable-ingest finalization: await the Observability seam before the
+        # use case reads the candidate trace (publish/flush alone only proves
+        # Redis delivery). Without a queue backend no trace can ever persist,
+        # so the seam is unwired and evidence composes truthfully unavailable.
+        finalization = None
+        finalization_timeout_seconds = 10.0
+        if trace_publisher is not None and trace_publisher.has_backend:
+            from observability import (
+                ObservabilitySettings, TraceIngestionFinalizer,
+            )
+
+            obs_settings = ObservabilitySettings()
+            finalization = TraceIngestionFinalizer(settings=obs_settings)
+            finalization_timeout_seconds = obs_settings.finalization_timeout_seconds
         use_case = EvaluateDataset(
             BackendEvaluationDatasetReader(session_factory),
             BackendAgentReader(loader),
@@ -139,6 +153,8 @@ class RunService:
             BackendEvaluationRunStore(session_factory, existing_run_id=run_id),
             traces=BackendTraceReader(session_factory),
             configurations=config_reader,
+            finalization=finalization,
+            trace_finalization_timeout_seconds=finalization_timeout_seconds,
         )
         await use_case.execute(EvaluateDatasetCommand(
             evaluation_config_id=str(config_id), configuration=configuration,

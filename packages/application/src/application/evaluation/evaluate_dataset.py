@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import replace
 
 from evaluation.contracts_v2 import EvaluationContext, Evaluator
-from evaluation.evidence import compose_evaluation_evidence
+from evaluation.evidence import (
+    compose_evaluation_evidence,
+    REASON_TRACE_FINALIZATION_TIMEOUT,
+    REASON_TRACE_UNAVAILABLE,
+)
 
 from ..ports.agents import AgentDefinitionReader
 from ..ports.datasets import DatasetReader
 from ..ports.evaluation import (
-    EvaluationConfigurationReader, EvaluationRunStore, TraceReader,
+    EvaluationConfigurationReader, EvaluationRunStore, TraceFinalization,
+    TraceReader,
 )
 from ..ports.execution import RunExecutor
 from .contracts import EvaluateDatasetCommand, EvaluateDatasetResult
+
+logger = logging.getLogger(__name__)
 
 
 class EvaluateDataset:
@@ -19,10 +28,17 @@ class EvaluateDataset:
     def __init__(self, datasets: DatasetReader, agents: AgentDefinitionReader,
                  executor: RunExecutor, evaluator: Evaluator,
                  runs: EvaluationRunStore, traces: TraceReader | None = None,
-                 configurations: EvaluationConfigurationReader | None = None) -> None:
+                 configurations: EvaluationConfigurationReader | None = None,
+                 finalization: TraceFinalization | None = None,
+                 trace_finalization_timeout_seconds: float = 10.0) -> None:
         self._datasets, self._agents = datasets, agents
         self._executor, self._evaluator = executor, evaluator
         self._runs, self._traces, self._configurations = runs, traces, configurations
+        # Observability-owned finalization seam: awaits the worker's durable
+        # ingest ACK before reading the candidate trace. Bounded — a timeout
+        # composes truthfully unavailable evidence, never a failed run.
+        self._finalization = finalization
+        self._trace_finalization_timeout_seconds = trace_finalization_timeout_seconds
 
     async def execute(self, command: EvaluateDatasetCommand) -> EvaluateDatasetResult:
         configuration = command.configuration
@@ -49,17 +65,43 @@ class EvaluateDataset:
                     session_id=None, user_id=None, history=(),
                     metadata=dict(command.metadata),
                 )
+                t1_execution_done = time.monotonic()
+                # Candidate evidence composes the candidate Run and candidate
+                # Trace projection only; capture provenance never enters here.
+                # Candidate trace_id only — never the dataset's source provenance.
+                finalized = True
+                if self._finalization is not None and run.trace_id:
+                    finalized = await self._finalization.wait_until_persisted(
+                        run.trace_id,
+                        timeout_seconds=self._trace_finalization_timeout_seconds,
+                    )
+                t2_finalization = time.monotonic()
                 projection = None
                 if self._traces is not None and run.trace_id:
                     projection = await self._traces.get_trace_projection(run.trace_id)
+                t3_trace_read = time.monotonic()
                 spans = list(projection.spans) if projection is not None else []
-                # Candidate evidence composes the candidate Run and candidate
-                # Trace projection only; capture provenance never enters here.
                 # Completeness rides with the projection: an absent span in a
                 # truncated trace is never "no retrieval happened".
                 evidence = compose_evaluation_evidence(
                     example=example, run=run, spans=spans,
                     trace_complete=(projection.complete if projection is not None else None),
+                    trace_unavailable_reason=(
+                        REASON_TRACE_FINALIZATION_TIMEOUT
+                        if not finalized and projection is None
+                        else REASON_TRACE_UNAVAILABLE
+                    ),
+                )
+                # Ordering contract for the candidate evidence pipeline:
+                # execution (T1) <= durable ingest ACK (T2) <= trace read (T3).
+                logger.info(
+                    "evaluation.evidence_timeline example_id=%s trace_id=%s "
+                    "execution_done_t1=yes finalization_wait_ms=%.1f "
+                    "trace_read_offset_ms=%.1f finalization_observed=%s",
+                    example.example_id, run.trace_id,
+                    (t2_finalization - t1_execution_done) * 1000,
+                    (t3_trace_read - t2_finalization) * 1000,
+                    finalized,
                 )
                 result = await self._evaluator.evaluate(EvaluationContext(
                     example=example, run=run, spans=spans,

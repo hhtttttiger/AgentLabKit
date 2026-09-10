@@ -330,3 +330,132 @@ async def test_truncated_trace_with_visible_retrieval_keeps_incomplete_state():
     # ...but the summary preserves the incompleteness truth.
     assert retrieval.reason == "trace_incomplete"
     assert evidence.retrieval_summary()["reason"] == "trace_incomplete"
+
+
+# ── Candidate trace finalization (closeout EF-01) ────────────────────
+
+
+class RecordingFinalization:
+    """Narrow seam stand-in: records the awaited trace ids and result."""
+
+    def __init__(self, result: bool = True, delay: float = 0.0):
+        self.result = result
+        self.delay = delay
+        self.awaited: list[str] = []
+        self.timeouts: list[float] = []
+
+    async def wait_until_persisted(self, trace_id: str, *, timeout_seconds: float) -> bool:
+        import asyncio
+        self.awaited.append(trace_id)
+        self.timeouts.append(timeout_seconds)
+        if self.delay:
+            await asyncio.sleep(self.delay)
+        return self.result
+
+
+@pytest.mark.asyncio
+async def test_finalization_is_awaited_for_candidate_trace_before_read():
+    candidate = CandidateRun("candidate-run-b", "candidate-trace-b")
+    traces = {"candidate-trace-b": _candidate_spans("BETA")}
+    run_store = Store()
+
+    class OrderTrackingTraceStore(TraceStore):
+        """Asserts the projection is read only after finalization is awaited."""
+
+        def __init__(self, traces):
+            super().__init__(traces)
+            self.events: list[tuple[str, str]] = []
+
+        async def get_trace_projection(self, trace_id):
+            self.events.append(("read", trace_id))
+            return await super().get_trace_projection(trace_id)
+
+    class OrderedFinalization(RecordingFinalization):
+        async def wait_until_persisted(self, trace_id, *, timeout_seconds):
+            trace_store.events.append(("wait", trace_id))
+            return await super().wait_until_persisted(trace_id, timeout_seconds=timeout_seconds)
+
+    trace_store = OrderTrackingTraceStore(traces)
+    finalization = OrderedFinalization(result=True)
+    evaluator = CapturingEvaluator()
+
+    await EvaluateDataset(
+        _DatasetReader([Example()]), Agents(), Executor([candidate]), evaluator,
+        run_store, traces=trace_store,
+        finalization=finalization,
+        trace_finalization_timeout_seconds=5.0,
+    ).execute(EvaluateDatasetCommand("dataset-1", "agent"))
+
+    # Candidate trace_id only — never any other id, never a fallback.
+    assert finalization.awaited == ["candidate-trace-b"]
+    assert finalization.timeouts == [5.0]
+    # Ordering: the wait precedes the projection read for that trace.
+    assert ("wait", "candidate-trace-b") in trace_store.events
+    assert trace_store.events.index(("wait", "candidate-trace-b")) < trace_store.events.index(("read", "candidate-trace-b"))
+    # Evidence still composes from the authoritative trace.
+    assert evaluator.contexts[0].evidence.retrieval.contexts == ("BETA",)
+
+
+@pytest.mark.asyncio
+async def test_finalization_timeout_yields_unavailable_evidence_run_continues():
+    candidate = CandidateRun("run-1", "trace-1")
+    evaluator = CapturingEvaluator()
+    store = Store()
+
+    await EvaluateDataset(
+        _DatasetReader([Example()]), Agents(), Executor([candidate]), evaluator,
+        store, traces=TraceStore({}),
+        finalization=RecordingFinalization(result=False),
+        trace_finalization_timeout_seconds=0.01,
+    ).execute(EvaluateDatasetCommand("dataset-1", "agent"))
+
+    evidence = evaluator.contexts[0].evidence
+    assert evidence.retrieval.availability is EvidenceAvailability.UNAVAILABLE
+    assert evidence.retrieval.reason == "trace_finalization_timeout"
+    # The evaluation run completes; answer-only evaluation still recorded.
+    assert store.completed
+    assert store.recorded[0].score == 1.0
+
+
+@pytest.mark.asyncio
+async def test_late_trace_persistence_after_timeout_is_still_truth():
+    """A trace that lands after the bounded wait is still an authoritative
+    fact — it is read and composed (not discarded because the ACK was late)."""
+    candidate = CandidateRun("run-1", "trace-1")
+    traces = {"trace-1": _candidate_spans("BETA")}
+    evaluator = CapturingEvaluator()
+    store = Store()
+
+    await EvaluateDataset(
+        _DatasetReader([Example()]), Agents(), Executor([candidate]), evaluator,
+        store, traces=TraceStore(traces),
+        finalization=RecordingFinalization(result=False),
+        trace_finalization_timeout_seconds=0.01,
+    ).execute(EvaluateDatasetCommand("dataset-1", "agent"))
+
+    evidence = evaluator.contexts[0].evidence
+    assert evidence.retrieval.availability is EvidenceAvailability.AVAILABLE
+    assert evidence.retrieval.contexts == ("BETA",)
+
+
+@pytest.mark.asyncio
+async def test_finalization_cancellation_propagates_immediately():
+    import asyncio
+
+    class CancellingFinalization:
+        async def wait_until_persisted(self, trace_id, *, timeout_seconds):
+            await asyncio.sleep(30)
+
+    candidate = CandidateRun("run-1", "trace-1")
+    evaluator = CapturingEvaluator()
+
+    task = asyncio.create_task(EvaluateDataset(
+        _DatasetReader([Example()]), Agents(), Executor([candidate]), evaluator,
+        Store(), traces=TraceStore({}),
+        finalization=CancellingFinalization(),
+    ).execute(EvaluateDatasetCommand("dataset-1", "agent")))
+    await asyncio.sleep(0.1)
+    task.cancel()
+    import pytest as _pytest
+    with _pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, timeout=2.0)

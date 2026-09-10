@@ -20,6 +20,20 @@ class TraceReader(Protocol):
 
     async def get_trace_projection(self, trace_id: str) -> TraceProjection | None: ...
 
+
+class TraceFinalization(Protocol):
+    """Observability-owned finalization seam (publish/flush ≠ persisted).
+
+    Resolves once the authoritative trace projection is durably persisted
+    and trace reads have read-your-writes; returns False on bounded timeout.
+    Consumers never poll storage, inspect Redis, or know worker internals;
+    coroutine cancellation propagates immediately.
+    """
+
+    async def wait_until_persisted(
+        self, trace_id: str, *, timeout_seconds: float,
+    ) -> bool: ...
+
 class EvaluationRunStore(Protocol):
     async def start(self, *, dataset_id: str, agent_key: str, total_examples: int) -> Any: ...
     async def record_result(self, evaluation_run: Any, result: EvaluationResult) -> None: ...
