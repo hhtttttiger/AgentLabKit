@@ -34,6 +34,6 @@ describe('KnowledgeBaseListPage', () => {
     expect(screen.getByLabelText('Status')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
-    expect(screen.getByText('No knowledge bases')).toBeInTheDocument();
+    expect(screen.getByText('No knowledge bases yet')).toBeInTheDocument();
   });
 });

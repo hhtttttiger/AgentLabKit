@@ -11,17 +11,20 @@ export const evaluation = {
       },
       overview: {
         title: '评估概览',
+        description: '用数据集评估 Agent 行为，并对比改进效果。',
         datasets: '数据集',
         totalRuns: '总运行数',
         avgScore: '平均分',
-        recentRuns: '最近运行'
+        recentRuns: '最近运行',
+        noDatasets: '暂无数据集。可在运行详情页将有价值或失败的运行保存为数据集用例，再对 Agent 运行评估。',
+        openDatasets: '打开数据集'
       },
       datasets: {
         title: '数据集',
-        description: '管理评估数据集，用于测试和评估模型性能。',
+        description: '用示例用例一致地评估 Agent 行为。',
         createDataset: '创建数据集',
         emptyTitle: '暂无数据集',
-        emptyDescription: '点击"创建数据集"开始使用。',
+        emptyDescription: '数据集用于以相同用例一致地评估 Agent 行为。可在运行详情页选择"添加到数据集"，也可以手动创建。',
         columns: {
           name: '数据集名称',
           description: '描述',

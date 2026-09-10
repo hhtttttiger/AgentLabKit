@@ -52,7 +52,26 @@ export function EvaluationOverviewPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <h2 className="text-lg font-semibold text-text">{t('evaluation:overview.title')}</h2>
+      <div>
+        <h2 className="text-lg font-semibold text-text">{t('evaluation:overview.title')}</h2>
+        <p className="mt-1 text-sm text-text-secondary">{t('evaluation:overview.description')}</p>
+      </div>
+
+      {/* Fresh state: point users at the journey instead of an empty metrics wall */}
+      {datasetCount === 0 && (
+        <div className="rounded-[2px] border border-primary/25 bg-primary-subtle px-6 py-6">
+          <p className="max-w-2xl text-sm leading-6 text-text-secondary">
+            {t('evaluation:overview.noDatasets')}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/evaluation/datasets')}
+            className="mt-4 inline-flex items-center gap-2 rounded-[2px] bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+          >
+            {t('evaluation:overview.openDatasets')}
+          </button>
+        </div>
+      )}
 
       {/* Metrics */}
       <div className="grid grid-cols-3 gap-4">
@@ -100,7 +119,7 @@ export function EvaluationOverviewPage() {
                 >
                   <td className="py-2 font-mono text-xs text-primary">#{r.id}</td>
                   <td className={`py-2 text-center text-xs font-medium ${STATUS_COLORS[r.status] || ''}`}>
-                    {r.status}
+                    {t(`evaluation:runs.status.${r.status}`, { defaultValue: r.status })}
                   </td>
                   <td className="py-2 text-right font-medium text-text">
                     {typeof r.summary?.avg_score === 'number' ? (r.summary.avg_score as number).toFixed(3) : '—'}

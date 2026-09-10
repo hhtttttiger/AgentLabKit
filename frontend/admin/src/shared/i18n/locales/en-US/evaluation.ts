@@ -11,17 +11,20 @@ export const evaluation = {
   },
   overview: {
     title: 'Evaluation Overview',
+    description: 'Evaluate an Agent against a dataset to measure behavior and compare improvements.',
     datasets: 'Datasets',
     totalRuns: 'Total Runs',
     avgScore: 'Avg Score',
-    recentRuns: 'Recent Runs'
+    recentRuns: 'Recent Runs',
+    noDatasets: 'No datasets yet. Save useful or failing Runs to a dataset from a Run detail page, then evaluate an Agent against it.',
+    openDatasets: 'Open Datasets'
   },
   datasets: {
     title: 'Datasets',
-    description: 'Manage evaluation datasets for testing and evaluating model performance.',
+    description: 'Evaluate Agent behavior against the same examples consistently.',
     createDataset: 'Create dataset',
-    emptyTitle: 'No datasets',
-    emptyDescription: 'Click "Create dataset" to get started.',
+    emptyTitle: 'No datasets yet',
+    emptyDescription: 'Datasets let you evaluate Agent behavior consistently. Save useful or failing Runs to a dataset from a Run detail page, or create one manually.',
     columns: {
       name: 'Dataset name',
       description: 'Description',

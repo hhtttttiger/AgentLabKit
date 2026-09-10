@@ -5,7 +5,7 @@ export const knowledgeBase = {
       title: '知识库',
       list: {
         title: '知识库',
-        description: '管理知识库、上传文档并测试搜索效果。',
+        description: '让 Agent 能够检索你自己的文档与数据，并验证检索效果。',
         create: '创建知识库',
         searchLabel: '搜索',
         searchPlaceholder: '知识库名称...',
@@ -17,7 +17,7 @@ export const knowledgeBase = {
           disabled: '已禁用'
         },
         emptyTitle: '暂无知识库',
-        emptyDescription: '点击"创建知识库"开始使用。',
+        emptyDescription: '知识库让 Agent 能够检索你自己的文档与数据。先创建知识库、添加内容，再绑定到 Agent。',
         deleteTitle: '删除知识库',
         deleteDescription: '确定要删除"{{name}}"吗？'
       },

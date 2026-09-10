@@ -5,7 +5,7 @@ export const knowledgeBase = {
   title: 'Knowledge base',
   list: {
     title: 'Knowledge base',
-    description: 'Manage knowledge bases, upload documents, and test search results.',
+    description: 'Give Agents access to your own documents and data, and verify what they retrieve.',
     create: 'Create knowledge base',
     searchLabel: 'Search',
     searchPlaceholder: 'Knowledge base name...',
@@ -16,8 +16,8 @@ export const knowledgeBase = {
       processing: 'Processing',
       disabled: 'Disabled'
     },
-    emptyTitle: 'No knowledge bases',
-    emptyDescription: 'Click "Create knowledge base" to get started.',
+    emptyTitle: 'No knowledge bases yet',
+    emptyDescription: 'Knowledge lets Agents retrieve information from your own documents and data. Create a knowledge base, add content, then bind it to an Agent.',
     deleteTitle: 'Delete knowledge base',
     deleteDescription: 'Are you sure you want to delete "{{name}}"?'
   },
