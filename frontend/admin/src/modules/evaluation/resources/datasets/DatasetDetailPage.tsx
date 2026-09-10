@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { useCaseList, useCreateCases, useDeleteCase, useDatasetList } from './hooks';
 import { useAgentList } from '@/modules/agent-management/resources/agents/hooks';
@@ -11,6 +11,7 @@ export function DatasetDetailPage() {
   const { t } = useTranslation(['common', 'evaluation']);
   const { toast } = useToast();
   const { datasetId } = useParams<{ datasetId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const id = datasetId ?? '';
   const { data: cases, isLoading } = useCaseList(id);
@@ -18,7 +19,10 @@ export function DatasetDetailPage() {
   const { data: agents } = useAgentList({ status: 'published', page: 1, pageSize: 100 });
   const createConfigMutation = useCreateRunConfig();
   const triggerMutation = useTriggerRun();
-  const [evaluateOpen, setEvaluateOpen] = useState(false);
+  // Continuity entry: /evaluation/dataset/:id?evaluate=1 opens the evaluate
+  // modal directly (deep-link and refresh safe; the dataset itself comes from
+  // the route param, never from hidden state).
+  const [evaluateOpen, setEvaluateOpen] = useState(() => searchParams.get('evaluate') === '1');
   const createCasesMutation = useCreateCases(id);
   const deleteCaseMutation = useDeleteCase();
   const [input, setInput] = useState('');
