@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileText, Folder, HelpCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { RowActions } from '@/shared/ui/RowActions';
 import { FolderMoveModal } from '../../../resources/folder/components/FolderMoveModal';
 import { ProcessingStatusBadge } from '../../../resources/document/components/ProcessingStatusBadge';
@@ -44,13 +45,14 @@ export function KbUnifiedList({
   onToggleAllDocuments,
   documentCount = 0,
 }: Props) {
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const [movingDocId, setMovingDocId] = useState<string | null>(null);
   const [movingFolderId, setMovingFolderId] = useState<string | null>(null);
 
   if (items.length === 0) {
     return (
       <div className="rounded-[2px] border border-dashed border-border bg-background-subtle px-6 py-16 text-center text-sm text-text-secondary">
-        当前目录为空
+        {t('documents.emptyFolder')}
       </div>
     );
   }
@@ -66,7 +68,7 @@ export function KbUnifiedList({
               onChange={onToggleAllDocuments}
               className="accent-primary"
             />
-            <span>全选当前目录文档</span>
+            <span>{t('documents.selectAllInFolder')}</span>
           </div>
         ) : null}
         {items.map((item, index) => {
@@ -86,10 +88,10 @@ export function KbUnifiedList({
                   <Folder size={16} className="shrink-0 text-text-secondary" />
                   <span className="truncate text-sm font-medium text-text">{folder.name}</span>
                 </button>
-                <span className="text-xs text-text-muted">文件夹</span>
+                <span className="text-xs text-text-muted">{t('documents.rowFolder')}</span>
                 <RowActions actions={[
-                  { label: '移动', onClick: () => setMovingFolderId(folder.id) },
-                  { label: '删除', onClick: () => onFolderDelete(folder), variant: 'danger' },
+                  { label: t('documents.move'), onClick: () => setMovingFolderId(folder.id) },
+                  { label: t('common:actions.delete'), onClick: () => onFolderDelete(folder), variant: 'danger' },
                 ]} />
               </div>
             );
@@ -122,11 +124,11 @@ export function KbUnifiedList({
               <ProcessingStatusBadge status={doc.ingestStatus} />
               <RowActions actions={[
                 ...(doc.sourceType === 'QaPair' && onDocumentEdit
-                  ? [{ label: '编辑', onClick: () => onDocumentEdit(doc) }]
+                  ? [{ label: t('common:actions.edit'), onClick: () => onDocumentEdit(doc) }]
                   : []),
-                ...(onDocumentReindex ? [{ label: '重新索引', onClick: () => onDocumentReindex(doc) }] : []),
-                { label: '移动', onClick: () => setMovingDocId(doc.id) },
-                { label: '删除', onClick: () => onDocumentDelete(doc), variant: 'danger' },
+                ...(onDocumentReindex ? [{ label: t('documents.reindex'), onClick: () => onDocumentReindex(doc) }] : []),
+                { label: t('documents.move'), onClick: () => setMovingDocId(doc.id) },
+                { label: t('common:actions.delete'), onClick: () => onDocumentDelete(doc), variant: 'danger' },
               ]} />
             </div>
           );

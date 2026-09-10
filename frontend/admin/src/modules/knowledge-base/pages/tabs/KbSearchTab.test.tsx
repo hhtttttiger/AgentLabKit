@@ -96,13 +96,13 @@ describe('KbSearchTab', () => {
     });
     expect(screen.getByText('提示：混合检索下，向量分和全文分是各自召回通道内的归一化结果，综合分是融合排序分。')).toBeInTheDocument();
     expect(screen.getByText('全文分')).toBeInTheDocument();
-    expect(screen.getByText('综合分')).toBeInTheDocument();
+    expect(screen.getByText('综合')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /向量召回/i }));
 
     expect(screen.getByText('向量分')).toBeInTheDocument();
     expect(screen.getByText('全文分')).toBeInTheDocument();
-    expect(screen.getByText('综合分')).toBeInTheDocument();
+    expect(screen.getByText('综合')).toBeInTheDocument();
     expect(screen.queryByText('相似度')).not.toBeInTheDocument();
   });
 

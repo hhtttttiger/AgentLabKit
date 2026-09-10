@@ -171,9 +171,10 @@ describe('version draft helpers', () => {
       ],
     });
 
-    expect(errors.kb_1_knowledgeBaseId).toContain('重复');
-    expect(errors.mcp_0_serverName).toContain('MCP');
-    expect(errors.skill_0_skillKey).toContain('技能');
-    expect(errors.skill_0_tool_0_toolName).toContain('工具覆盖');
+    // Validation returns locale keys; the drawer translates them.
+    expect(errors.kb_1_knowledgeBaseId).toContain('knowledgeBaseDuplicate');
+    expect(errors.mcp_0_serverName).toContain('mcpServerRequired');
+    expect(errors.skill_0_skillKey).toContain('skillRequired');
+    expect(errors.skill_0_tool_0_toolName).toContain('skillToolNameRequired');
   });
 });

@@ -1,5 +1,6 @@
 import { FileText, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/shared/ui/Badge';
+import { useTranslation } from 'react-i18next';
 import type { KbStatus, KbView } from '../../../lib/contracts';
 import { useState, useRef, useEffect } from 'react';
 
@@ -8,13 +9,6 @@ const statusTone: Record<KbStatus, 'success' | 'warning' | 'neutral' | 'danger'>
   Processing: 'warning',
   Disabled: 'neutral',
   Deleted: 'danger',
-};
-
-const statusLabel: Record<KbStatus, string> = {
-  Active: '活跃',
-  Processing: '处理中',
-  Disabled: '已禁用',
-  Deleted: '已删除',
 };
 
 export function KbCardView({
@@ -28,6 +22,7 @@ export function KbCardView({
   onDelete: () => void;
   onClick: () => void;
 }) {
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +78,7 @@ export function KbCardView({
                 }}
               >
                 <Pencil size={14} />
-                编辑
+                {t('common:actions.edit')}
               </button>
               <button
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-error-text hover:bg-state-hover"
@@ -94,7 +89,7 @@ export function KbCardView({
                 }}
               >
                 <Trash2 size={14} />
-                删除
+                {t('common:actions.delete')}
               </button>
             </div>
           )}
@@ -103,8 +98,8 @@ export function KbCardView({
 
       {/* Footer */}
       <div className="mt-4 flex items-center justify-between">
-        <Badge tone={statusTone[kb.status]}>{statusLabel[kb.status]}</Badge>
-        <span className="text-xs text-text-muted">{kb.documentCount} 个文档</span>
+        <Badge tone={statusTone[kb.status]}>{t(`knowledgeBase:kbStatus.${kb.status}`, { defaultValue: kb.status })}</Badge>
+        <span className="text-xs text-text-muted">{t('knowledgeBase:card.documentCount', { count: kb.documentCount })}</span>
       </div>
     </div>
   );

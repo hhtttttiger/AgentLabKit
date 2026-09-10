@@ -26,7 +26,7 @@ describe('SearchResultItem', () => {
     );
 
     expect(screen.getByText('排序 2.36')).toBeInTheDocument();
-    expect(screen.getByText('综合分')).toBeInTheDocument();
+    expect(screen.getByText('综合')).toBeInTheDocument();
     expect(screen.getByText('1.08')).toBeInTheDocument();
     expect(screen.getAllByText('Azure').length).toBeGreaterThan(0);
   });

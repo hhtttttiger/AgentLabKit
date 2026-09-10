@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Activity, AlignLeft, BookOpen, Calendar, Clock, FileText } from 'lucide-react';
 import { Card } from '@/shared/ui/Card';
 import { Badge } from '@/shared/ui/Badge';
@@ -19,14 +20,8 @@ const statusTone: Record<KbStatus, 'success' | 'warning' | 'neutral' | 'danger'>
   Deleted: 'danger',
 };
 
-const statusLabel: Record<KbStatus, string> = {
-  Active: '活跃',
-  Processing: '处理中',
-  Disabled: '已禁用',
-  Deleted: '已删除',
-};
-
 export function KbOverviewTab() {
+  const { t } = useTranslation(['knowledgeBase']);
   const { kbId } = useParams<{ kbId: string }>();
   const detailQuery = useKbDetail(kbId);
   const rankingQuery = useTopRecalledDocuments(kbId ?? '', 30);
@@ -65,35 +60,35 @@ export function KbOverviewTab() {
             <MetricStrip
               columns={3}
               items={[
-                { label: '文档数量', value: formatAdminNumber(kb.documentCount), hint: '知识库中的文档总数' },
-                { label: '累计召回', value: formatAdminNumber(totalRecalls), hint: '所有文档的累计召回总次数' },
+                { label: t('knowledgeBase:overview.documents'), value: formatAdminNumber(kb.documentCount), hint: t('knowledgeBase:overview.documentsHint') },
+                { label: t('knowledgeBase:overview.totalRecalls'), value: formatAdminNumber(totalRecalls), hint: t('knowledgeBase:overview.totalRecallsHint') },
                 {
-                  label: '状态',
-                  value: <Badge tone={statusTone[kb.status] ?? 'neutral'}>{statusLabel[kb.status] ?? kb.status}</Badge>,
-                  hint: '当前知识库运行状态',
+                  label: t('knowledgeBase:overview.status'),
+                  value: <Badge tone={statusTone[kb.status] ?? 'neutral'}>{t(`knowledgeBase:kbStatus.${kb.status}`, { defaultValue: kb.status })}</Badge>,
+                  hint: t('knowledgeBase:overview.statusHint'),
                 },
               ]}
             />
 
             {/* ── Properties ── */}
-            <Card title="基本信息">
+            <Card title={t('knowledgeBase:overview.details')}>
               <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-6 gap-y-4">
-                <PropertyRow icon={<BookOpen size={14} />} label="名称">
+                <PropertyRow icon={<BookOpen size={14} />} label={t('knowledgeBase:overview.fieldName')}>
                   <span className="text-sm text-text">{kb.name}</span>
                 </PropertyRow>
-                <PropertyRow icon={<Activity size={14} />} label="状态">
-                  <Badge tone={statusTone[kb.status] ?? 'neutral'}>{statusLabel[kb.status] ?? kb.status}</Badge>
+                <PropertyRow icon={<Activity size={14} />} label={t('knowledgeBase:overview.fieldStatus')}>
+                  <Badge tone={statusTone[kb.status] ?? 'neutral'}>{t(`knowledgeBase:kbStatus.${kb.status}`, { defaultValue: kb.status })}</Badge>
                 </PropertyRow>
-                <PropertyRow icon={<FileText size={14} />} label="文档数量">
+                <PropertyRow icon={<FileText size={14} />} label={t('knowledgeBase:overview.fieldDocuments')}>
                   <span className="text-sm text-text">{formatAdminNumber(kb.documentCount)}</span>
                 </PropertyRow>
-                <PropertyRow icon={<AlignLeft size={14} />} label="描述">
+                <PropertyRow icon={<AlignLeft size={14} />} label={t('knowledgeBase:overview.fieldDescription')}>
                   <span className="text-sm text-text-secondary">{kb.description ?? '—'}</span>
                 </PropertyRow>
-                <PropertyRow icon={<Calendar size={14} />} label="创建时间">
+                <PropertyRow icon={<Calendar size={14} />} label={t('knowledgeBase:overview.fieldCreatedAt')}>
                   <span className="text-sm text-text-secondary">{formatAdminDateTime(kb.createdAtUtc)}</span>
                 </PropertyRow>
-                <PropertyRow icon={<Clock size={14} />} label="更新时间">
+                <PropertyRow icon={<Clock size={14} />} label={t('knowledgeBase:overview.fieldUpdatedAt')}>
                   <span className="text-sm text-text-secondary">{kb.updatedAtUtc ? formatAdminDateTime(kb.updatedAtUtc) : '—'}</span>
                 </PropertyRow>
               </div>
@@ -101,23 +96,23 @@ export function KbOverviewTab() {
 
             {/* ── Settings JSON ── */}
             {kb.settingsJson && (
-              <Card title="配置">
+              <Card title={t('knowledgeBase:overview.settings')}>
                 <div className="space-y-4">
                   <div className="grid gap-3 md:grid-cols-2">
-                    <SummaryItem label="Provider" value={parsedSettings.provider === 'azure' ? 'Azure' : 'Local'} />
-                    <SummaryItem label="Azure Profile" value={parsedSettings.azure.profileId || '—'} />
+                    <SummaryItem label={t('knowledgeBase:overview.provider')} value={parsedSettings.provider === 'azure' ? 'Azure' : 'Local'} />
+                    <SummaryItem label={t('knowledgeBase:overview.azureProfile')} value={parsedSettings.azure.profileId || '—'} />
                     {parsedSettings.provider === 'local' ? (
                       <>
-                        <SummaryItem label="Chunk Length" value={formatAdminNumber(parsedSettings.local.maxLength)} />
-                        <SummaryItem label="Chunk Overlap" value={formatAdminNumber(parsedSettings.local.overlap)} />
-                        <SummaryItem label="Splitter" value={parsedSettings.local.splitter} />
+                        <SummaryItem label={t('knowledgeBase:overview.chunkLength')} value={formatAdminNumber(parsedSettings.local.maxLength)} />
+                        <SummaryItem label={t('knowledgeBase:overview.chunkOverlap')} value={formatAdminNumber(parsedSettings.local.overlap)} />
+                        <SummaryItem label={t('knowledgeBase:overview.splitter')} value={parsedSettings.local.splitter} />
                         <SummaryItem
-                          label="Recall Sources"
-                          value={parsedSettings.recallSources.length > 0 ? parsedSettings.recallSources.join(', ') : 'local only'}
+                          label={t('knowledgeBase:overview.recallSources')}
+                          value={parsedSettings.recallSources.length > 0 ? parsedSettings.recallSources.join(', ') : t('knowledgeBase:overview.recallSourcesLocalOnly')}
                         />
                       </>
                     ) : (
-                      <SummaryItem label="Recall Sources" value="managed Azure search" />
+                      <SummaryItem label={t('knowledgeBase:overview.recallSources')} value={t('knowledgeBase:overview.azureManaged')} />
                     )}
                   </div>
                   <div className="overflow-x-auto rounded-[2px] border border-border-subtle bg-background-subtle">

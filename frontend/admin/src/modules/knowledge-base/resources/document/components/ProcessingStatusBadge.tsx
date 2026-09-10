@@ -1,15 +1,15 @@
 import { Badge } from '@/shared/ui/Badge';
+import { useTranslation } from 'react-i18next';
 import type { IngestStatus } from '../../../lib/contracts';
 
-const statusConfig: Record<IngestStatus, { tone: 'success' | 'warning' | 'danger' | 'neutral'; label: string }> = {
-  Pending: { tone: 'neutral', label: '等待中' },
-  Processing: { tone: 'warning', label: '处理中' },
-  Completed: { tone: 'success', label: '已完成' },
-  Failed: { tone: 'danger', label: '失败' },
+const statusTone: Record<IngestStatus, 'success' | 'warning' | 'danger' | 'neutral'> = {
+  Pending: 'neutral',
+  Processing: 'warning',
+  Completed: 'success',
+  Failed: 'danger',
 };
 
 export function ProcessingStatusBadge({ status }: { status: IngestStatus }) {
-  const config = statusConfig[status];
-  if (!config) return <Badge tone="neutral">{status}</Badge>;
-  return <Badge tone={config.tone}>{config.label}</Badge>;
+  const { t } = useTranslation('knowledgeBase');
+  return <Badge tone={statusTone[status] ?? 'neutral'}>{t(`ingestStatus.${status}`, { defaultValue: status })}</Badge>;
 }

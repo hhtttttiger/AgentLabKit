@@ -188,7 +188,7 @@ describe('AgentDetailPage', () => {
     expect(screen.queryByRole('button', { name: '返回评估' })).not.toBeInTheDocument();
   });
 
-  it('hides Test when the agent only has a draft', () => {
+  it('hides Test when the agent only has a draft and explains publish-before-test', () => {
     useAgentMock.mockReturnValue({
       data: { ...agent, status: 'draft', publishedVersionNumber: null, publishedVersion: null },
       isLoading: false,
@@ -206,6 +206,7 @@ describe('AgentDetailPage', () => {
     expect(screen.getByRole('button', { name: '发布草稿' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^测试$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^测试已发布版本$/ })).not.toBeInTheDocument();
+    expect(screen.getByText('发布草稿后才能测试。测试始终运行已发布版本。')).toBeInTheDocument();
   });
 
   it('shows Test and navigates with the agent context for a published-only agent', () => {

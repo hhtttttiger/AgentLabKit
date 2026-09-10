@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { FileText, HelpCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/shared/ui/Badge';
 import { Card } from '@/shared/ui/Card';
 import { EmptyState } from '@/shared/ui/EmptyState';
@@ -21,11 +22,12 @@ export function KbTopRecalledPanel({
   collapsed?: boolean;
   onToggle?: () => void;
 }) {
+  const { t } = useTranslation('knowledgeBase');
   return (
     <Card
       className="h-fit"
-      title="召回文档 / QA Top 30"
-      description="按累计召回次数排序，混排显示文件与 QA。"
+      title={t('overview.topRecalledTitle')}
+      description={t('overview.topRecalledDescription')}
     >
       {loading ? (
         <div className="divide-y divide-border-subtle">
@@ -41,7 +43,7 @@ export function KbTopRecalledPanel({
           ))}
         </div>
       ) : documents.length === 0 ? (
-        <EmptyState title="暂无召回数据" description="当文档开始被召回时，排名数据将显示在这里。" />
+        <EmptyState title={t('overview.topRecalledEmptyTitle')} description={t('overview.topRecalledEmptyDescription')} />
       ) : (
         <RankedDocumentList documents={documents} />
       )}
@@ -52,6 +54,7 @@ export function KbTopRecalledPanel({
 /* ── Internal Components ── */
 
 function RankedDocumentList({ documents }: { documents: TopRecalledKbDocumentView[] }) {
+  const { t } = useTranslation('knowledgeBase');
   const maxRecall = useMemo(() => Math.max(...documents.map((d) => d.recallCount), 1), [documents]);
 
   return (
@@ -68,9 +71,14 @@ function RankedDocumentList({ documents }: { documents: TopRecalledKbDocumentVie
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="truncate text-[13px] font-medium text-text">{getKnowledgeDocumentTitle(doc)}</span>
+                <span className="truncate text-[13px] font-medium text-text">
+                  {getKnowledgeDocumentTitle(doc, {
+                    file: t('document.untitledFile'),
+                    qa: t('document.untitledQa'),
+                  })}
+                </span>
                 <Badge tone={getKnowledgeDocumentTypeTone(doc.sourceType)}>
-                  {getKnowledgeDocumentTypeLabel(doc.sourceType)}
+                  {t(getKnowledgeDocumentTypeLabel(doc.sourceType))}
                 </Badge>
               </div>
               <div className="mt-0.5 flex items-center gap-2.5">
@@ -80,8 +88,12 @@ function RankedDocumentList({ documents }: { documents: TopRecalledKbDocumentVie
                     style={{ width: `${(doc.recallCount / maxRecall) * 100}%` }}
                   />
                 </div>
-                <span className="shrink-0 text-[11px] text-text-muted">{doc.recallCount} 次召回</span>
-                <span className="shrink-0 text-[11px] text-text-subtle">最近 {formatRecallTime(doc.lastRecalledAtUtc)}</span>
+                <span className="shrink-0 text-[11px] text-text-muted">{t('overview.recallCount', { count: doc.recallCount })}</span>
+                <span className="shrink-0 text-[11px] text-text-subtle">
+                  {formatRecallTime(doc.lastRecalledAtUtc)
+                    ? t('overview.lastRecalled', { value: formatRecallTime(doc.lastRecalledAtUtc) })
+                    : t('document.neverRecalled')}
+                </span>
               </div>
             </div>
           </li>

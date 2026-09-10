@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { TextField, NumberField } from '@/shared/ui/FormFields';
@@ -18,15 +19,16 @@ import {
 import { SearchResultItem } from '../../resources/search/components/SearchResultItem';
 import type { KbSearchResult } from '../../lib/contracts';
 
-const SEARCH_MODES: Array<{ value: SearchMode; label: string; description: string }> = [
-  { value: 'hybrid', label: '混合召回', description: '向量 + 全文综合排序' },
-  { value: 'vector', label: '向量召回', description: '只看语义相似度' },
-  { value: 'fulltext', label: '全文召回', description: '只看关键词匹配' },
+const SEARCH_MODES: Array<{ value: SearchMode; labelKey: string }> = [
+  { value: 'hybrid', labelKey: 'search.modeHybrid' },
+  { value: 'vector', labelKey: 'search.modeVector' },
+  { value: 'fulltext', labelKey: 'search.modeFulltext' },
 ];
 
 const AZURE_SEARCH_MODES = SEARCH_MODES.filter((m) => m.value !== 'vector');
 
 export function KbSearchTab() {
+  const { t } = useTranslation('knowledgeBase');
   const { kbId = '' } = useParams<{ kbId: string }>();
   const [form, setForm] = useState<SearchFormState>(defaultSearchForm);
   const [searchParams, setSearchParams] = useState<{ query: string; topK: number; searchMode: SearchMode } | null>(null);
@@ -86,7 +88,7 @@ export function KbSearchTab() {
                     : 'border-border bg-surface text-text-secondary hover:bg-background-subtle',
                 ].join(' ')}
               >
-                {mode.label}
+                {t(mode.labelKey)}
               </button>
             );
           })}
@@ -94,10 +96,10 @@ export function KbSearchTab() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[300px] flex-1">
             <TextField
-              label="搜索内容"
+              label={t('search.queryLabel')}
               value={form.query}
               onChange={(e) => setForm((f) => ({ ...f, query: e.target.value }))}
-              placeholder="输入要搜索的内容..."
+              placeholder={t('search.queryPlaceholder')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSearch();
               }}
@@ -105,7 +107,7 @@ export function KbSearchTab() {
           </div>
           <div className="w-24">
             <NumberField
-              label="返回数量"
+              label={t('search.topKLabel')}
               min={1}
               max={50}
               value={form.topK}
@@ -114,7 +116,7 @@ export function KbSearchTab() {
           </div>
           <Button onClick={handleSearch} disabled={isPending || !form.query.trim()}>
             <Search size={16} />
-            {isPending ? '搜索中...' : '搜索'}
+            {isPending ? t('search.searching') : t('search.search')}
           </Button>
         </div>
       </div>
@@ -122,23 +124,21 @@ export function KbSearchTab() {
       {/* Results */}
       {isError && (
         <div className="mb-4 rounded-[2px] border border-error/20 bg-error-subtle p-4 text-sm text-error-text">
-          {getErrorMessage(error, '搜索失败，请重试。')}
+          {getErrorMessage(error, t('search.failed'))}
         </div>
       )}
 
       {results.length === 0 && !isPending && (
         <div className="flex flex-col items-center justify-center py-16 text-text-secondary">
           <Search size={40} className="mb-3 opacity-30" />
-          <p className="text-sm">输入搜索内容并点击搜索查看结果。</p>
+          <p className="text-sm">{t('search.empty')}</p>
         </div>
       )}
 
       <div className="space-y-3">
         {results.length > 0 && executedSearchMode === 'hybrid' && (
           <div className="rounded-[2px] border border-info/20 bg-info-subtle px-4 py-3 text-sm text-text-secondary">
-            {isAzure
-              ? '提示：Azure 混合检索使用语义搜索，综合分来自 Azure AI Search 的语义排序。'
-              : '提示：混合检索下，向量分和全文分是各自召回通道内的归一化结果，综合分是融合排序分。'}
+            {isAzure ? t('search.hybridAzureHint') : t('search.hybridLocalHint')}
           </div>
         )}
         {results.map((result) => (

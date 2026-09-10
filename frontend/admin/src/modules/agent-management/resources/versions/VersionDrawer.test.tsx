@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithQueryClient } from '@/shared/test/render';
@@ -300,12 +301,14 @@ describe('VersionDrawer', () => {
 
   it('renders editable skill tool overrides inside the skill binding section', () => {
     renderWithQueryClient(
+      <MemoryRouter>
       <VersionDrawer
         open
         agentKey="agent.docs"
         editVersion={editVersion}
         onClose={() => {}}
-      />,
+      />
+      </MemoryRouter>,
     );
 
     expect(screen.getByText('工具覆盖')).toBeInTheDocument();
@@ -315,12 +318,14 @@ describe('VersionDrawer', () => {
 
   it('renders the knowledge base binding section inside the version drawer', async () => {
     renderWithQueryClient(
+      <MemoryRouter>
       <VersionDrawer
         open
         agentKey="agent.docs"
         editVersion={editVersion}
         onClose={() => {}}
-      />,
+      />
+      </MemoryRouter>,
     );
 
     expect(await screen.findByText('Knowledge')).toBeInTheDocument();
@@ -329,13 +334,15 @@ describe('VersionDrawer', () => {
 
   it('renders the knowledge base binding section as read-only for published versions', async () => {
     renderWithQueryClient(
+      <MemoryRouter>
       <VersionDrawer
         open
         agentKey="agent.docs"
         readOnly
         editVersion={{ ...editVersion, versionStatus: 'published', publishedAtUtc: '2026-04-30T00:00:00Z' }}
         onClose={() => {}}
-      />,
+      />
+      </MemoryRouter>,
     );
 
     expect(await screen.findByText(/知识库绑定不可直接修改/i)).toBeInTheDocument();
@@ -346,12 +353,14 @@ describe('VersionDrawer', () => {
     const user = userEvent.setup();
 
     renderWithQueryClient(
+      <MemoryRouter>
       <VersionDrawer
         open
         agentKey="agent.docs"
         editVersion={editVersion}
         onClose={() => {}}
-      />,
+      />
+      </MemoryRouter>,
     );
 
     await user.click(screen.getByRole('button', { name: /高级策略配置/i }));
@@ -366,12 +375,14 @@ describe('VersionDrawer', () => {
     const onClose = vi.fn();
 
     renderWithQueryClient(
+      <MemoryRouter>
       <VersionDrawer
         open
         agentKey="agent.docs"
         editVersion={editVersion}
         onClose={onClose}
-      />,
+      />
+      </MemoryRouter>,
     );
 
     await user.click(screen.getByRole('button', { name: '保存修改' }));
@@ -476,6 +487,7 @@ describe('VersionDrawer', () => {
     useVersionSkillBindingsMock.mockImplementation(() => skillBindingsState);
 
     const view = render(
+      <MemoryRouter>
       <QueryClientProvider client={queryClient}>
           <VersionDrawer
             open
@@ -483,7 +495,8 @@ describe('VersionDrawer', () => {
             editVersion={editVersion}
             onClose={() => {}}
           />
-      </QueryClientProvider>,
+      </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     const promptInput = await screen.findByLabelText('System Prompt');
@@ -523,6 +536,7 @@ describe('VersionDrawer', () => {
     skillBindingsState.isLoading = false;
 
     view.rerender(
+      <MemoryRouter>
       <QueryClientProvider client={queryClient}>
           <VersionDrawer
             open
@@ -530,7 +544,8 @@ describe('VersionDrawer', () => {
             editVersion={editVersion}
             onClose={() => {}}
           />
-      </QueryClientProvider>,
+      </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     expect(screen.getByDisplayValue('Draft prompt in progress')).toBeInTheDocument();
@@ -552,6 +567,7 @@ describe('VersionDrawer', () => {
     };
 
     const view = render(
+      <MemoryRouter>
       <QueryClientProvider client={queryClient}>
           <VersionDrawer
             open
@@ -559,7 +575,8 @@ describe('VersionDrawer', () => {
             editVersion={initialVersion}
             onClose={() => {}}
           />
-      </QueryClientProvider>,
+      </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     const promptInput = await screen.findByLabelText('System Prompt');
@@ -568,6 +585,7 @@ describe('VersionDrawer', () => {
     expect(screen.getByDisplayValue('Edited prompt should stay')).toBeInTheDocument();
 
     view.rerender(
+      <MemoryRouter>
       <QueryClientProvider client={queryClient}>
           <VersionDrawer
             open
@@ -575,7 +593,8 @@ describe('VersionDrawer', () => {
             editVersion={refreshedVersion}
             onClose={() => {}}
           />
-      </QueryClientProvider>,
+      </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     expect(screen.getByDisplayValue('Edited prompt should stay')).toBeInTheDocument();

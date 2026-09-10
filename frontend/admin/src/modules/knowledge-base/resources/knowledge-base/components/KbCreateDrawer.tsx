@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FormModal } from '@/shared/ui/FormModal';
 import { Button } from '@/shared/ui/Button';
 import { NumberField, SelectField, TextAreaField, TextField, ToggleField } from '@/shared/ui/FormFields';
@@ -28,6 +29,7 @@ export function KbCreateDrawer({
   onSubmit: (data: { name: string; description?: string; settingsJson?: string }) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(['common', 'knowledgeBase']);
   const [name, setName] = useState(initialValue?.name ?? '');
   const [description, setDescription] = useState(initialValue?.description ?? '');
   const [settings, setSettings] = useState<KbSettingsFormState>(() => ({
@@ -79,40 +81,49 @@ export function KbCreateDrawer({
   return (
     <FormModal
       open={open}
-      title={mode === 'create' ? '创建知识库' : '编辑知识库'}
+      title={mode === 'create' ? t('knowledgeBase:create.titleCreate') : t('knowledgeBase:create.titleEdit')}
       onClose={handleClose}
       footer={
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={handleClose}>
-            取消
+            {t('common:actions.cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={saveDisabled}>
-            {loading ? '处理中...' : mode === 'create' ? '创建' : '保存'}
+            {loading
+              ? t('knowledgeBase:create.submitting')
+              : mode === 'create'
+                ? t('knowledgeBase:create.submitCreate')
+                : t('knowledgeBase:create.submitEdit')}
           </Button>
         </div>
       }
     >
       <div className="space-y-5">
         <TextField
-          label="名称"
+          label={t('knowledgeBase:create.nameLabel')}
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="输入知识库名称"
+          placeholder={t('knowledgeBase:create.namePlaceholder')}
         />
         <TextAreaField
-          label="描述"
+          label={t('knowledgeBase:create.descriptionLabel')}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="输入知识库描述（可选）"
+          placeholder={t('knowledgeBase:create.descriptionPlaceholder')}
         />
-        <div className="rounded-[2px] border border-border bg-surface/70 p-4">
-          <div className="mb-4 text-sm font-medium text-text">RAG 配置</div>
-          <div className="space-y-4">
+        {/* Retrieval tuning stays out of the first screen: defaults work, and
+            the product action is name -> create -> add content. */}
+        <details className="rounded-[2px] border border-border bg-surface/70 p-4">
+          <summary className="cursor-pointer text-sm font-medium text-text">
+            {t('knowledgeBase:create.advancedTitle')}
+          </summary>
+          <p className="mt-2 text-xs text-text-muted">{t('knowledgeBase:create.advancedSummary')}</p>
+          <div className="mt-4 space-y-4">
             <SelectField
-              label="Provider"
+              label={t('knowledgeBase:create.providerLabel')}
               disabled={mode === 'edit'}
-              hint={mode === 'edit' ? '创建后不可修改，避免索引损坏。' : undefined}
+              hint={mode === 'edit' ? t('knowledgeBase:create.providerLockedHint') : undefined}
               value={settings.provider}
               onChange={() => setSettings((current) => ({ ...current, ...LOCAL_ONLY_SETTINGS }))}
             >
@@ -121,27 +132,27 @@ export function KbCreateDrawer({
 
             <div className="grid gap-4 md:grid-cols-2">
               <NumberField
-                label="Chunk 长度"
+                label={t('knowledgeBase:create.chunkMaxLengthLabel')}
                 min={1}
                 value={String(settings.local.maxLength)}
                 onChange={(e) => updateLocal('maxLength', Number(e.target.value || 0))}
               />
               <NumberField
-                label="Chunk 重叠"
+                label={t('knowledgeBase:create.chunkOverlapLabel')}
                 min={0}
                 value={String(settings.local.overlap)}
                 onChange={(e) => updateLocal('overlap', Number(e.target.value || 0))}
               />
             </div>
             <TextField
-              label="Splitter"
+              label={t('knowledgeBase:create.splitterLabel')}
               value={settings.local.splitter}
               onChange={(e) => updateLocal('splitter', e.target.value)}
             />
             <div className="grid gap-3 md:grid-cols-2">
               <ToggleField
-                label="Embedding 索引"
-                hint="保留向量召回。"
+                label={t('knowledgeBase:create.embeddingIndexLabel')}
+                hint={t('knowledgeBase:create.embeddingIndexHint')}
                 checked={settings.local.indexes.includes('embedding')}
                 onChange={(checked) =>
                   updateLocal(
@@ -153,8 +164,8 @@ export function KbCreateDrawer({
                 }
               />
               <ToggleField
-                label="Full Text 索引"
-                hint="保留词法召回。"
+                label={t('knowledgeBase:create.fullTextIndexLabel')}
+                hint={t('knowledgeBase:create.fullTextIndexHint')}
                 checked={settings.local.indexes.includes('full_text')}
                 onChange={(checked) =>
                   updateLocal(
@@ -167,7 +178,7 @@ export function KbCreateDrawer({
               />
             </div>
           </div>
-        </div>
+        </details>
       </div>
     </FormModal>
   );

@@ -202,7 +202,7 @@ describe('KbDocumentsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: /doc-1\.md/i }));
 
     expect(screen.getByText('累计被召回次数')).toBeInTheDocument();
-    expect(screen.getByText('15 次')).toBeInTheDocument();
+    expect(screen.getByText('累计被召回 15 次')).toBeInTheDocument();
     expect(screen.getByText('最近召回时间')).toBeInTheDocument();
   });
 

@@ -27,7 +27,7 @@ export function KbDocumentsTab() {
   useAdminLocale();
 
   const [filters, setFilters] = useState(defaultDocumentListFilters);
-  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: '全部' }]);
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: '' }]);
   const [qaEditorOpen, setQaEditorOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<KbDocumentView | null>(null);
   const [detailDocId, setDetailDocId] = useState<string | null>(null);
@@ -84,7 +84,7 @@ export function KbDocumentsTab() {
   }, [documents]);
 
   useEffect(() => {
-    const next: BreadcrumbItem[] = [{ id: null, name: '全部' }];
+    const next: BreadcrumbItem[] = [{ id: null, name: t('knowledgeBase:documents.breadcrumbRoot') }];
 
     if (currentFolderId !== null) {
       const folderMap = new Map(allFolders.map((folder) => [folder.id, folder]));
@@ -113,7 +113,7 @@ export function KbDocumentsTab() {
 
       return next;
     });
-  }, [allFolders, currentFolderId]);
+  }, [allFolders, currentFolderId, t]);
 
   useEffect(() => {
     if (detailDocId && !documents.some((doc) => doc.id === detailDocId)) {
@@ -168,19 +168,19 @@ export function KbDocumentsTab() {
     }
 
     event.target.value = '';
-  }, [documentMutations.upload, toast]);
+  }, [documentMutations.upload, t, toast]);
 
   const handleReindex = useCallback((docId: string) => {
     documentMutations.reindex.mutate(docId, {
       onSuccess: () => toast(t('toast.reindexSubmitted')),
       onError: () => toast(t('toast.operationFailed'), 'error'),
     });
-  }, [documentMutations.reindex, toast]);
+  }, [documentMutations.reindex, t, toast]);
 
   const handleDocumentMove = useCallback(async (docId: string, targetFolderId: string | null) => {
     await documentMutations.moveDoc.mutateAsync({ docId, targetFolderId });
     toast(t('toast.updated'));
-  }, [documentMutations.moveDoc, toast]);
+  }, [documentMutations.moveDoc, t, toast]);
 
   const runBatchMutation = useCallback(
     async (
@@ -249,7 +249,7 @@ export function KbDocumentsTab() {
               {selectedIds.size > 0 && (
                 <div className="flex items-center gap-3 rounded-[2px] border border-primary/20 bg-primary-subtle p-3 text-sm">
                   <span className="text-text">
-                    已选择 <strong>{selectedIds.size}</strong> 个文档
+                    {t('knowledgeBase:documents.selected', { count: selectedIds.size })}
                   </span>
                   <Button
                     variant="secondary"
@@ -258,14 +258,14 @@ export function KbDocumentsTab() {
                       runBatchMutation(
                         'reindex',
                         (id) => documentMutations.reindex.mutateAsync(id),
-                        (count) => `已提交 ${count} 个文档的重新索引`,
-                        (successCount, failedCount) => `已提交 ${successCount} 个，仍有 ${failedCount} 个重新索引失败`,
-                        (count) => `${count} 个文档重新索引失败`,
+                        (count) => t('knowledgeBase:documents.reindexQueued', { count }),
+                        (successCount, failedCount) => t('knowledgeBase:documents.reindexPartial', { successCount, failedCount }),
+                        (count) => t('knowledgeBase:documents.reindexFailed', { count }),
                       )
                     }
                   >
                     <RotateCw size={14} />
-                    批量重索引
+                    {t('knowledgeBase:documents.batchReindex')}
                   </Button>
                   <Button
                     variant="danger"
@@ -273,10 +273,10 @@ export function KbDocumentsTab() {
                     onClick={() => setBatchDeleteOpen(true)}
                   >
                     <Trash2 size={14} />
-                    批量删除
+                    {t('knowledgeBase:documents.batchDelete')}
                   </Button>
                   <Button variant="ghost" disabled={batchActionPending !== null} onClick={clearSelection}>
-                    取消选择
+                    {t('knowledgeBase:documents.clearSelection')}
                   </Button>
                 </div>
               )}
@@ -284,19 +284,19 @@ export function KbDocumentsTab() {
               <div className="flex flex-wrap items-center gap-2">
                 <ToolbarButton variant="secondary" onClick={() => setCreateFolderOpen(true)}>
                   <Plus size={14} />
-                  新建文件夹
+                  {t('knowledgeBase:documents.createFolder')}
                 </ToolbarButton>
                 <ToolbarButton variant="secondary" onClick={() => fileInputRef.current?.click()}>
                   <Upload size={14} />
-                  上传文件
+                  {t('knowledgeBase:documents.uploadFiles')}
                 </ToolbarButton>
                 <ToolbarButton variant="secondary" onClick={() => setImportQaOpen(true)}>
                   <Upload size={14} />
-                  导入 QA
+                  {t('knowledgeBase:documents.importQa')}
                 </ToolbarButton>
                 <ToolbarButton variant="primary" onClick={() => setQaEditorOpen(true)}>
                   <Plus size={14} />
-                  创建 QA 对
+                  {t('knowledgeBase:documents.createQa')}
                 </ToolbarButton>
                 <Button
                   variant="secondary"
@@ -304,7 +304,7 @@ export function KbDocumentsTab() {
                   disabled={listQuery.isFetching}
                 >
                   <RefreshCw size={14} className={listQuery.isFetching ? 'animate-spin' : undefined} />
-                  刷新
+                  {t('common:actions.refresh')}
                 </Button>
               </div>
             </div>
@@ -315,7 +315,7 @@ export function KbDocumentsTab() {
       >
         {documentMutations.upload.isPending ? (
           <div className="mb-4 rounded-[2px] border border-primary/20 bg-primary-subtle p-3 text-sm text-primary">
-            正在上传文件...
+            {t('knowledgeBase:documents.uploading')}
           </div>
         ) : null}
 
@@ -388,9 +388,11 @@ export function KbDocumentsTab() {
 
       <ConfirmDialog
         open={deletingDoc !== null}
-        title="删除文档"
-        description={`确定要删除「${deletingDoc?.fileName ?? 'QA 对'}」吗？`}
-        confirmLabel="删除"
+        title={t('knowledgeBase:documents.deleteDocumentTitle')}
+        description={t('knowledgeBase:documents.deleteDocumentDescription', {
+          name: deletingDoc?.fileName ?? t('knowledgeBase:documents.qaPairFallback'),
+        })}
+        confirmLabel={t('common:actions.delete')}
         loading={documentMutations.remove.isPending}
         onConfirm={() => {
           if (!deletingDoc) {
@@ -409,9 +411,9 @@ export function KbDocumentsTab() {
 
       <ConfirmDialog
         open={deletingFolder !== null}
-        title="删除文件夹"
-        description={`确认删除「${deletingFolder?.name ?? ''}」？该文件夹下的子文件夹和文档也会被一并删除。`}
-        confirmLabel="删除"
+        title={t('knowledgeBase:documents.deleteFolderTitle')}
+        description={t('knowledgeBase:documents.deleteFolderDescription', { name: deletingFolder?.name ?? '' })}
+        confirmLabel={t('common:actions.delete')}
         loading={folderMutations.remove.isPending}
         onConfirm={() => {
           if (!deletingFolder) {
@@ -421,7 +423,7 @@ export function KbDocumentsTab() {
           folderMutations.remove.mutate(deletingFolder.id, {
             onSuccess: () => {
               if (breadcrumb.some((item) => item.id === deletingFolder.id)) {
-                setBreadcrumb([{ id: null, name: '全部' }]);
+                setBreadcrumb([{ id: null, name: t('knowledgeBase:documents.breadcrumbRoot') }]);
               }
               setDeletingFolder(null);
               toast(t('toast.deleted'));
@@ -434,17 +436,17 @@ export function KbDocumentsTab() {
 
       <ConfirmDialog
         open={batchDeleteOpen}
-        title="批量删除"
-        description={`确定要删除选中的 ${selectedIds.size} 个文档吗？此操作不可撤销。`}
-        confirmLabel="删除"
+        title={t('knowledgeBase:documents.batchDeleteTitle')}
+        description={t('knowledgeBase:documents.batchDeleteDescription', { count: selectedIds.size })}
+        confirmLabel={t('common:actions.delete')}
         loading={batchActionPending === 'delete'}
         onConfirm={() => {
           void runBatchMutation(
             'delete',
             (id) => documentMutations.remove.mutateAsync(id),
-            (count) => `已删除 ${count} 个文档`,
-            (successCount, failedCount) => `已删除 ${successCount} 个，仍有 ${failedCount} 个删除失败`,
-            (count) => `${count} 个文档删除失败`,
+            (count) => t('knowledgeBase:documents.deletedCount', { count }),
+            (successCount, failedCount) => t('knowledgeBase:documents.deletedPartial', { successCount, failedCount }),
+            (count) => t('knowledgeBase:documents.deletedFailed', { count }),
           ).finally(() => {
             setBatchDeleteOpen(false);
           });

@@ -4,8 +4,9 @@ import type { DocumentSourceType, KbDocumentView, TopRecalledKbDocumentView } fr
 type RankedDocument = Pick<KbDocumentView, 'sourceType' | 'fileName' | 'qaQuestion' | 'recallCount' | 'lastRecalledAtUtc'> &
   Partial<Pick<TopRecalledKbDocumentView, 'recallCount' | 'lastRecalledAtUtc'>>;
 
+// Returns a locale key under knowledgeBase:document.*; callers translate it.
 export function getKnowledgeDocumentTypeLabel(sourceType: DocumentSourceType) {
-  return sourceType === 'File' ? '文件' : 'QA';
+  return sourceType === 'File' ? 'document.typeFile' : 'document.typeQa';
 }
 
 export function getKnowledgeDocumentTypeTone(sourceType: DocumentSourceType) {
@@ -14,16 +15,17 @@ export function getKnowledgeDocumentTypeTone(sourceType: DocumentSourceType) {
 
 export function getKnowledgeDocumentTitle(
   document: Pick<KbDocumentView, 'sourceType' | 'fileName' | 'qaQuestion'> | Pick<TopRecalledKbDocumentView, 'sourceType' | 'fileName' | 'qaQuestion'>,
+  fallbacks?: { file?: string; qa?: string },
 ) {
   return document.sourceType === 'File'
-    ? document.fileName ?? '未命名文件'
-    : document.qaQuestion ?? '未命名 QA';
+    ? document.fileName ?? fallbacks?.file ?? ''
+    : document.qaQuestion ?? fallbacks?.qa ?? '';
 }
 
 export function formatRecallCount(document: RankedDocument) {
-  return `${formatAdminNumber(document.recallCount ?? 0)} 次`;
+  return formatAdminNumber(document.recallCount ?? 0);
 }
 
 export function formatRecallTime(lastRecalledAtUtc?: string) {
-  return lastRecalledAtUtc ? formatAdminDateTime(lastRecalledAtUtc) : '暂无';
+  return lastRecalledAtUtc ? formatAdminDateTime(lastRecalledAtUtc) : null;
 }

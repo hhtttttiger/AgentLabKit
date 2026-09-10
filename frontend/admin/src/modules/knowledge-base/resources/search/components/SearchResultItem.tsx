@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, FileText, HelpCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from '@/shared/ui/Badge';
 import type { KbSearchResult } from '../../../lib/contracts';
 import type { SearchMode } from '../types';
@@ -19,6 +20,7 @@ export function SearchResultItem({
   query: string;
   searchMode: SearchMode;
 }) {
+  const { t } = useTranslation('knowledgeBase');
   const [expanded, setExpanded] = useState(false);
   const recallSources = parseRecallSources(result.metadataJson);
   const azureScore = parseAzureScore(result.metadataJson);
@@ -41,11 +43,11 @@ export function SearchResultItem({
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <span className="truncate text-sm font-medium text-text">
-                {result.documentName ?? `文档 ${result.documentId}`}
+                {result.documentName ?? t('search.documentFallback', { id: result.documentId })}
               </span>
               {result.documentType && (
                 <Badge tone={result.documentType === 'QaPair' ? 'success' : 'neutral'}>
-                  {result.documentType === 'QaPair' ? 'QA' : '文件'}
+                  {result.documentType === 'QaPair' ? t('document.typeQa') : t('document.typeFile')}
                 </Badge>
               )}
               {recallSources.map((src) => (
@@ -55,7 +57,7 @@ export function SearchResultItem({
               ))}
             </div>
             <span className="shrink-0 text-xs font-semibold text-primary">
-              {headlineScoreLabel} {formatScore(result.score)}
+              {t(headlineScoreLabel)} {formatScore(result.score)}
             </span>
           </div>
 
@@ -76,9 +78,9 @@ export function SearchResultItem({
               onClick={() => setExpanded(!expanded)}
             >
               {expanded ? (
-                <><ChevronUp size={12} /> 收起</>
+                <><ChevronUp size={12} /> {t('search.collapseFull')}</>
               ) : (
-                <><ChevronDown size={12} /> 展开全文</>
+                <><ChevronDown size={12} /> {t('search.expandFull')}</>
               )}
             </button>
           )}
@@ -89,11 +91,12 @@ export function SearchResultItem({
 }
 
 function ScoreBar({ label, value, colorClass }: ScoreBarProps) {
+  const { t } = useTranslation('knowledgeBase');
   const percent = Math.max(0, Math.min(100, Math.round((value ?? 0) * 100)));
 
   return (
     <div className="flex items-center gap-2">
-      <span className="w-10 shrink-0 text-[11px] text-text-muted">{label}</span>
+      <span className="w-10 shrink-0 text-[11px] text-text-muted">{t(label)}</span>
       <div className="h-1 w-20 shrink-0 overflow-hidden rounded-full bg-background-subtle">
         <div className={`h-full rounded-full transition-all duration-300 ${colorClass}`} style={{ width: `${percent}%` }} />
       </div>
@@ -108,35 +111,35 @@ function getScoreRows(result: KbSearchResult, searchMode: SearchMode, recallSour
 
   if (searchMode === 'vector') {
     const rows: ScoreBarProps[] = [];
-    if (hasLocal) rows.push({ label: '相似度', value: result.vectorScore ?? result.score, colorClass: 'bg-violet-500' });
+    if (hasLocal) rows.push({ label: 'search.scoreSimilarity', value: result.vectorScore ?? result.score, colorClass: 'bg-violet-500' });
     if (hasAzure) rows.push({ label: 'Azure', value: azureScore, colorClass: 'bg-sky-500' });
-    if (hasLocal) rows.push({ label: '综合分', value: localScore ?? result.score, colorClass: 'bg-amber-500' });
+    if (hasLocal) rows.push({ label: 'search.scoreCombined', value: localScore ?? result.score, colorClass: 'bg-amber-500' });
     return rows;
   }
 
   if (searchMode === 'fulltext') {
     const rows: ScoreBarProps[] = [];
-    if (hasLocal) rows.push({ label: '匹配度', value: result.fulltextScore ?? result.score, colorClass: 'bg-emerald-500' });
+    if (hasLocal) rows.push({ label: 'search.scoreMatch', value: result.fulltextScore ?? result.score, colorClass: 'bg-emerald-500' });
     if (hasAzure) rows.push({ label: 'Azure', value: azureScore, colorClass: 'bg-sky-500' });
-    if (hasLocal) rows.push({ label: '综合分', value: localScore ?? result.score, colorClass: 'bg-amber-500' });
+    if (hasLocal) rows.push({ label: 'search.scoreCombined', value: localScore ?? result.score, colorClass: 'bg-amber-500' });
     return rows;
   }
 
   const rows: ScoreBarProps[] = [];
   if (hasLocal) {
     rows.push(
-      { label: '向量分', value: result.vectorScore, colorClass: 'bg-violet-500' },
-      { label: '全文分', value: result.fulltextScore, colorClass: 'bg-emerald-500' },
+      { label: 'search.scoreVector', value: result.vectorScore, colorClass: 'bg-violet-500' },
+      { label: 'search.scoreFulltext', value: result.fulltextScore, colorClass: 'bg-emerald-500' },
     );
   }
   if (hasAzure) {
     rows.push({ label: 'Azure', value: azureScore, colorClass: 'bg-sky-500' });
   }
   if (hasLocal) {
-    rows.push({ label: '综合分', value: localScore ?? result.score, colorClass: 'bg-amber-500' });
+    rows.push({ label: 'search.scoreCombined', value: localScore ?? result.score, colorClass: 'bg-amber-500' });
   }
   if (!hasLocal && !hasAzure) {
-    rows.push({ label: '综合分', value: result.score, colorClass: 'bg-amber-500' });
+    rows.push({ label: 'search.scoreCombined', value: result.score, colorClass: 'bg-amber-500' });
   }
   return rows;
 }
@@ -146,12 +149,12 @@ function getHeadlineScoreLabel(resultScore: number, recallSources: string[], azu
   const hasLocal = recallSources.includes('local') || (!hasAzure && recallSources.length === 0);
 
   if (!hasAzure || !hasLocal || localScore === undefined) {
-    return '综合';
+    return 'search.scoreCombined';
   }
 
   const differsFromLocalComposite = Math.abs(resultScore - localScore) > 0.0001;
   const matchesAzureScore = azureScore !== undefined && Math.abs(resultScore - azureScore) <= 0.0001;
-  return differsFromLocalComposite && matchesAzureScore ? '排序' : '综合';
+  return differsFromLocalComposite && matchesAzureScore ? 'search.scoreRanked' : 'search.scoreCombined';
 }
 
 function formatScore(value?: number): string {

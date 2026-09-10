@@ -12,7 +12,7 @@ import { ProcessingPipeline } from './ProcessingPipeline';
 import { SegmentViewer } from '../../segment/components/SegmentViewer';
 import { useProcessingStatus, useDocumentIndexes, useDocumentMutations } from '../hooks';
 import { formatFileSize, getStageLabel, type ProcessingStage } from '../../../lib/formatters';
-import { formatRecallCount, formatRecallTime, getKnowledgeDocumentTypeLabel } from '../../../lib/ranking';
+import { formatRecallTime, getKnowledgeDocumentTypeLabel } from '../../../lib/ranking';
 import type { KbDocumentView } from '../../../lib/contracts';
 
 type Tab = 'overview' | 'pipeline' | 'segments';
@@ -115,15 +115,16 @@ function OverviewTab({
   document: KbDocumentView;
   onReindex: () => void;
 }) {
+  const { t } = useTranslation('knowledgeBase');
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 text-sm">
         <InfoField label="类型">
           <Badge tone={document.sourceType === 'File' ? 'neutral' : 'success'}>
             {document.sourceType === 'File' ? (
-              <span className="flex items-center gap-1"><FileText size={12} /> 文件</span>
+              <span className="flex items-center gap-1"><FileText size={12} /> {t('document.typeFile')}</span>
             ) : (
-              <span className="flex items-center gap-1"><HelpCircle size={12} /> {getKnowledgeDocumentTypeLabel(document.sourceType)}</span>
+              <span className="flex items-center gap-1"><HelpCircle size={12} /> {t(getKnowledgeDocumentTypeLabel(document.sourceType))}</span>
             )}
           </Badge>
         </InfoField>
@@ -134,8 +135,8 @@ function OverviewTab({
           <InfoField label="文件大小">{formatFileSize(document.fileSize)}</InfoField>
         )}
         <InfoField label="创建时间">{formatAdminDateTime(document.createdAtUtc)}</InfoField>
-        <InfoField label="累计被召回次数">{formatRecallCount(document)}</InfoField>
-        <InfoField label="最近召回时间">{formatRecallTime(document.lastRecalledAtUtc)}</InfoField>
+        <InfoField label="累计被召回次数">{t('document.recallCountTotal', { count: document.recallCount ?? 0 })}</InfoField>
+        <InfoField label="最近召回时间">{formatRecallTime(document.lastRecalledAtUtc) ?? t('document.neverRecalled')}</InfoField>
         {document.ingestError && (
           <div className="col-span-2">
             <InfoField label="错误信息">
