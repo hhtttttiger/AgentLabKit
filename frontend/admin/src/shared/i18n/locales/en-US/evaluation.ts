@@ -85,6 +85,14 @@ export const evaluation = {
       faithfulness: 'Faithfulness',
       context_relevance: 'Context relevance'
     },
+    evidence: {
+      title: 'Retrieval evidence',
+      available: '{{attempts}} retrieval attempt(s) · {{successful}} successful · {{contexts}} context(s) used',
+      noRetrieval: 'No retrieval occurred for this run',
+      unavailable: 'Retrieval evidence unavailable',
+      openRun: 'Open Run',
+      inspectTrace: 'Inspect Trace'
+    },
     ragPipelinePlaceholder: 'e.g. kb-123',
     judgePlaceholder: 'Leave empty to use the default model',
     judgeHint: 'Model binding key used by the LLM judge',

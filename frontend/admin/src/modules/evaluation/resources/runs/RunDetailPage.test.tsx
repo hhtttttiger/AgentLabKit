@@ -56,6 +56,8 @@ const result: RunResultData = {
   passed: false,
   errorMessage: null,
   durationMs: 15,
+  candidateRunId: 'candidate-run-hex',
+  candidateTraceId: 'candidate-trace-hex',
 };
 
 const detail: RunDetailData = {

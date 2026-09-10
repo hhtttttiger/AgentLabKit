@@ -4,7 +4,8 @@ import { canCompare, canRunAgain, summarize, targetIdentity, targetLabel } from 
 
 const result = (overrides: Partial<RunResultData>): RunResultData => ({
   id: 'result', runId: '1', caseId: 'case', actualOutput: '', metricResults: [],
-  overallScore: null, passed: null, errorMessage: null, durationMs: 0, ...overrides,
+  overallScore: null, passed: null, errorMessage: null, durationMs: 0,
+  candidateRunId: null, candidateTraceId: null, ...overrides,
 });
 
 describe('evaluation run lifecycle presentation', () => {

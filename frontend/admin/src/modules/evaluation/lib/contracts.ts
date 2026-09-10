@@ -40,16 +40,38 @@ export interface RunData {
   createdAtUtc: string;
 }
 
+export interface RetrievalEvidenceSummary {
+  availability: 'available' | 'not_applicable' | 'unavailable';
+  attempts: number;
+  successfulAttempts: number;
+  contextsUsed: number;
+  reason: string | null;
+}
+
+export interface MetricResultData {
+  metricName: string;
+  score: number | null;
+  reasoning: string | null;
+  passed: boolean | null;
+  /** Machine-readable unavailable reason (e.g. missing_reference). */
+  reason: string | null;
+  /** Bounded retrieval-evidence summary the metric consumed. */
+  evidence: RetrievalEvidenceSummary | null;
+}
+
 export interface RunResultData {
   id: string;
   runId: string;
   caseId: string;
   actualOutput: string;
-  metricResults: { metricName: string; score: number; reasoning: string | null; passed: boolean | null }[];
+  metricResults: MetricResultData[];
   overallScore: number | null;
   passed: boolean | null;
   errorMessage: string | null;
   durationMs: number;
+  /** Runtime-owned candidate execution identity (Open Run / Inspect Trace). */
+  candidateRunId: string | null;
+  candidateTraceId: string | null;
 }
 
 export interface RunDetailData {

@@ -85,6 +85,14 @@ export const evaluation = {
           faithfulness: '忠实度',
           context_relevance: '上下文相关性'
         },
+        evidence: {
+          title: '检索证据',
+          available: '检索 {{attempts}} 次 · 成功 {{successful}} 次 · 使用 {{contexts}} 条上下文',
+          noRetrieval: '本次运行没有发生检索',
+          unavailable: '检索证据不可用',
+          openRun: '查看运行',
+          inspectTrace: '查看 Trace'
+        },
         ragPipelinePlaceholder: '例如：kb-123',
         judgePlaceholder: '留空则使用默认模型',
         judgeHint: 'LLM-as-Judge 使用的模型绑定 key',
