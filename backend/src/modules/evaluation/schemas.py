@@ -74,12 +74,26 @@ class RunResponse(CamelModel):
     created_at_utc: datetime
 
 
+class MetricEvidenceItem(CamelModel):
+    """Bounded retrieval-evidence summary (snake_case storage, camel wire)."""
+    availability: str
+    attempts: int
+    successful_attempts: int
+    contexts_used: int
+    reason: str | None = None
+
+
 class MetricResultItem(CamelModel):
     """View over a persisted metric_results_json entry (snake_case storage)."""
     metric_name: str
     score: float | None = None
     reasoning: str | None = None
     passed: bool | None = None
+    # Machine-readable unavailable reason (e.g. missing_reference,
+    # trace_unavailable); null when the metric produced a score.
+    reason: str | None = None
+    # Bounded retrieval-evidence summary the metric consumed.
+    evidence: MetricEvidenceItem | None = None
 
 
 class RunResultResponse(CamelModel):
@@ -92,6 +106,9 @@ class RunResultResponse(CamelModel):
     passed: bool | None = None
     error_message: str | None = None
     duration_ms: int
+    # Runtime-owned candidate execution identity (Open Run / Inspect Trace).
+    candidate_run_id: str | None = None
+    candidate_trace_id: str | None = None
 
 
 class RunDetailResponse(CamelModel):

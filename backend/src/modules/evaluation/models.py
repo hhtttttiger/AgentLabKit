@@ -62,3 +62,8 @@ class EvalRunResult(EntityBase):
     passed: Mapped[bool | None] = mapped_column(nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text)
     duration_ms: Mapped[int] = mapped_column(BigInteger, default=0)
+    # Candidate execution identity, carried from the Runtime-owned Run.  These
+    # are opaque strings (Runtime uuid hex), never the example's capture
+    # provenance and never inferred from other fields.
+    candidate_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    candidate_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)

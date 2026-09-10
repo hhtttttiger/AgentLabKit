@@ -44,9 +44,20 @@ async def seeded(db_session_factory):
             metric_results_json=[
                 {"metric_name": "faithfulness", "score": 0.0, "passed": None},
                 {"metric_name": "context_precision", "score": 1.0, "passed": True},
+                {
+                    "metric_name": "answer_relevancy", "score": None, "passed": None,
+                    "reason": "missing_reference",
+                    "evidence": {
+                        "availability": "not_applicable", "attempts": 0,
+                        "successful_attempts": 0, "contexts_used": 0,
+                        "reason": None,
+                    },
+                },
             ],
             overall_score=0.0,
             passed=None,
+            candidate_run_id="candidate-run-hex",
+            candidate_trace_id="candidate-trace-hex",
         ))
         await session.commit()
 
@@ -133,3 +144,35 @@ async def test_run_detail_preserves_config_link_and_tri_state_fields(
     assert result["metricResults"][1]["passed"] is True
     assert result["overallScore"] == 0.0
     assert result["passed"] is None
+
+
+async def test_run_result_round_trips_candidate_identity_and_metric_reason(
+    eval_client, seeded, auth_headers
+):
+    """Candidate execution identity and per-metric evidence/reason survive the
+    wire intact — the surface Open Run / Inspect Trace and the evidence drawer
+    are built on."""
+    resp = await eval_client.get(f"/api/eval/runs/{BIG_RUN_ID}", headers=auth_headers)
+    assert resp.status_code == 200
+    result = resp.json()["data"]["results"][0]
+
+    # Runtime-owned candidate identity, opaque strings on the wire.
+    assert result["candidateRunId"] == "candidate-run-hex"
+    assert result["candidateTraceId"] == "candidate-trace-hex"
+
+    # Tri-state entries without reason/evidence stay clean.
+    plain = result["metricResults"][0]
+    assert plain["reason"] is None
+    assert plain["evidence"] is None
+
+    # Gated entry carries the machine-readable reason and bounded evidence.
+    gated = result["metricResults"][2]
+    assert gated["score"] is None
+    assert gated["reason"] == "missing_reference"
+    assert gated["evidence"] == {
+        "availability": "not_applicable",
+        "attempts": 0,
+        "successfulAttempts": 0,
+        "contextsUsed": 0,
+        "reason": None,
+    }
