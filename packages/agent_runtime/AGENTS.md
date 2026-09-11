@@ -14,6 +14,12 @@
 - Retrieval attempts are semantic execution facts beneath ToolCall execution; preserve Runtime-owned span hierarchy and terminal pairing.
 - Provider provenance is optional authoritative data; never infer missing KB/document/segment identity.
 
+## Agent Core independence
+
+- Agent Loop must not depend on concrete Runtime capabilities; prefer protocol/hook/callback seams.
+- Workflow, MCP, and definition persistence depend inward; Core never depends outward.
+- Runtime owns execution facts, but the RuntimeEvent taxonomy must not define the internal Agent algorithm.
+
 ## 关键路径
 
 - `src/agent_runtime/contracts/` — execution 和 turn contracts。
