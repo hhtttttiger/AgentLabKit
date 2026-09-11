@@ -14,6 +14,10 @@ Build Agent → Test → Run → Inspect / Replay → Capture → Evaluate → C
 Prepare Knowledge → Test Retrieval → Use in Agent → Test Agent → Inspect Retrieval → Diagnose
 ```
 
+## Building applications on AgentLabKit
+
+业务应用应把业务事实与权限留在自己的 Business Backend，通过 AgentLabKit 的 Platform API 使用 Agent、Knowledge、Tools、Runs 和 Evaluation。集成指南与当前支持范围见 [`docs/guides/building-business-applications.md`](docs/guides/building-business-applications.md)；公开 surface 的验证记录见 [`Business Integration Readiness Audit`](docs/guides/business-integration-readiness-audit.md)。
+
 ## 核心能力
 
 - **Agent Runtime** — turn 与 streaming execution、tools、guardrails、handoffs、delegation 和 deterministic workflows。
