@@ -28,24 +28,56 @@ Prepare Knowledge → Test Retrieval → Use in Agent → Test Agent → Inspect
 仓库将以下边界视为稳定边界：Execution Model v2、Application Use Case v1 和 FastAPI Adapter v1。只有出于具体的正确性或产品需求才可修改。
 
 ```text
-Web / Desktop / External Client
-              │
-              ▼
-       FastAPI adapter
-              │
-       ┌──────┼────────┐
-       ▼      ▼        ▼
- Application  Module   Projection /
- use cases   services  Readers / Stores
-       │      │        │
-       └──────┼────────┘
-              ▼
- Domain packages and Agent Runtime
+客户端
+  ├── React 管理后台
+  ├── PySide6 桌面端
+  └── 其他客户端
+          │
+          ▼
+FastAPI HTTP/SSE 适配层
+          │
+          ├── 平台动作 → Application Use Cases
+          │                         ↓
+          │                     Runtime / Evaluation / Dataset 能力
+          ├── 资源 API → Module Services
+          └── 投影 / 查询 API → Readers / Stores / Aggregators
+
+Runtime 运行时
+  ├── AgentRun
+  └── RuntimeEvent
+         ├── Observability → Trace 观测投影
+         └── Cost Analysis → CostRecord 成本投影
+
+AgentRun → Dataset → Evaluation → Compare / Improve
 ```
 
-FastAPI 负责验证 HTTP、认证与授权、映射 DTO、委托调用，以及适配 HTTP/SSE。平台 orchestration 属于 `packages/application`；resource CRUD 属于 module services；query endpoints 使用 readers、stores 或 projections。
+FastAPI backend 是传输与组合层。
 
-Runtime 拥有 execution facts 与 identity。`Run` 不是 `Trace`：Trace 是真实 Run 的 Observability projection。Trace 提供一次真实 Run 的 execution observation，包括 Agent、LLM、Tool、Retrieval 等执行事实；Run 是 execution resource，Trace 是 Observability projection。Replay 和 Evaluation 通过 `RunExecutor` 请求真实 Runtime execution；它们不会制造 Runs 或 execution IDs。Dataset storage 拥有稳定的 `example_id`；它永远不是 `run_id`。
+平台动作委托给 `packages/application`；面向资源的 API 保留在所属 module services；读取/投影 API 直接使用 Readers、Stores 或 Aggregators。FastAPI 不拥有 Runtime execution facts、evaluation semantics 或平台级编排。
+
+### Application Use Case v1：应用用例
+
+当前稳定的平台用例目录：
+
+- `ExecuteAgent`
+- `ReplayRun`
+- `CaptureRunAsDatasetExample`
+- `EvaluateDataset`
+- `CompareEvaluationRuns`
+
+Application 负责平台动作编排，但不拥有 Runtime facts、HTTP DTO、持久化 schema 或 evaluator semantics。Application contracts 不是 HTTP DTOs；资源 CRUD 仍由 module services 负责。
+
+### Execution mental model：执行心智模型
+
+```text
+Runtime 产生事实
+Event 描述事实
+Run 界定一次执行
+Trace 观测执行
+Evaluation / Cost / Replay 消费事实
+```
+
+`Run != Trace`。`run_id != DatasetExample.example_id`。Replay 会创建一次新的 Runtime execution。Runtime 拥有 execution facts 与 identity；Trace 是真实 Run 的 Observability projection。Replay 和 Evaluation 通过 `RunExecutor` 请求真实 Runtime execution，不制造 Runs 或 execution IDs。
 
 参见 [`docs/architecture/execution-model-v2.md`](docs/architecture/execution-model-v2.md)、[`docs/architecture/fastapi-adapter-boundary.md`](docs/architecture/fastapi-adapter-boundary.md) 和 [`docs/architecture/agent-turn-streaming.md`](docs/architecture/agent-turn-streaming.md) 中的权威长篇规则。
 
@@ -123,7 +155,7 @@ Desktop 配置保存在 `~/.config/agentlabkit/desktop.toml`。参见 [`docs/des
 
 ```text
 packages/
-  application/       framework-neutral platform use cases
+  application/       framework-neutral platform use cases / orchestration
   agent_runtime/     execution, tools, guardrails, memory, workflows
   llm_gateway/      provider-neutral LLM access and model routing
   retrieval/        document and RAG engine

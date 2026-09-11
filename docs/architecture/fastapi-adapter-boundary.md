@@ -54,7 +54,7 @@ read service. They are not wrapped in new Get* use cases.
 
 | Method/path | Module | Owner / classification | Action |
 |---|---|---|---|
-| `POST /api/auth/login` | auth | auth service / Resource | keep |
+| `POST /api/auth/token` | auth | auth service / Resource | keep |
 | `/api/agents/**` | agent | `AgentService` / Resource | keep |
 | `/api/agent-tools/**`, `/api/agent-skills/**`, `/api/agent-mcp/**` | agent | module services / Resource | keep |
 | `/api/knowledge-bases/**` | knowledge_base | KB, Document, Search services / Resource | defer promotion; worker enqueue remains |
