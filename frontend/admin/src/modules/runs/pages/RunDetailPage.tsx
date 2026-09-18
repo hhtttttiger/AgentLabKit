@@ -42,7 +42,7 @@ export function RunDetailPage() {
           <p className="mt-1 text-sm text-text-secondary">{run.agentKey ?? '—'}{run.agentVersion ? ` · v${run.agentVersion}` : ''}{run.durationMs != null ? ` · ${formatDuration(run.durationMs)}` : ''}</p>
         </div>
         <button type="button" onClick={() => navigate(`/runs/${run.id}/replay`)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover"><RotateCcw size={14} />{t('runs:actions.replay')}</button>
-        <button type="button" disabled={run.status !== 'completed'} onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"><Database size={14} />Add to Dataset</button>
+        <button type="button" aria-label="Add to Dataset" disabled={run.status !== 'completed'} onClick={() => setCaptureOpen(true)} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-40"><Database size={14} />Save as Case</button>
         {run.traceId ? <button type="button" onClick={() => setParams({ tab: 'trace' }, { replace: true })} className="inline-flex items-center gap-2 border border-border px-3 py-2 text-sm hover:bg-surface-hover"><Search size={14} />{t('runs:actions.inspectRetrieval')}</button> : null}
         <button type="button" onClick={() => navigate(run.agentKey ? `/playground?agent=${encodeURIComponent(run.agentKey)}` : '/playground')} className="inline-flex items-center gap-2 bg-primary px-3 py-2 text-sm text-primary-foreground"><Play size={14} />{t('runs:actions.openPlayground')}</button>
       </header>
@@ -70,9 +70,12 @@ function Overview({ run }: { run: import('../types').RunDetail }) {
     <Field label={t('runs:detail.input')} value={run.input ?? t('runs:detail.noInput')} />
     <Field label={t('runs:detail.output')} value={run.output ?? t('runs:detail.noOutput')} />
     <div className="border-t border-border pt-4 text-sm"><p className="text-text-muted">Session ID</p><p className="mt-1 font-mono text-text">{run.sessionId ?? '—'}</p><p className="mt-3 text-text-muted">{run.status === 'completed' ? 'Completed' : 'Ended'}</p><p className="mt-1 text-text">{run.completedAt ? new Date(run.completedAt).toLocaleString() : '—'}</p></div>
+    <div className="border-t border-border pt-4 text-sm"><p className="text-text-muted">Execution facts</p><div className="mt-2 grid grid-cols-2 gap-3"><Metric label="Duration" value={run.durationMs == null ? 'Unavailable' : formatDuration(run.durationMs)} /><Metric label="Trace" value={run.traceId ? 'Available' : 'Unavailable'} /></div></div>
     {run.errorMessage && <div className="border-t border-border pt-4 text-sm text-error">{run.errorMessage}</div>}
   </div>;
 }
+
+function Metric({ label, value }: { label: string; value: string }) { return <div><p className="text-xs text-text-muted">{label}</p><p className="mt-1 font-medium text-text">{value}</p></div>; }
 
 function Field({ label, value }: { label: string; value: string }) { return <div><h2 className="mb-2 text-sm font-semibold text-text">{label}</h2><pre className="whitespace-pre-wrap rounded border border-border bg-surface-subtle p-4 text-sm text-text-secondary">{value}</pre></div>; }
 

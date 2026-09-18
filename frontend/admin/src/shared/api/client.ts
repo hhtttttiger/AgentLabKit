@@ -4,7 +4,10 @@ import type { ApiEnvelope, RequestOptions } from './contracts';
 import { clearStoredToken, getStoredToken } from '@/shared/auth/storage';
 import { DEV_MODE } from '@/shared/auth/AuthProvider';
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
+const apiBaseUrl = (
+  configuredApiBaseUrl || (import.meta.env.VITE_DESKTOP_MODE === 'true' ? 'http://127.0.0.1:8000' : '')
+).replace(/\/$/, '');
 
 export function buildApiUrl(path: string, query?: RequestOptions['query']) {
   const url = new URL(`${apiBaseUrl}${path}`, window.location.origin);

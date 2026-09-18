@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { UserMenu } from '@/shared/ui/UserMenu';
-import { getModulesByGroup, type ModuleGroup } from '../modules';
+import { getModulesByGroup, moduleGroupLabels, type ModuleGroup } from '../modules';
 import type { ModuleKey } from '../modules';
 import './AppSidebar.css';
 
@@ -14,28 +14,14 @@ interface AppSidebarProps {
   onLogout: () => void;
 }
 
-const NAV_LABEL_KEYS: Record<ModuleKey, string> = {
-  'ai-chat': 'nav.playground',
-  'agent-management': 'nav.agents',
-  'model-management': 'nav.models',
-  glossary: 'nav.glossary',
-  'knowledge-base': 'nav.knowledge',
-  'model-monitoring': 'nav.monitoring',
-  'cost-analysis': 'nav.cost',
-  observability: 'nav.traces',
-  memory: 'nav.memory',
-  evaluation: 'nav.evaluation',
-  'user-management': 'nav.users',
-  runs: 'nav.runs',
-  capabilities: 'nav.capabilities',
+const NAV_LABELS: Record<ModuleKey, string> = {
+  home: 'Home',
+  sessions: 'Sessions',
+  runs: 'Runs',
+  datasets: 'Datasets',
+  evaluation: 'Evaluations',
+  'knowledge-base': 'Knowledge',
 } as const;
-
-const GROUP_LABEL_KEYS: Record<ModuleGroup, string> = {
-  build: 'nav.group.build',
-  run: 'nav.group.run',
-  improve: 'nav.group.improve',
-  platform: 'nav.group.platform',
-};
 
 export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, displayName, onLogout }: AppSidebarProps) {
   const { t } = useTranslation('common');
@@ -47,10 +33,10 @@ export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, disp
   return (
     <aside className={`admin-sidebar ${collapsed ? 'admin-sidebar--collapsed' : ''}`}>
       <div className="admin-sidebar__brand">
-        <div className="admin-sidebar__brand-mark">AI</div>
+        <div className="admin-sidebar__brand-mark">A</div>
         <div className="admin-sidebar__brand-text">
-          <div className="admin-sidebar__brand-title">{t('nav.brandTitle')}</div>
-          <div className="admin-sidebar__brand-subtitle">{t('nav.brandSubtitle')}</div>
+          <div className="admin-sidebar__brand-title">AgentLab</div>
+          <div className="admin-sidebar__brand-subtitle">Engineering workbench</div>
         </div>
       </div>
 
@@ -65,14 +51,10 @@ export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, disp
 
           return (
             <div key={group} className="admin-sidebar__group">
-              {!collapsed && (
-                <div className="admin-sidebar__group-label">
-                  {t(GROUP_LABEL_KEYS[group])}
-                </div>
-              )}
+              {!collapsed && <div className="admin-sidebar__group-label">{moduleGroupLabels[group]}</div>}
               {modules.map((module) => {
                 const Icon = module.icon;
-                const label = t(NAV_LABEL_KEYS[module.key]);
+                const label = NAV_LABELS[module.key];
                 return (
                   <NavLink
                     key={module.key}
@@ -89,6 +71,8 @@ export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, disp
           );
         })}
       </nav>
+
+      <NavLink className="sr-only" to="/playground">Playground</NavLink>
 
       <div className="admin-sidebar__footer">
         <div className="admin-sidebar__footer-left">

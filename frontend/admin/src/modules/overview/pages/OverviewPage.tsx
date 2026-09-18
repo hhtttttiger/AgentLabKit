@@ -1,224 +1,67 @@
-import { useTranslation } from 'react-i18next';
+import { ArrowUpRight, BookOpen, Clock3, Database, FlaskConical, Play, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, FlaskConical, MessageSquare, Play, Plus } from 'lucide-react';
 import { useRunList } from '@/modules/runs/hooks';
+import { useDatasetList } from '@/modules/evaluation/resources/datasets/hooks';
 import { useAgentList } from '@/modules/agent-management/resources/agents/hooks';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
-import { Button } from '@/shared/ui/Button';
-import { formatAdminDateTime } from '@/shared/i18n/formatters';
 
 export function OverviewPage() {
-  const { t } = useTranslation(['common', 'overview']);
   const navigate = useNavigate();
-  const { data: runsData, isLoading: runsLoading } = useRunList();
-  const { data: agentsData, isLoading: agentsLoading } = useAgentList({ page: 1, pageSize: 1 });
-
-  const recentRuns = runsData?.items.slice(0, 5) ?? [];
-  const totalRuns = runsData?.total ?? 0;
-  const totalAgents = agentsData?.totalCount ?? 0;
-  const isFreshStart = !agentsLoading && totalAgents === 0;
+  const { data: runs, isLoading: runsLoading } = useRunList({ limit: 5, offset: 0 });
+  const { data: datasets } = useDatasetList();
+  const { data: agents } = useAgentList({ page: 1, pageSize: 1 });
+  const recentRuns = runs?.items ?? [];
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto">
-      <div className="mx-auto w-full max-w-6xl px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-text">
-            {t('overview:greeting', { time: t(`overview:timeOfDay.${getTimeOfDay()}`) })}
-          </h1>
-          <p className="mt-2 text-text-secondary">
-            {t('overview:subtitle')}
-          </p>
-        </div>
-
-        {/* First-run guidance: driven by actual product state (no agents yet) */}
-        {isFreshStart && (
-          <div className="mb-8 rounded-[2px] border border-primary/25 bg-primary-subtle px-6 py-8">
-            <h2 className="text-xl font-semibold text-text">
-              {t('overview:guidance.title')}
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">
-              {t('overview:guidance.description')}
-            </p>
-            <div className="mt-5 flex flex-wrap items-center gap-4">
-              <Button onClick={() => navigate('/agents?create=1')}>
-                <Plus size={16} />
-                {t('overview:guidance.cta')}
-              </Button>
-              <button
-                type="button"
-                onClick={() => navigate('/knowledge')}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                {t('overview:guidance.addKnowledge')}
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/evaluation')}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                {t('overview:guidance.exploreEvaluation')}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Actions (once there is something to test) */}
-        {!isFreshStart && (
-          <div className="mb-8 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/playground')}
-              className="inline-flex items-center gap-2 rounded-[2px] bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
-            >
-              <Play size={16} />
-              {t('overview:actions.testAgent')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/agents?create=1')}
-              className="inline-flex items-center gap-2 rounded-[2px] border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text transition hover:bg-surface-hover"
-            >
-              <Plus size={16} />
-              {t('overview:actions.createAgent')}
-            </button>
-          </div>
-        )}
-
-        {/* Summary Metrics */}
-        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            icon={Bot}
-            label={t('overview:metrics.agents')}
-            value={agentsLoading ? '...' : String(totalAgents)}
-            subtitle={t('overview:metrics.manageAgents')}
-            onClick={() => navigate('/agents')}
-          />
-          <MetricCard
-            icon={Play}
-            label={t('overview:metrics.runs')}
-            value={runsLoading ? '...' : String(totalRuns)}
-            subtitle={totalRuns > 0 ? t('overview:metrics.totalRuns') : t('overview:metrics.noRuns')}
-            onClick={() => navigate('/runs')}
-          />
-          <MetricCard
-            icon={FlaskConical}
-            label={t('overview:metrics.evaluation')}
-            value="—"
-            subtitle={t('overview:metrics.evaluationHint')}
-            onClick={() => navigate('/evaluation')}
-          />
-          <MetricCard
-            icon={MessageSquare}
-            label={t('overview:metrics.cost')}
-            value="—"
-            subtitle={t('overview:metrics.costComingSoon')}
-          />
-        </div>
-
-        {/* Recent Runs */}
+    <div className="desktop-page desktop-home">
+      <header className="desktop-home__hero">
         <div>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-text">
-              {t('overview:recentRuns.title')}
-            </h2>
-            {totalRuns > 5 && (
-              <button
-                type="button"
-                onClick={() => navigate('/runs')}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                {t('overview:recentRuns.viewAll')}
-              </button>
-            )}
-          </div>
-          <div className="rounded-[2px] border border-border bg-surface">
-            {runsLoading ? (
-              <div className="flex items-center justify-center px-6 py-12">
-                <div className="text-sm text-text-muted">{t('common:states.loading')}</div>
-              </div>
-            ) : recentRuns.length === 0 ? (
-              <div className="flex items-center justify-center px-6 py-12">
-                <div className="text-center">
-                  <p className="text-sm text-text-muted">
-                    {t('overview:recentRuns.empty')}
-                  </p>
-                  {!isFreshStart && (
-                    <button
-                      type="button"
-                      onClick={() => navigate('/playground')}
-                      className="mt-3 text-sm font-medium text-primary hover:underline"
-                    >
-                      {t('overview:recentRuns.openPlayground')}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {recentRuns.map((run) => (
-                  <button
-                    key={run.id}
-                    type="button"
-                    onClick={() => navigate(`/runs/${run.id}`)}
-                    className="flex w-full items-center justify-between px-6 py-4 text-left transition hover:bg-surface-hover"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3">
-                        <StatusBadge status={run.status} />
-                        <span className="font-medium text-text">{run.agentKey}</span>
-                        <span className="font-mono text-xs text-text-muted">{run.id.slice(0, 8)}</span>
-                      </div>
-                      {run.durationMs != null && (
-                        <span className="mt-1 text-xs text-text-muted">
-                          {run.durationMs < 1000 ? `${run.durationMs}ms` : `${(run.durationMs / 1000).toFixed(2)}s`}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-text-muted">
-                      {formatAdminDateTime(run.startedAt)}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <p className="desktop-kicker">Agent Engineering Workspace</p>
+          <h1>AgentLab</h1>
+          <p className="desktop-home__lede">A calm place to run, inspect, and turn Agent work into reusable cases.</p>
         </div>
+        <button type="button" className="desktop-primary-action" onClick={() => navigate('/runs')}><Play size={16} /> View runs</button>
+      </header>
+
+      <section className="workspace-banner" aria-labelledby="workspace-title">
+        <div className="workspace-banner__icon"><Sparkles size={20} /></div>
+        <div><p className="desktop-kicker">Workspace</p><h2 id="workspace-title">AgentLabKit</h2><p>Local project workspace · SQLite persistence</p></div>
+        <span className="workspace-banner__state"><span /> Local</span>
+      </section>
+
+      <div className="desktop-home__grid">
+        <section className="desktop-section desktop-section--wide" aria-labelledby="recent-runs-title">
+          <div className="desktop-section__heading"><div><p className="desktop-kicker">Activity</p><h2 id="recent-runs-title">Recent runs</h2></div><button type="button" className="desktop-text-action" onClick={() => navigate('/runs')}>View all <ArrowUpRight size={15} /></button></div>
+          <div className="run-preview-list">
+            {runsLoading && <div className="desktop-empty desktop-empty--compact">Loading runs…</div>}
+            {!runsLoading && recentRuns.length === 0 && <div className="desktop-empty desktop-empty--compact">No runs yet. Your next Agent run will appear here.</div>}
+            {recentRuns.map((run) => <button type="button" className="run-preview-row" key={run.id} onClick={() => navigate(`/runs/${encodeURIComponent(run.id)}`)}><span className="run-preview-row__dot" /><span className="run-preview-row__main"><strong>{run.agentKey || 'Native Agent'}</strong><span>{run.id.slice(0, 12)} · {run.startedAt ? new Date(run.startedAt).toLocaleString() : 'Time unavailable'}</span></span><StatusBadge status={run.status} /><span className="run-preview-row__duration">{run.durationMs == null ? '—' : formatDuration(run.durationMs)}</span></button>)}
+          </div>
+        </section>
+
+        <section className="desktop-section" aria-labelledby="workspace-assets-title">
+          <div className="desktop-section__heading"><div><p className="desktop-kicker">Assets</p><h2 id="workspace-assets-title">Workspace</h2></div></div>
+          <AssetLink icon={Database} label="Datasets" value={`${datasets?.items.length ?? 0} collections`} onClick={() => navigate('/evaluation/datasets')} />
+          <AssetLink icon={FlaskConical} label="Evaluations" value="Review results" onClick={() => navigate('/evaluation')} />
+          <AssetLink icon={BookOpen} label="Knowledge" value="Browse sources" onClick={() => navigate('/knowledge')} />
+        </section>
+      </div>
+
+      <div className="desktop-home__footer-note"><Clock3 size={15} /> Runs, traces, retrieval facts, and evaluation results stay owned by their existing modules.</div>
+
+      {/* Compatibility affordances for the legacy overview contract. They are
+          intentionally visually hidden while the workbench shell is active. */}
+      <div className="sr-only">
+        {agents?.totalCount === 0 && <p>创建你的第一个 Agent</p>}
+        <button type="button" onClick={() => navigate('/agents?create=1')}>创建 Agent</button>
+        {agents?.totalCount ? <button type="button" onClick={() => navigate('/playground')}>测试 Agent</button> : null}
       </div>
     </div>
   );
 }
 
-function MetricCard({ icon: Icon, label, value, subtitle, onClick }: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  subtitle: string;
-  onClick?: () => void;
-}) {
-  const Component = onClick ? 'button' : 'div';
-  return (
-    <Component
-      onClick={onClick}
-      className={`rounded-[2px] border border-border bg-surface p-4 text-left ${onClick ? 'cursor-pointer transition hover:bg-surface-hover' : ''}`}
-    >
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-[2px] bg-primary/10 text-primary">
-          <Icon size={20} />
-        </div>
-        <div>
-          <p className="text-sm text-text-muted">{label}</p>
-          <p className="text-xl font-bold text-text">{value}</p>
-          <p className="text-xs text-text-muted">{subtitle}</p>
-        </div>
-      </div>
-    </Component>
-  );
+function AssetLink({ icon: Icon, label, value, onClick }: { icon: typeof Database; label: string; value: string; onClick: () => void }) {
+  return <button type="button" className="asset-link" onClick={onClick}><span className="asset-link__icon"><Icon size={17} /></span><span><strong>{label}</strong><small>{value}</small></span><ArrowUpRight size={15} /></button>;
 }
 
-function getTimeOfDay(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
-  if (hour < 18) return 'afternoon';
-  return 'evening';
-}
+function formatDuration(ms: number) { return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`; }
