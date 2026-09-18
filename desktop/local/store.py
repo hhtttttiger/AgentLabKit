@@ -328,4 +328,3 @@ class LocalEvaluationStore(EvaluationRunReader, EvaluationRunStore):
     async def list_results(self, run_id: str) -> list[EvaluationResult]:
         rows = self.db.connection.execute("SELECT * FROM local_eval_results WHERE eval_run_id=? ORDER BY id", (int(run_id),)).fetchall()
         return [EvaluationResult(evaluator_name="local.output_match", example_id=str(row["case_id"]), score=row["overall_score"], passed=None if row["passed"] is None else bool(row["passed"]), message=row["error_message"], details={"actual_output": row["actual_output"], "metric_results": self.db.value(row["metric_results_json"], [])}, duration_ms=row["duration_ms"], run_id=row["candidate_run_id"]) for row in rows]
-
