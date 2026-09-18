@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::Manager;
+use tauri_plugin_dialog::DialogExt;
 
 struct LocalApiProcess(Mutex<Option<std::process::Child>>);
 
@@ -53,10 +54,19 @@ fn get_runtime_config(app: tauri::AppHandle) -> RuntimeConfig {
     read_runtime_config(&app)
 }
 
+#[tauri::command]
+async fn pick_project_directory(app: tauri::AppHandle) -> Option<String> {
+    app.dialog()
+        .file()
+        .blocking_pick_folder()
+        .map(|path| path.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_runtime_config])
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![get_runtime_config, pick_project_directory])
         .setup(|app| {
             let runtime_config = read_runtime_config(app.handle());
             if runtime_config.mode == "server" {

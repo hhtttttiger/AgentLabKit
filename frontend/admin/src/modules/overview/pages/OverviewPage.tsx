@@ -1,9 +1,11 @@
-import { ArrowUpRight, BookOpen, Clock3, Database, FlaskConical, Play, Sparkles } from 'lucide-react';
+import { ArrowUpRight, BookOpen, Clock3, Database, FlaskConical, FolderOpen, Play, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRunList } from '@/modules/runs/hooks';
 import { useDatasetList } from '@/modules/evaluation/resources/datasets/hooks';
 import { useAgentList } from '@/modules/agent-management/resources/agents/hooks';
 import { StatusBadge } from '@/shared/ui/StatusBadge';
+import { loadLocalProject, pickLocalProject, saveLocalProject, type LocalProject } from '../lib/workspace';
+import { useState } from 'react';
 
 export function OverviewPage() {
   const navigate = useNavigate();
@@ -11,6 +13,12 @@ export function OverviewPage() {
   const { data: datasets } = useDatasetList();
   const { data: agents } = useAgentList({ page: 1, pageSize: 1 });
   const recentRuns = runs?.items ?? [];
+  const [project, setProject] = useState<LocalProject | null>(loadLocalProject);
+
+  async function openProject() {
+    const selected = await pickLocalProject();
+    if (selected) { saveLocalProject(selected); setProject(selected); }
+  }
 
   return (
     <div className="desktop-page desktop-home">
@@ -20,13 +28,13 @@ export function OverviewPage() {
           <h1>AgentLab</h1>
           <p className="desktop-home__lede">A calm place to run, inspect, and turn Agent work into reusable cases.</p>
         </div>
-        <button type="button" className="desktop-primary-action" onClick={() => navigate('/runs')}><Play size={16} /> View runs</button>
+        <button type="button" className="desktop-primary-action" onClick={() => navigate('/sessions/new')}><Play size={16} /> New Session</button>
       </header>
 
       <section className="workspace-banner" aria-labelledby="workspace-title">
         <div className="workspace-banner__icon"><Sparkles size={20} /></div>
-        <div><p className="desktop-kicker">Workspace</p><h2 id="workspace-title">AgentLabKit</h2><p>Local project workspace · SQLite persistence</p></div>
-        <span className="workspace-banner__state"><span /> Local</span>
+        <div><p className="desktop-kicker">Workspace</p><h2 id="workspace-title">{project?.displayName ?? 'Choose a project'}</h2><p>{project?.path ?? 'Open a local project to give Agent real context.'}</p></div>
+        <div className="workspace-banner__actions"><span className="workspace-banner__state"><span /> Local</span><button type="button" className="desktop-secondary-action" onClick={openProject}><FolderOpen size={15} /> {project ? 'Change' : 'Open Project'}</button></div>
       </section>
 
       <div className="desktop-home__grid">

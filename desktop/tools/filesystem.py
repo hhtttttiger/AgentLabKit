@@ -14,9 +14,12 @@ _HOME = Path.home()
 
 # ── 辅助 ───────────────────────────────────────────────────────
 
-def _safe_path(path_str: str) -> Path:
+def _safe_path(path_str: str, working_directory: str | None = None) -> Path:
     """解析路径，确保在 home 目录内。"""
-    p = Path(path_str).expanduser().resolve()
+    raw = Path(path_str).expanduser()
+    if not raw.is_absolute() and working_directory:
+        raw = Path(working_directory).expanduser() / raw
+    p = raw.resolve()
     if not str(p).startswith(str(_HOME)):
         raise ValueError(f"路径 {p} 超出允许范围（仅限 {_HOME} 内）")
     return p
@@ -51,7 +54,7 @@ class ReadFileTool:
         on_update=None,
     ) -> ToolResult:
         try:
-            p = _safe_path(arguments["path"])
+            p = _safe_path(arguments["path"], context.metadata.get("working_directory"))
         except ValueError as e:
             return ToolResult(output=str(e), status="error", error_message=str(e))
 
@@ -102,7 +105,7 @@ class ListDirTool:
         on_update=None,
     ) -> ToolResult:
         try:
-            p = _safe_path(arguments["path"])
+            p = _safe_path(arguments["path"], context.metadata.get("working_directory"))
         except ValueError as e:
             return ToolResult(output=str(e), status="error", error_message=str(e))
 
@@ -156,7 +159,7 @@ class SearchFilesTool:
         on_update=None,
     ) -> ToolResult:
         try:
-            p = _safe_path(arguments["path"])
+            p = _safe_path(arguments["path"], context.metadata.get("working_directory"))
         except ValueError as e:
             return ToolResult(output=str(e), status="error", error_message=str(e))
 

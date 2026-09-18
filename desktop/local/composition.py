@@ -47,6 +47,7 @@ class TurnBody(BaseModel):
     SessionId: str | None = None
     UserId: str | None = None
     History: list[dict[str, Any]] = []
+    WorkingDirectory: str | None = None
 
 
 class DatasetBody(BaseModel):
@@ -251,7 +252,8 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     async def stream_turn(agent_key: str, body: TurnBody):
         target = await composition.agents.resolve(agent_key)
         history = tuple(AgentMessage(role=AgentRole(item.get("Role", "user").lower()), content=item.get("Content", ""), name=item.get("Name"), metadata=item.get("Metadata", {})) for item in body.History)
-        request = AgentTurnRequest(session_id=body.SessionId or "desktop", user_message=body.Message, history=list(history), user_id=body.UserId or "local", agent_key=target.agent_key, agent_version=int(target.agent_version or 1))
+        metadata = {"working_directory": body.WorkingDirectory} if body.WorkingDirectory else {}
+        request = AgentTurnRequest(session_id=body.SessionId or "desktop", user_message=body.Message, history=list(history), user_id=body.UserId or "local", agent_key=target.agent_key, agent_version=int(target.agent_version or 1), metadata=metadata)
 
         async def events():
             async for event in composition.runtime.stream(request):

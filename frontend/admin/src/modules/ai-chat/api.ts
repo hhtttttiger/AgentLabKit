@@ -122,6 +122,7 @@ export function streamAgentChatMessage(
   return streamSse(buildApiUrl(`/api/ai/invoke/agents/${agentKey}/turn/stream`), {
     Message: request.message,
     SessionId: request.sessionId,
+    WorkingDirectory: request.workingDirectory,
     History: (request.history ?? []).map((item) => ({
       Role: item.role,
       Content: item.content,

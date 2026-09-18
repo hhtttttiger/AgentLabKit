@@ -44,7 +44,7 @@ class BashTool:
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd=str(__import__("pathlib").Path.home()),
+                cwd=arguments.get("working_directory") or context.metadata.get("working_directory") or str(__import__("pathlib").Path.home()),
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
 

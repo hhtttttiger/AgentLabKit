@@ -131,6 +131,7 @@ export interface ChatRequest {
   message: string;
   systemPrompt?: string;
   sessionId?: string;
+  workingDirectory?: string;
   history?: AgentChatMessageInput[];
 }
 
@@ -213,6 +214,7 @@ export interface AgentStreamEvent {
   action?: string | null;
   delta?: string | null;
   replyText?: string | null;
+  toolName?: string | null;
   message?: string | null;
   handoffReason?: string | null;
   delegationAgentKey?: string | null;
