@@ -40,3 +40,12 @@ _squash_backup_*/
 .impeccable/live/
 desktop/__pycache__/
 docs/plans/desktop-windows-build.md
+
+# ===== Desktop local runtime/build artifacts =====
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+frontend/admin/src-tauri/target/
+frontend/admin/src-tauri/gen/
