@@ -1,93 +1,106 @@
 # AgentLabKit
 
-AgentLabKit 是一个用于构建、运行、观测和评估 AI agents 的 Python 与 React 平台。它包含可复用的 Agent Runtime、provider-neutral LLM gateway、RAG engine、guardrails、workflows、long-term memory、evaluation、cost analysis，以及 Web/desktop clients。
+> 面向 Agent 工程师的可复用 Agent 开发与改进平台
 
-## Agent Engineering Loop
+从构建 Agent、运行真实任务，到观察、回放、评估和比较，让每一次执行都成为下一次改进的依据。
 
-```text
-Build Agent → Test → Run → Inspect / Replay → Capture → Evaluate → Compare → Improve
-```
+[概览](#概览) · [亮点](#亮点) · [你可以用它做什么](#你可以用它做什么) · [核心概念](#核心概念) · [快速开始](#快速开始) · [文档](#文档)
 
-## Knowledge / RAG Journey
+## 概览
 
-```text
-Prepare Knowledge → Test Retrieval → Use in Agent → Test Agent → Inspect Retrieval → Diagnose
-```
+AgentLabKit 是一个面向开发者的 Agent Engineering 平台，同时也可以作为 Python library 使用。
 
-## Building applications on AgentLabKit
-
-业务应用应把业务事实与权限留在自己的 Business Backend，通过 AgentLabKit 的 Platform API 使用 Agent、Knowledge、Tools、Runs 和 Evaluation。集成指南与当前支持范围见 [`docs/guides/building-business-applications.md`](docs/guides/building-business-applications.md)；公开 surface 的验证记录见 [`Business Integration Readiness Audit`](docs/guides/business-integration-readiness-audit.md)。
-
-## 核心能力
-
-- **Agent Runtime** — turn 与 streaming execution、tools、guardrails、handoffs、delegation 和 deterministic workflows。
-- **Application use cases** — 执行、replay、将 Runs 加入 Dataset、评估 datasets，以及比较 evaluation runs。
-- **LLM Gateway** — model catalog、provider adapters、routing/failover、credentials、retries、rate limiting 和 usage extraction。
-- **Knowledge / RAG** — prepare and search knowledge；将 Knowledge 组合进 versioned Agents；观测真实 Runs 中的 retrieval；检查有界历史证据，并区分 no retrieval、zero results 和 failure；诊断 Retrieval 方向或 Agent 方向。
-- **Platform services** — observability、cost analysis、evaluation 和 cross-session memory。
-- **Clients** — FastAPI HTTP/SSE API、React administration console，以及 current Tauri Desktop client。旧 PySide6 desktop client 已废弃。
-
-## 架构
-
-仓库将以下边界视为稳定边界：Execution Model v2、Application Use Case v1 和 FastAPI Adapter v1。只有出于具体的正确性或产品需求才可修改。
+它关注的不是“做一个会聊天的机器人”，而是帮助你把 Agent 当成一个可以持续开发、验证和交付的软件系统：
 
 ```text
-客户端
-  ├── React 管理后台
-  ├── Tauri Desktop（current）
-  └── 其他客户端
-          │
-          ▼
-FastAPI HTTP/SSE 适配层
-          │
-          ├── 平台动作 → Application Use Cases
-          │                         ↓
-          │                     Runtime / Evaluation / Dataset 能力
-          ├── 资源 API → Module Services
-          └── 投影 / 查询 API → Readers / Stores / Aggregators
-
-Runtime 运行时
-  ├── AgentRun
-  └── RuntimeEvent
-         ├── Observability → Trace 观测投影
-         └── Cost Analysis → CostRecord 成本投影
-
-AgentRun → Dataset → Evaluation → Compare / Improve
+构建 Agent → 运行真实任务 → 检查执行 → 保存案例 → 评估改进 → 比较版本
 ```
 
-FastAPI backend 是传输与组合层。
+你可以使用它构建 Agent、连接模型与工具、加入 Knowledge/RAG、运行真实请求，随后回答这些工程问题：
 
-平台动作委托给 `packages/application`；面向资源的 API 保留在所属 module services；读取/投影 API 直接使用 Readers、Stores 或 Aggregators。FastAPI 不拥有 Runtime execution facts、evaluation semantics 或平台级编排。
+- Agent 实际执行了什么？
+- 它使用了哪些工具和知识？
+- 哪些失败案例值得保留下来？
+- 新版本是真的变好了，还是只是换了一批样本？
+- 如何把一个可行的实验变成可复用、可交付的 Agent 能力？
 
-### Application Use Case v1：应用用例
+AgentLabKit 适合作为团队内部的 Agent 开发基础，也适合作为业务系统背后的 Agent 能力库。
 
-当前稳定的平台用例目录：
+## 亮点
 
-- `ExecuteAgent`
-- `ReplayRun`
-- `CaptureRunAsDatasetExample`
-- `EvaluateDataset`
-- `CompareEvaluationRuns`
+| 能力 | 说明 |
+| --- | --- |
+| 🧩 Agent 构建 | 组合模型、Tools、Knowledge、Memory、Guardrails 和 Workflow，形成可发布的 Agent 版本 |
+| ▶️ 真实执行 | 记录每一次真实 Run，而不是只展示演示数据或模型输出 |
+| 🔍 执行检查 | 查看 Run 与 Trace，了解响应、工具调用、检索和错误发生在哪里 |
+| 🔁 回放与复现 | 对历史 Run 重新执行，验证 Agent 版本、提示词或能力调整后的结果 |
+| 📚 Knowledge / RAG | 准备知识、测试 Retrieval，并区分没有检索、检索无结果和检索失败 |
+| 🧪 Dataset / Evaluation | 将真实 Run 保存为测试资产，批量评估 Agent，并比较 Baseline 与 Candidate |
+| 🖥️ 多种使用方式 | 提供可复用的 Python packages、Web 平台和 local-first Desktop client |
+| 🔌 可集成 | 可通过 HTTP/SSE 接入业务后端，也可以直接在自己的应用中组合 package 层能力 |
 
-Application 负责平台动作编排，但不拥有 Runtime facts、HTTP DTO、持久化 schema 或 evaluator semantics。Application contracts 不是 HTTP DTOs；资源 CRUD 仍由 module services 负责。
+## 你可以用它做什么
 
-### Execution mental model：执行心智模型
+### 构建一个可工作的 Agent
+
+配置模型、Tools 和 Knowledge，发布一个可执行的 Agent 版本，然后用真实请求测试它，而不是停留在 prompt 草稿阶段。
+
+### 建立 Agent 的改进闭环
 
 ```text
-Runtime 产生事实
-Event 描述事实
-Run 界定一次执行
-Trace 观测执行
-Evaluation / Cost / Replay 消费事实
+Create Agent
+    ↓
+Configure → Publish → Test
+    ↓
+Inspect Run → Diagnose → Add to Dataset
+    ↓
+Evaluate Dataset → Modify Agent → Compare
 ```
 
-`Run != Trace`。`run_id != DatasetExample.example_id`。Replay 会创建一次新的 Runtime execution。Runtime 拥有 execution facts 与 identity；Trace 是真实 Run 的 Observability projection。Replay 和 Evaluation 通过 `RunExecutor` 请求真实 Runtime execution，不制造 Runs 或 execution IDs。
+真实执行中的失败、边界情况和高价值样本，都可以沉淀为下一轮评估和迭代的资产。
 
-参见 [`docs/architecture/execution-model-v2.md`](docs/architecture/execution-model-v2.md)、[`docs/architecture/fastapi-adapter-boundary.md`](docs/architecture/fastapi-adapter-boundary.md) 和 [`docs/architecture/agent-turn-streaming.md`](docs/architecture/agent-turn-streaming.md) 中的权威长篇规则。
+### 诊断 Knowledge 和 Retrieval
+
+Agent 的回答不理想时，先判断问题发生在哪一层：
+
+```text
+没有发生 Retrieval ≠ Retrieval 没有结果 ≠ Retrieval 失败
+```
+
+AgentLabKit 将检索行为和 Agent 响应分开观察，帮助你判断应该调整知识库、检索配置，还是 Agent 本身的指令与行为。
+
+### 为业务应用提供 Agent 能力
+
+业务应用可以保留自己的用户、订单、权限和业务状态，通过 AgentLabKit 使用 Agent、Knowledge、Tools、Runs 和 Evaluation。业务产品不需要依赖 Agent 内部循环，也不需要把业务对象伪装成 Agent 的执行身份。
+
+### 在本地工作，或接入共享平台
+
+| 使用方式 | 适合场景 |
+| --- | --- |
+| Python packages | 在自己的 CLI、worker、服务或产品中快速组合 Agent 能力 |
+| Web 平台 | 团队共享 Agent、Knowledge、Run、Dataset 和 Evaluation |
+| Tauri Desktop | 面向个人开发者的 local-first Agent Engineering 工作台 |
+| HTTP/SSE API | 由业务后端调用 Agent，并将执行结果接回自己的产品流程 |
+
+Desktop 是面向个人 Agent 工程工作的产品形态；Server/Web 平台则更适合共享资源、统一管理和团队协作。两者可以使用同一套核心 Agent 能力，但不要求拥有相同的产品界面。
+
+## 核心概念
+
+| 概念 | 含义 |
+| --- | --- |
+| **Agent** | 一组可配置、可发布、可执行的模型与能力组合 |
+| **Run** | 一次真实的 Agent 执行 |
+| **Trace** | 对一次 Run 的观测和诊断信息 |
+| **Dataset** | 可复用的测试样本集合 |
+| **Evaluation Run** | 使用一组 Dataset 样本评估 Agent 的一次过程 |
+| **Knowledge** | Agent 可以使用的资料集合 |
+| **Retrieval** | 一次实际发生的知识检索行为 |
+
+其中，Run 是执行事实，Trace 是观测；Dataset 中的样本身份也不同于 Run 身份。理解这几个概念，就能读懂 AgentLabKit 的主要工作流。
 
 ## 快速开始
 
-### Docker（推荐）
+### 使用 Docker 体验 Web 平台
 
 要求：Docker 和 Docker Compose v2。
 
@@ -98,64 +111,19 @@ cp .env.example .env
 docker compose up --build
 ```
 
-- Admin console：<http://localhost:3000/admin/>
-- API health：<http://localhost:8000/health>
+启动后访问：
+
+- Web 控制台：<http://localhost:3000/admin/>
+- API 健康检查：<http://localhost:8000/health>
 - 默认账号：`admin` / `admin`
 
-### 本地开发
+### 作为开发库使用
 
-先用 Docker 启动 PostgreSQL 和 Redis，再安装 backend packages，并分别运行 API、worker 和 frontend：
+如果你想在自己的应用、CLI 或 worker 中直接组合 Agent 能力，请从 [Library-first Agent 开发指南](docs/guides/building-agents-with-packages.md) 开始。这条路径不要求启动完整的 Web 平台。
 
-```bash
-make up
+### 使用 Desktop
 
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ../packages/db -e ../packages/infra -e ../packages/retrieval \
-  -e ../packages/cost_analysis -e ../packages/observability \
-  -e ../packages/memory -e "../packages/evaluation[ragas]" \
-  -e ../packages/llm_gateway -e ../packages/agent_runtime \
-  -e ../packages/application -e ".[dev]"
-PYTHONPATH=src alembic upgrade head
-PYTHONPATH=src python -m bootstrap
-PYTHONPATH=src uvicorn main:create_app --factory --reload
-```
-
-数据库 migration 已重置为当前 schema baseline：旧 baseline 创建的数据库不支持升级，必须先备份/导出后重建数据库。开发环境可使用 `make reset`，然后重新执行上述 migration 与 bootstrap。详见 [`docs/operations/database-migrations.md`](docs/operations/database-migrations.md)。本地 backend 使用 Docker 暴露的 PostgreSQL `localhost:15432`，请据此配置 `.env`。
-
-在另一个终端运行 indexing worker：
-
-```bash
-cd backend
-source .venv/bin/activate
-PYTHONPATH=src python -m worker
-```
-
-在第三个终端运行 admin console：
-
-```bash
-cd frontend/admin
-npm install
-npm run dev
-```
-
-基础设施和故障排查详情见 [`docs/operations/local-debug.md`](docs/operations/local-debug.md) 和 [`docs/operations/docker-debug.md`](docs/operations/docker-debug.md)。
-
-### Tauri Desktop client
-
-当前 Desktop 是 Tauri shell + React admin frontend。Local Mode 使用 local SQLite 和
-package APIs，不依赖 backend：
-
-产品定位是 local-first personal Agent Engineering workbench，而不是 Server
-管理界面的本地副本。完整的 Product Projection 原则见
-[`docs/architecture/desktop-product-projection.md`](docs/architecture/desktop-product-projection.md)。
-
-当前 Local Mode 的 Tauri process 会直接启动系统 `python3`。由于 active
-`desktop.tools.registry` 仍会加载依赖 PySide6 的 clipboard/screen tool，运行
-Local Mode 的 Python 环境暂时还必须提供 PySide6 及所需 package 依赖；仓库目前
-没有独立的 Desktop installer/requirements 文件。这是过渡性开发限制，旧 PySide6
-外壳本身仍已废弃。详见 [`docs/desktop-modes.md`](docs/desktop-modes.md)。
+当前 Desktop 使用 Tauri shell 和 React frontend，支持 Local Mode 与 Server Mode：
 
 ```bash
 cd frontend/admin
@@ -163,51 +131,34 @@ npm install
 npm run desktop:dev
 ```
 
-Tauri runtime mode 参见 [`docs/desktop-modes.md`](docs/desktop-modes.md)。旧 PySide6
-实现及其历史计划见 [`desktop/DEPRECATED.md`](desktop/DEPRECATED.md)，不再作为产品入口。
+Desktop 的产品定位与运行模式见 [Desktop Product Projection](docs/architecture/desktop-product-projection.md) 和 [Desktop modes](docs/desktop-modes.md)。
 
-## 仓库布局
+## 当前定位
 
-```text
-packages/
-  application/       framework-neutral platform use cases / orchestration
-  agent_runtime/     execution, tools, guardrails, memory, workflows
-  llm_gateway/      provider-neutral LLM access and model routing
-  retrieval/        document and RAG engine
-  evaluation/       DatasetExample and evaluator contracts
-  observability/    RuntimeEvent → Trace projection
-  cost_analysis/    usage → cost projection
-  memory/           cross-session memory
-  db/               shared ORM and Snowflake IDs
-  infra/            Redis, cache, and queue primitives
-backend/
-  src/main.py        FastAPI app factory and composition root
-  src/modules/       resource APIs and application adapters
-  src/modules/runs/  Run reads, replay, and capture adapters
-  src/worker.py      indexing worker
-frontend/admin/      React administration console
-desktop/            Tauri Local Mode Python runtime、tools，以及已废弃的 PySide6 代码
-frontend/admin/     React frontend and Tauri Desktop shell
-docs/architecture/  authoritative architecture decisions
-```
+AgentLabKit 的核心价值是“让 Agent 工程变得可验证、可复用、可持续改进”。它不是面向终端用户的通用聊天应用，也不是某一个行业的业务系统；它为这些产品提供 Agent 构建、执行和改进所需的基础能力。
 
-## 开发
+当前项目同时维护三条入口：
 
-- Python packages 使用 `pytest`；从仓库根目录运行 targeted tests，例如 `python3 -m pytest packages/evaluation/tests/`。
-- Admin frontend 在 `frontend/admin` 使用 `npm run check`、`npm run test` 和 `npm run build`。
-- 将 LLM provider calls 保持在 `llm_gateway` 内，将 RAG processing 保持在 `retrieval` 内。
-- 将 public HTTP/SSE contracts 保持在 adapter/module boundary；不要意外暴露 Runtime internals。
+1. **Package-first**：快速开发和组合 Agent 的通用库。
+2. **Web platform**：面向团队的 Agent、Knowledge、Run、Dataset 和 Evaluation 工作台。
+3. **Desktop projection**：面向个人开发者的本地 Agent Engineering 工作台。
+
+这三条入口共享核心执行能力，但各自面向不同的使用场景。
 
 ## 文档
 
-- [`AGENTS.md`](AGENTS.md) — 简明的仓库级 coding constraints。
-- [`PRODUCT.md`](PRODUCT.md) — product purpose, journeys and UX principles。
-- [`packages/application/README.md`](packages/application/README.md) — application use-case package boundary。
-- [`docs/architecture/`](docs/architecture/) — Execution Model、FastAPI adapter、streaming contracts 和 Desktop Product Projection：[`execution-model-v2.md`](docs/architecture/execution-model-v2.md)、[`fastapi-adapter-boundary.md`](docs/architecture/fastapi-adapter-boundary.md)、[`agent-turn-streaming.md`](docs/architecture/agent-turn-streaming.md)、[`desktop-product-projection.md`](docs/architecture/desktop-product-projection.md)。
-- [`docs/operations/`](docs/operations/) — 本地与 Docker 开发操作。
-- [`docs/README.md`](docs/README.md) — 文档状态约定与当前权威入口。
-- [`docs/guides/building-agents-with-packages.md`](docs/guides/building-agents-with-packages.md) — library-first Agent 开发入口。
-- [`.env.example`](.env.example) — environment configuration template。
+- [产品说明](PRODUCT.md) — 产品目标、用户旅程和产品语言。
+- [文档导航](docs/README.md) — 当前权威文档、历史记录和 Deprecated 文档的状态约定。
+- [Library-first Agent 开发](docs/guides/building-agents-with-packages.md) — 不依赖 Web 平台，直接使用 packages 构建 Agent。
+- [业务应用集成](docs/guides/building-business-applications.md) — 从业务后端接入 AgentLabKit。
+- [Desktop Product Projection](docs/architecture/desktop-product-projection.md) — Desktop 如何投影平台能力。
+- [Desktop modes](docs/desktop-modes.md) — Local Mode 和 Server Mode 的运行方式。
+- [架构文档](docs/architecture/) — Runtime、Run、Trace、HTTP adapter 和 streaming contract 的详细规则。
+- [Application package](packages/application/README.md) — framework-neutral platform use cases。
+
+## 参与开发
+
+如果你要修改仓库本身，请先阅读 [AGENTS.md](AGENTS.md) 和对应目录下的开发说明。后端、package、frontend 和 Desktop 的验证命令也集中在各自的文档中。
 
 ## 许可证
 
