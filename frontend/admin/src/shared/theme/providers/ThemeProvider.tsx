@@ -5,6 +5,10 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 const STORAGE_KEY = 'agentlabkit-theme';
 const ACCENT_STORAGE_KEY = 'agentlabkit-accent';
+const RADIUS_STORAGE_KEY = 'agentlabkit-radius';
+export const DEFAULT_RADIUS = 2;
+export const MIN_RADIUS = 0;
+export const MAX_RADIUS = 20;
 
 const VALID_ACCENTS: AccentColor[] = ['blue', 'violet', 'emerald', 'rose', 'amber', 'orange'];
 
@@ -36,6 +40,18 @@ function getStoredAccent(): AccentColor {
   }
 }
 
+function getStoredRadius(): number {
+  if (typeof window === 'undefined') return DEFAULT_RADIUS;
+  try {
+    const storedValue = window.localStorage.getItem(RADIUS_STORAGE_KEY);
+    if (storedValue === null || storedValue.trim() === '') return DEFAULT_RADIUS;
+    const stored = Number(storedValue);
+    return Number.isFinite(stored) ? Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, stored)) : DEFAULT_RADIUS;
+  } catch {
+    return DEFAULT_RADIUS;
+  }
+}
+
 function applyTheme(nextTheme: ResolvedTheme) {
   const root = document.documentElement;
   root.setAttribute('data-theme', nextTheme);
@@ -51,6 +67,10 @@ function applyAccent(nextAccent: AccentColor) {
   }
 }
 
+function applyRadius(nextRadius: number) {
+  document.documentElement.style.setProperty('--radius-global', `${nextRadius}px`);
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getStoredTheme);
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
@@ -58,6 +78,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return initialTheme === 'system' ? getSystemTheme() : initialTheme;
   });
   const [accent, setAccentState] = useState<AccentColor>(getStoredAccent);
+  const [radius, setRadiusState] = useState<number>(getStoredRadius);
 
   useEffect(() => {
     if (theme === 'system') {
@@ -86,6 +107,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyAccent(accent);
   }, [accent]);
 
+  useEffect(() => {
+    applyRadius(radius);
+  }, [radius]);
+
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     try {
@@ -108,9 +133,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const setRadius = useCallback((newRadius: number) => {
+    const nextRadius = Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, Math.round(newRadius)));
+    setRadiusState(nextRadius);
+    try {
+      window.localStorage.setItem(RADIUS_STORAGE_KEY, String(nextRadius));
+    } catch {
+      // Ignore storage write failures; the active session still updates via React state.
+    }
+  }, []);
+
   return (
     <ThemeContext.Provider
-      value={{ theme, resolvedTheme, setTheme, toggleTheme, accent, setAccent }}
+      value={{ theme, resolvedTheme, setTheme, toggleTheme, accent, setAccent, radius, setRadius }}
     >
       {children}
     </ThemeContext.Provider>

@@ -32,7 +32,7 @@ textarea {
 
 .mm-code-block {
   border: 1px solid rgb(var(--color-border-subtle));
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   background: rgb(var(--color-background-sunken));
   color: rgb(var(--color-text-default));
 }

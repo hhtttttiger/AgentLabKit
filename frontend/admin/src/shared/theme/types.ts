@@ -15,4 +15,8 @@ export interface ThemeContextValue {
   accent: AccentColor;
   /** 设置主题色 */
   setAccent: (accent: AccentColor) => void;
+  /** 全局控件圆角半径（像素） */
+  radius: number;
+  /** 设置全局控件圆角半径 */
+  setRadius: (radius: number) => void;
 }

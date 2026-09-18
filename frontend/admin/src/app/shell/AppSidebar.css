@@ -65,7 +65,7 @@
   width: 40px;
   min-width: 40px;
   height: 40px;
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   background: rgb(var(--color-primary));
   color: rgb(var(--color-text-inverse));
   font-weight: 700;
@@ -146,7 +146,7 @@ html.motion-enabled .admin-sidebar__brand-text {
   min-height: 44px;
   padding: 10px 12px;
   border: none;
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   color: rgb(var(--color-sidebar-text-muted));
   text-decoration: none;
   font-size: 14px;
@@ -225,7 +225,7 @@ html.motion-enabled .admin-sidebar__footer-user-name {
   height: 32px;
   padding: 0;
   border: none;
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   background: transparent;
   color: rgb(var(--color-sidebar-text-muted));
   font-size: 13px;

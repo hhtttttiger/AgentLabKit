@@ -35,6 +35,10 @@ export const common = {
       orange: 'Orange'
     },
     zoom: 'Zoom',
+    radius: 'Corner radius',
+    radiusValue: '{{value}} px',
+    radiusSharp: 'Sharp',
+    radiusSoft: 'Rounded',
     language: {
       label: 'Display language',
       options: {

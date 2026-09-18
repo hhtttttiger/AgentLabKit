@@ -46,6 +46,7 @@
 
 ## 参考
 
+- [Frontend design system](DESIGN.md)
 - [Execution Model v2](docs/architecture/execution-model-v2.md)
 - [FastAPI adapter boundary](docs/architecture/fastapi-adapter-boundary.md)
 - [Streaming contract](docs/architecture/agent-turn-streaming.md)

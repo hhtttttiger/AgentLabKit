@@ -56,3 +56,4 @@ export { ThemeToggle } from './ThemeToggle';
 export { ToastProvider, useToast, notify } from './Toast';
 export { UserMenu } from './UserMenu';
 export { ZoomSlider } from './ZoomSlider';
+export { RadiusSlider } from './RadiusSlider';

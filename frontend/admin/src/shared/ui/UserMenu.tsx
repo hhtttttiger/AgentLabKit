@@ -21,6 +21,7 @@ import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { LanguagePicker } from './LanguagePicker';
 import { ProfileDialog } from './ProfileDialog';
 import { ZoomSlider } from './ZoomSlider';
+import { RadiusSlider } from './RadiusSlider';
 import './UserMenu.css';
 
 interface UserMenuProps {
@@ -372,6 +373,10 @@ export function UserMenu({ displayName, onLogout }: UserMenuProps) {
         <div className="user-menu__group user-menu__group--zoom">
           <span className="user-menu__group-label">{t('preferences.zoom')}</span>
           <ZoomSlider />
+        </div>
+
+        <div className="user-menu__group">
+          <RadiusSlider />
         </div>
       </div>
     );

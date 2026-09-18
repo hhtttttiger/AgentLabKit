@@ -21,6 +21,19 @@ function AccentConsumer() {
   );
 }
 
+function RadiusConsumer() {
+  const { radius, setRadius } = useTheme();
+
+  return (
+    <>
+      <div data-testid="radius-value">{radius}</div>
+      <button type="button" onClick={() => setRadius(14)}>
+        Set radius
+      </button>
+    </>
+  );
+}
+
 function ThemeConsumer() {
   const { theme, resolvedTheme, accent, toggleTheme } = useTheme();
 
@@ -65,6 +78,7 @@ describe('ThemeProvider storage fallbacks', () => {
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-accent');
     document.documentElement.style.colorScheme = '';
+    document.documentElement.style.removeProperty('--radius-global');
   });
 
   it('mounts with safe defaults when localStorage reads throw', async () => {
@@ -136,6 +150,27 @@ describe('ThemeProvider storage fallbacks', () => {
     await waitFor(() => {
       expect(document.documentElement.getAttribute('data-accent')).toBe('rose');
       expect(screen.getByRole('button', { name: 'Set rose accent' })).toHaveAttribute('aria-pressed', 'true');
+    });
+  });
+
+  it('applies and persists the global radius as a root theme token', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ThemeProvider>
+        <RadiusConsumer />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getByTestId('radius-value')).toHaveTextContent('2');
+    expect(document.documentElement.style.getPropertyValue('--radius-global')).toBe('2px');
+
+    await user.click(screen.getByRole('button', { name: 'Set radius' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('radius-value')).toHaveTextContent('14');
+      expect(document.documentElement.style.getPropertyValue('--radius-global')).toBe('14px');
+      expect(window.localStorage.getItem('agentlabkit-radius')).toBe('14');
     });
   });
 

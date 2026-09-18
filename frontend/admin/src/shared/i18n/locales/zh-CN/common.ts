@@ -35,6 +35,10 @@ export const common = {
       orange: '小米橙'
     },
     zoom: '缩放比例',
+    radius: '圆角大小',
+    radiusValue: '{{value}} px',
+    radiusSharp: '锋利',
+    radiusSoft: '圆润',
     language: {
       label: '显示语言',
       options: {

@@ -8,7 +8,7 @@
   width: 32px;
   height: 32px;
   border: 1px solid rgb(var(--color-border-default) / 0.6);
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   background: rgb(var(--color-primary));
   color: rgb(var(--color-text-inverse));
   font-size: 12px;
@@ -29,7 +29,7 @@
   min-width: 240px;
   padding: 6px;
   border: 1px solid rgb(var(--color-border-default));
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   background: rgb(var(--color-surface-raised));
   overflow: hidden;
   animation: user-menu-in 150ms ease;
@@ -110,7 +110,7 @@ html.motion-enabled .user-menu__dropdown[data-transition-direction="backward"] .
   width: 32px;
   min-width: 32px;
   height: 32px;
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   background: rgb(var(--color-primary));
   color: rgb(var(--color-text-inverse));
   font-size: 12px;
@@ -146,7 +146,7 @@ html.motion-enabled .user-menu__dropdown[data-transition-direction="backward"] .
   width: 100%;
   padding: 9px 12px;
   border: none;
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   background: transparent;
   color: rgb(var(--color-text-secondary));
   font-size: 13px;
@@ -213,7 +213,7 @@ html.motion-enabled .user-menu__dropdown[data-transition-direction="backward"] .
   height: 32px;
   padding: 0;
   border: none;
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   background: transparent;
   color: rgb(var(--color-text-secondary));
   cursor: pointer;
@@ -236,7 +236,7 @@ html.motion-enabled .user-menu__dropdown[data-transition-direction="backward"] .
   flex-direction: column;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 2px;
+  border-radius: var(--radius-global);
   background: rgb(var(--color-background-subtle));
 }
 

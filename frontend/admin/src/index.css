@@ -4,6 +4,28 @@
 @import './styles/index.css';
 @import './shared/ui/Animations.css';
 
+:root {
+  --radius-global: 2px;
+}
+
+/* The theme slider controls rectangular Tailwind surfaces while preserving
+   semantic circles and pills such as avatars, status dots, and tags. */
+[class*="rounded-"]:not([class~="rounded-full"]):not([class~="rounded-none"]) {
+  border-radius: var(--radius-global) !important;
+}
+
+/* A number of the legacy workbench surfaces predate the rounded utility
+   classes. Keep them on the same theme token so the slider is genuinely
+   global, including native controls and bordered surface containers. */
+button:not(.accent-picker__dot):not([class~="rounded-full"]):not([class~="rounded-none"]),
+a[class*="bg-"]:not([class~="rounded-full"]):not([class~="rounded-none"]),
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+select,
+textarea,
+[class~="border"][class*="bg-"]:not([class~="rounded-full"]):not([class~="rounded-none"]) {
+  border-radius: var(--radius-global) !important;
+}
+
 /* Smooth theme transitions */
 *,
 *::before,

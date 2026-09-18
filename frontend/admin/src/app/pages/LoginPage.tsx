@@ -19,6 +19,7 @@ import { InlineMessage } from "@/shared/ui/InlineMessage";
 import { AccentPicker } from "@/shared/ui/AccentPicker";
 import { LanguagePicker } from "@/shared/ui/LanguagePicker";
 import { ThemeToggle } from "@/shared/ui/ThemeToggle";
+import { RadiusSlider } from "@/shared/ui/RadiusSlider";
 import "./LoginPage.css";
 
 export function LoginPage() {
@@ -281,6 +282,10 @@ export function LoginPage() {
                     {t("login.preferences.theme")}
                   </span>
                   <ThemeToggle placement="inline" />
+                </div>
+
+                <div className="login-preferences__section">
+                  <RadiusSlider />
                 </div>
               </div>
             ) : null}

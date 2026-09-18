@@ -1,0 +1,31 @@
+.radius-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.radius-slider__header,
+.radius-slider__labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgb(var(--color-text-secondary));
+  font-size: 12px;
+}
+
+.radius-slider__value {
+  color: rgb(var(--color-text-default));
+  font-variant-numeric: tabular-nums;
+}
+
+.radius-slider__input {
+  width: 100%;
+  accent-color: rgb(var(--color-primary));
+  cursor: pointer;
+}
+
+.radius-slider__labels {
+  color: rgb(var(--color-text-muted));
+  font-size: 10px;
+}

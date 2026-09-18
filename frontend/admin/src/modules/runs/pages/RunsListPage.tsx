@@ -50,13 +50,13 @@ export function RunsListPage() {
 
   return <div className="flex flex-col gap-4 p-6">
     <div><h1 className="text-lg font-semibold text-text">{t('runs:title')}</h1><p className="mt-1 text-sm text-text-secondary">{t('runs:subtitle')}</p></div>
-    <div className="overflow-x-auto border border-border bg-surface" aria-busy={isFetching}>
+    <div className="overflow-x-auto rounded-[var(--radius-global)] border border-border bg-surface" aria-busy={isFetching}>
       <table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-text-muted"><th className="px-4 py-3 font-medium">{t('runs:table.runId')}</th><th className="px-4 py-3 font-medium">{t('runs:table.target')}</th><th className="px-4 py-3 font-medium">{t('runs:table.status')}</th><th className="px-4 py-3 font-medium">{t('runs:table.started')}</th><th className="px-4 py-3 text-right font-medium">{t('runs:table.duration')}</th></tr></thead><tbody>{items.map((run) => <RunRow key={run.id} run={run} />)}</tbody></table>
     </div>
     <nav className="flex items-center justify-between text-sm" aria-label="Run list pagination">
-      <button type="button" onClick={() => setPage((current) => current - 1)} disabled={!hasPrevious || isFetching} className="border border-border px-3 py-1.5 text-text-secondary hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40">{t('common:pagination.previousPage')}</button>
+      <button type="button" onClick={() => setPage((current) => current - 1)} disabled={!hasPrevious || isFetching} className="rounded-[var(--radius-global)] border border-border px-3 py-1.5 text-text-secondary hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40">{t('common:pagination.previousPage')}</button>
       <span className="text-text-secondary" aria-live="polite">{t('common:pagination.pageUnit')} {page + 1}</span>
-      <button type="button" onClick={() => setPage((current) => current + 1)} disabled={!hasNext || isFetching} className="border border-border px-3 py-1.5 text-text-secondary hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40">{t('common:pagination.nextPage')}</button>
+      <button type="button" onClick={() => setPage((current) => current + 1)} disabled={!hasNext || isFetching} className="rounded-[var(--radius-global)] border border-border px-3 py-1.5 text-text-secondary hover:bg-surface-raised disabled:cursor-not-allowed disabled:opacity-40">{t('common:pagination.nextPage')}</button>
     </nav>
   </div>;
 }
