@@ -3,13 +3,15 @@ import { ApiError } from './errors';
 import type { ApiEnvelope, RequestOptions } from './contracts';
 import { clearStoredToken, getStoredToken } from '@/shared/auth/storage';
 import { DEV_MODE } from '@/shared/auth/AuthProvider';
+import { getRuntimeConfig, isLocalDesktopMode } from '@/shared/runtime/config';
 
-const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
-const apiBaseUrl = (
-  configuredApiBaseUrl || (import.meta.env.VITE_DESKTOP_MODE === 'true' ? 'http://127.0.0.1:8000' : '')
-).replace(/\/$/, '');
+function getApiBaseUrl() {
+  const configuredApiBaseUrl = getRuntimeConfig().apiBaseUrl;
+  return configuredApiBaseUrl.replace(/\/$/, '');
+}
 
 export function buildApiUrl(path: string, query?: RequestOptions['query']) {
+  const apiBaseUrl = getApiBaseUrl();
   const url = new URL(`${apiBaseUrl}${path}`, window.location.origin);
 
   if (query) {
@@ -65,7 +67,7 @@ export function setSessionExpiredHandler(handler: (() => void) | null) {
  * Returns true when the response was acted on as a session-expiring 401.
  */
 export function handleUnauthorized(response: Response): boolean {
-  if (DEV_MODE || response.status !== 401 || isRedirecting) {
+  if (DEV_MODE || isLocalDesktopMode() || response.status !== 401 || isRedirecting) {
     return false;
   }
   isRedirecting = true;

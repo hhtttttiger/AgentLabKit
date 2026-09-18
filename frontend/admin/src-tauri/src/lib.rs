@@ -1,12 +1,69 @@
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::Manager;
 
 struct LocalApiProcess(Mutex<Option<std::process::Child>>);
 
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeConfigFile {
+    mode: Option<String>,
+    server_url: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RuntimeConfig {
+    mode: String,
+    api_base_url: String,
+}
+
+fn read_runtime_config(app: &tauri::AppHandle) -> RuntimeConfig {
+    let file_config = app
+        .path()
+        .app_config_dir()
+        .ok()
+        .map(|path| path.join("config.json"))
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .and_then(|contents| serde_json::from_str::<RuntimeConfigFile>(&contents).ok())
+        .unwrap_or_default();
+
+    let mode = std::env::var("AGENTLAB_MODE")
+        .ok()
+        .or(file_config.mode)
+        .unwrap_or_else(|| "local".to_string())
+        .to_lowercase();
+    let mode = if mode == "server" { "server" } else { "local" }.to_string();
+
+    let api_base_url = if mode == "server" {
+        std::env::var("AGENTLAB_SERVER_URL")
+            .ok()
+            .or(file_config.server_url)
+            .or_else(|| std::env::var("VITE_API_BASE_URL").ok())
+            .unwrap_or_default()
+    } else {
+        "http://127.0.0.1:8000".to_string()
+    };
+
+    RuntimeConfig { mode, api_base_url }
+}
+
+#[tauri::command]
+fn get_runtime_config(app: tauri::AppHandle) -> RuntimeConfig {
+    read_runtime_config(&app)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![get_runtime_config])
         .setup(|app| {
+            let runtime_config = read_runtime_config(app.handle());
+            if runtime_config.mode == "server" {
+                app.manage(LocalApiProcess(Mutex::new(None)));
+                return Ok(());
+            }
+
             // Local Mode is an embedded local API process, not a worker or a
             // server dependency. It owns the SQLite composition and exits
             // with the Desktop launcher in development/package environments

@@ -6,6 +6,7 @@ import i18n from '@/shared/i18n';
 import './shared/i18n';
 import './index.css';
 import 'highlight.js/styles/github-dark.css';
+import { loadRuntimeConfig } from './shared/runtime/config';
 
 // Last-resort catchers for errors that escape React's ErrorBoundary.
 // Logs to console and shows a toast notification.
@@ -19,8 +20,10 @@ window.addEventListener('unhandledrejection', (event) => {
   notify(i18n.t('toast.operationFailed'), 'error');
 });
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+void loadRuntimeConfig().finally(() => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

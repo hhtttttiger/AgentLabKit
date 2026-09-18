@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.agentlabkit.desktop",
   "build": {
-    "beforeDevCommand": "VITE_DEV_MODE=true npm run dev -- --host 127.0.0.1",
-    "beforeBuildCommand": "VITE_DEV_MODE=true VITE_DESKTOP_MODE=true npm run build",
+    "beforeDevCommand": "VITE_DESKTOP_MODE=true npm run dev -- --host 127.0.0.1",
+    "beforeBuildCommand": "VITE_DESKTOP_MODE=true npm run build",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../dist"
   },

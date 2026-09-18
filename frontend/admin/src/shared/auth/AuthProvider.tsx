@@ -11,8 +11,13 @@ import {
 } from './storage';
 import { setSessionExpiredHandler } from '@/shared/api/client';
 import { queryClient } from '@/shared/api/queryClient';
+import { isLocalDesktopMode } from '@/shared/runtime/config';
 
 export const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true';
+
+function isAuthBypassMode() {
+  return DEV_MODE || isLocalDesktopMode();
+}
 
 const DEV_USER: AuthUser = { userId: 'dev', userName: 'Dev User', role: 'admin' };
 const DEV_TOKEN = `dev.${btoa(JSON.stringify({ sub: 'dev', name: 'Dev User', role: 'admin', exp: Math.floor(Date.now() / 1000) + 86400 }))}.dev`;
@@ -28,7 +33,7 @@ export type AuthContextValue = {
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
 function loadInitialState(): { token: string | null; user: AuthUser | null } {
-  if (DEV_MODE) {
+  if (isAuthBypassMode()) {
     return { token: DEV_TOKEN, user: DEV_USER };
   }
 
@@ -88,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Proactive token expiration check: redirect to login when JWT exp is reached
   useEffect(() => {
-    if (!state.token || DEV_MODE) return;
+    if (!state.token || isAuthBypassMode()) return;
 
     const expiresAt = getTokenExpiresAt(state.token);
     if (!expiresAt) return;
