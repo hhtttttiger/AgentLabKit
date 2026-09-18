@@ -31,6 +31,7 @@ type AgentOptionDto = {
   agentKey: string;
   displayName: string;
   publishedVersionNumber: number;
+  kind?: 'native' | 'external';
 };
 
 export async function listChatModelOptions(): Promise<ModelOption[]> {
@@ -48,12 +49,13 @@ export async function listChatModelOptions(): Promise<ModelOption[]> {
 export async function listChatAgentOptions(): Promise<ModelOption[]> {
   const options = await apiRequest<AgentOptionDto[]>('/api/ai/invoke/agents/options');
 
-  return options.map((option) => ({
+  return options.filter((option) => option.kind !== 'external').map((option) => ({
     id: option.agentKey,
     name: option.displayName,
     type: 'agent' as const,
     description: `Published v${option.publishedVersionNumber}`,
     publishedVersionNumber: option.publishedVersionNumber,
+    agentKind: option.kind,
   }));
 }
 

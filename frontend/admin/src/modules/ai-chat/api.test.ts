@@ -1,9 +1,30 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   accumulateStreamContent,
   extractAgentStreamEvents,
   extractStreamMessages,
+  listChatAgentOptions,
 } from './api';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe('listChatAgentOptions', () => {
+  it('excludes external executors from interactive Agent options', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      success: true,
+      data: [
+        { agentKey: 'local-agent', displayName: 'Native Agent', publishedVersionNumber: 1, kind: 'native' },
+        { agentKey: 'codex', displayName: 'Codex', publishedVersionNumber: 1, kind: 'external' },
+      ],
+    }), { headers: { 'Content-Type': 'application/json' } })));
+
+    await expect(listChatAgentOptions()).resolves.toEqual([
+      expect.objectContaining({ id: 'local-agent', name: 'Native Agent', agentKind: 'native' }),
+    ]);
+  });
+});
 
 describe('extractStreamMessages', () => {
   it('parses complete SSE lines and preserves the trailing partial buffer', () => {

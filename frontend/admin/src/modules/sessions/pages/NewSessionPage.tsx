@@ -16,6 +16,7 @@ export function NewSessionPage() {
   const { t } = useTranslation('desktop');
   const navigate = useNavigate();
   const { data: agents = [], isLoading: agentsLoading } = useChatAgentOptions();
+  const interactiveAgents = useMemo(() => agents.filter((item) => item.agentKind !== 'external'), [agents]);
   const modelSettings = useQuery({ queryKey: ['desktop-settings', 'models'], queryFn: getDesktopModelSettings, enabled: isLocalDesktopMode() });
   const [project, setProject] = useState<LocalProject | null>(loadLocalProject);
   const [task, setTask] = useState('');
@@ -27,8 +28,8 @@ export function NewSessionPage() {
   const [runId, setRunId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!agent && agents[0]) setAgent(agents[0]);
-  }, [agent, agents]);
+    if (!agent && interactiveAgents[0]) setAgent(interactiveAgents[0]);
+  }, [agent, interactiveAgents]);
 
   const nativeNeedsConfiguration = isLocalDesktopMode() && agent?.id === 'local-agent' && modelSettings.data && !modelSettings.data.apiKeyConfigured;
   const canRun = Boolean(project && task.trim() && agent && !running && !nativeNeedsConfiguration);
@@ -95,7 +96,7 @@ export function NewSessionPage() {
         <section className="session-form-card">
           <div className="project-context"><div><p className="desktop-kicker">{t('session.project')}</p><strong>{project?.displayName ?? t('session.noProject')}</strong><span>{project?.path ?? t('session.chooseDirectory')}</span></div><button type="button" className="desktop-secondary-action" onClick={handleProject}><FolderOpen size={15} /> {project ? t('session.change') : t('session.open')}</button></div>
           <label className="session-field"><span>{t('session.task')}</span><textarea value={task} onChange={(event) => setTask(event.target.value)} disabled={running} rows={7} placeholder={t('session.taskPlaceholder')} /></label>
-          <label className="session-field"><span>{t('session.agent')}</span><select value={agent?.id ?? ''} onChange={(event) => setAgent(agents.find((item) => item.id === event.target.value) ?? null)} disabled={running || agentsLoading}><option value="">{agentsLoading ? t('session.loadingAgents') : t('session.selectAgent')}</option>{agents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label className="session-field"><span>{t('session.agent')}</span><select value={agent?.id ?? ''} onChange={(event) => setAgent(interactiveAgents.find((item) => item.id === event.target.value) ?? null)} disabled={running || agentsLoading}><option value="">{agentsLoading ? t('session.loadingAgents') : t('session.selectAgent')}</option>{interactiveAgents.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           {nativeNeedsConfiguration && <div className="session-error" role="status"><XCircle size={15} /><span>{t('session.nativeNotConfigured')}</span><button type="button" className="text-xs font-semibold underline" onClick={() => navigate('/settings/models')}>{t('session.openModelSettings')}</button></div>}
           <div className="session-field"><span>{t('session.context')}</span><div className="working-directory"><strong>{t('session.workingDirectory')}</strong><code>{project?.path ?? t('session.selectProject')}</code></div></div>
           {error && <p className="session-error" role="alert"><XCircle size={15} /> {error}</p>}

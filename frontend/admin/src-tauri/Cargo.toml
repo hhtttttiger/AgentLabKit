@@ -1,7 +1,7 @@
 [package]
 name = "agentlab-desktop"
 version = "0.3.0"
-description = "AgentLab Desktop — Cross-Agent Replay"
+description = "AgentLab Desktop — Agent Engineering Workbench"
 authors = ["AgentLabKit"]
 edition = "2021"
 

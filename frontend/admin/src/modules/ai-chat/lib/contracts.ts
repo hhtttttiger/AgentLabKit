@@ -253,6 +253,7 @@ export interface ModelOption {
   description?: string;
   type: ModelType;
   cardId?: string; // For agents, the associated cardId (deprecated, use modelId)
+  agentKind?: 'native' | 'external';
 }
 
 export interface AgentOption extends ModelOption {

@@ -60,3 +60,33 @@ def test_local_api_requires_ephemeral_token(monkeypatch, tmp_path: Path) -> None
         asyncio.run(exercise())
     finally:
         app.state.local.db.close()
+
+
+def test_interactive_agent_api_excludes_and_rejects_external_agents(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("AGENTLAB_LOCAL_TOKEN", "test-token")
+    app = create_local_app(tmp_path / "agentlab.db")
+    with app.state.local.db.connection:
+        app.state.local.db.connection.execute(
+            "INSERT OR REPLACE INTO local_agents(agent_key, display_name, version, model, kind, availability) VALUES (?, ?, ?, ?, ?, ?)",
+            ("codex", "Codex", "1", "", "external", "ready"),
+        )
+
+    async def exercise() -> None:
+        headers = {"X-AgentLab-Local-Token": "test-token"}
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            options = await client.get("/api/ai/invoke/agents/options", headers=headers)
+            assert options.status_code == 200
+            assert [item["agentKey"] for item in options.json()["data"]] == ["local-agent"]
+
+            rejected = await client.post(
+                "/api/ai/invoke/agents/codex/turn/stream",
+                json={"Message": "run this interactively"},
+                headers=headers,
+            )
+            assert rejected.status_code == 422
+            assert rejected.json()["detail"] == "Interactive sessions support Native Agents only"
+
+    try:
+        asyncio.run(exercise())
+    finally:
+        app.state.local.db.close()

@@ -345,7 +345,7 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
 
     @app.get("/api/ai/invoke/agents/options")
     async def agent_options():
-        row = composition.db.connection.execute("SELECT * FROM local_agents WHERE enabled=1 ORDER BY display_name").fetchall()
+        row = composition.db.connection.execute("SELECT * FROM local_agents WHERE enabled=1 AND kind='native' ORDER BY display_name").fetchall()
         return envelope([{"agentKey": r["agent_key"], "displayName": r["display_name"], "publishedVersionNumber": int(r["version"]) if str(r["version"]).isdigit() else None, "id": r["agent_key"], "kind": r["kind"], "availability": r["availability"], "availabilityMessage": r["availability_message"]} for r in row])
 
     @app.get("/api/desktop/agents")
@@ -444,6 +444,8 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
             # settings reload boundary from swapping a live runtime.
             pass
         target = await composition.agents.resolve(agent_key)
+        if target.kind != "native":
+            raise HTTPException(422, "Interactive sessions support Native Agents only")
         history = tuple(AgentMessage(role=AgentRole(item.get("Role", "user").lower()), content=item.get("Content", ""), name=item.get("Name"), metadata=item.get("Metadata", {})) for item in body.History)
         metadata = {}
         if body.WorkingDirectory:
