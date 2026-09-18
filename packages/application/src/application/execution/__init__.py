@@ -8,6 +8,15 @@ from .replay_run import (
     ReplayTargetUnavailable,
     ReplayTargetUnsupported,
 )
+from .replay_external import (
+    ExternalReplayInputUnavailable,
+    ExternalReplaySourceNotFound,
+    ExternalReplayWorkspaceUnavailable,
+    ReplayExternalRun,
+    ReplayExternalRunCommand,
+    ReplayExternalRunError,
+    ReplayExternalRunResult,
+)
 from .run_projection import (
     InMemoryRunStore,
     RunProjector,
@@ -23,18 +32,7 @@ __all__ = [
     "InMemoryRunStore", "RunProjector", "RunProjectionConflict", "RunReader",
     "RunRecord", "RunWriter", "ReplayRunError", "ReplaySourceNotFound",
     "ReplayTargetUnavailable", "ReplayTargetUnsupported", "ReplayInputUnavailable",
-]
-from .replay_external import (
-    ExternalReplayInputUnavailable,
-    ExternalReplaySourceNotFound,
-    ReplayExternalRun,
-    ReplayExternalRunCommand,
-    ReplayExternalRunError,
-    ReplayExternalRunResult,
-)
-
-__all__ = [
     "ExternalReplayInputUnavailable", "ExternalReplaySourceNotFound",
-    "ReplayExternalRun", "ReplayExternalRunCommand", "ReplayExternalRunError",
-    "ReplayExternalRunResult",
+    "ExternalReplayWorkspaceUnavailable", "ReplayExternalRun",
+    "ReplayExternalRunCommand", "ReplayExternalRunError", "ReplayExternalRunResult",
 ]

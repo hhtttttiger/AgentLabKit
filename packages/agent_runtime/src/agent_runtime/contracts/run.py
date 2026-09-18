@@ -34,6 +34,10 @@ class RunTarget:
 
     type: str = "agent"  # "agent", "workflow", "eval_target"
 
+    # Catalog ownership lives above Runtime.  This field lets adapters select
+    # the execution boundary without inferring it from an agent key.
+    kind: str = "native"  # "native" or "external"
+
     agent_key: str | None = None
     agent_version: str | None = None
 

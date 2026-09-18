@@ -38,6 +38,6 @@ export function listDesktopAgents() {
   return apiRequest<DesktopAgentData[]>('/api/desktop/agents');
 }
 
-export function replayCase(body: { sourceRunId: string; agentId: string; workingDirectory: string }) {
+export function replayCase(body: { sourceRunId: string; agentId: string }) {
   return apiRequest<{ runId: string; status: string; targetKey: string; metadata: Record<string, unknown> }>('/api/desktop/replay', { method: 'POST', body });
 }

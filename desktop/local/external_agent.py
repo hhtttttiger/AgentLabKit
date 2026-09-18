@@ -74,8 +74,15 @@ def _message_from_event(event: Mapping[str, Any]) -> str | None:
 class ExternalAgentRunner:
     """Run exactly one external CLI, currently Codex, in a selected workspace."""
 
-    def __init__(self, *, executable: str | None = None) -> None:
-        self.executable = executable or detect_codex().executable
+    def __init__(self, *, availability: ExternalAgentAvailability | None = None, executable: str | None = None, version: str | None = None) -> None:
+        # Capability detection belongs to LocalComposition's catalog lifecycle,
+        # never to each execution request.
+        self.executable = executable or (availability.executable if availability else None)
+        self.version = version or (availability.version if availability else None)
+
+    def update_availability(self, availability: ExternalAgentAvailability) -> None:
+        self.executable = availability.executable
+        self.version = availability.version
 
     async def execute(
         self,
@@ -91,7 +98,6 @@ class ExternalAgentRunner:
         if not workspace.is_dir():
             raise ValueError(f"working directory does not exist: {workspace}")
         result = await self._run_process(input, workspace)
-        version = detect_codex().version
         merged_metadata = {
             **dict(metadata or {}),
             "execution_kind": "external",
@@ -101,11 +107,11 @@ class ExternalAgentRunner:
             "external_returncode": result.returncode,
             "external_events": list(result.events),
         }
-        if version:
-            merged_metadata["external_version"] = version
+        if self.version:
+            merged_metadata["external_version"] = self.version
         run = AgentRun(
             input=input,
-            target=RunTarget(type="agent", agent_key=target.agent_key or "codex", agent_version=version),
+            target=RunTarget(type="agent", kind="external", agent_key=target.agent_key or "codex", agent_version=self.version),
             session_id="external-codex",
             metadata=merged_metadata,
         )

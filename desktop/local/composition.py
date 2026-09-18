@@ -38,6 +38,7 @@ from application.execution.execute_agent import ExecuteAgent
 from application.execution.replay_external import (
     ExternalReplayInputUnavailable,
     ExternalReplaySourceNotFound,
+    ExternalReplayWorkspaceUnavailable,
     ReplayExternalRun,
     ReplayExternalRunCommand,
 )
@@ -90,7 +91,6 @@ class ConfigBody(BaseModel):
 class ReplayBody(BaseModel):
     sourceRunId: str
     agentId: str = "codex"
-    workingDirectory: str
 
 
 class LocalTraceFinalization:
@@ -126,11 +126,16 @@ class LocalExecutor:
     async def execute(self, *, input: str, target: Any, session_id: str | None,
                       user_id: str | None, history: tuple[AgentMessage, ...],
                       metadata: dict[str, object]) -> Any:
-        if target.agent_key == "codex":
+        target_kind = getattr(target, "kind", "native")
+        if target_kind == "external":
+            if target.agent_key != "codex":
+                raise ValueError(f"unsupported external agent: {target.agent_key}")
             workspace = metadata.get("working_directory")
             if self.external_runner is None or not workspace:
                 raise ValueError("working_directory is required for Codex evaluation")
             return await self.external_runner.execute(input=input, target=target, working_directory=str(workspace), metadata=metadata)
+        if target_kind != "native":
+            raise ValueError(f"unsupported agent execution kind: {target_kind}")
         return await self.runtime.run(AgentTurnRequest(
             session_id=session_id or "local-evaluation",
             user_message=input, history=list(history), user_id=user_id,
@@ -176,9 +181,24 @@ class LocalComposition:
         self.datasets = LocalDatasetStore(self.db)
         self.evaluations = LocalEvaluationStore(self.db)
         self.agents = LocalAgentReader(self.db)
-        self.external_runner = ExternalAgentRunner()
+        self._external_availability = detect_codex()
+        self.external_runner = ExternalAgentRunner(availability=self._external_availability)
+        self._sync_external_agent(self._external_availability)
         self._runtime = None
         self._gateway = None
+
+    def _sync_external_agent(self, availability: Any) -> None:
+        with self.db._lock, self.db.connection:
+            self.db.connection.execute(
+                "INSERT INTO local_agents(agent_key, display_name, version, model, kind, availability, executable, availability_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(agent_key) DO UPDATE SET version=excluded.version, availability=excluded.availability, executable=excluded.executable, availability_message=excluded.availability_message, kind=excluded.kind",
+                (availability.agent_id, availability.display_name, availability.version or "unknown", "", availability.kind, availability.availability, availability.executable, availability.message),
+            )
+
+    def refresh_agent_catalog(self) -> Any:
+        self._external_availability = detect_codex()
+        self.external_runner.update_availability(self._external_availability)
+        self._sync_external_agent(self._external_availability)
+        return self._external_availability
 
     def start_runtime(self) -> None:
         config = _load_llm_config()
@@ -296,16 +316,12 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     @app.get("/api/ai/invoke/agents/options")
     async def agent_options():
         row = composition.db.connection.execute("SELECT * FROM local_agents WHERE enabled=1 ORDER BY display_name").fetchall()
-        return envelope([{"agentKey": r["agent_key"], "displayName": r["display_name"], "publishedVersionNumber": int(r["version"]), "id": r["agent_key"], "kind": r["kind"], "availability": r["availability"], "availabilityMessage": r["availability_message"]} for r in row])
+        return envelope([{"agentKey": r["agent_key"], "displayName": r["display_name"], "publishedVersionNumber": int(r["version"]) if str(r["version"]).isdigit() else None, "id": r["agent_key"], "kind": r["kind"], "availability": r["availability"], "availabilityMessage": r["availability_message"]} for r in row])
 
     @app.get("/api/desktop/agents")
-    async def desktop_agents():
-        codex = detect_codex()
-        with composition.db._lock, composition.db.connection:
-            composition.db.connection.execute(
-                "INSERT INTO local_agents(agent_key, display_name, version, model, kind, availability, executable, availability_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(agent_key) DO UPDATE SET version=excluded.version, availability=excluded.availability, executable=excluded.executable, availability_message=excluded.availability_message",
-                (codex.agent_id, codex.display_name, codex.version or "unknown", "", codex.kind, codex.availability, codex.executable, codex.message),
-            )
+    async def desktop_agents(refresh: bool = False):
+        if refresh:
+            composition.refresh_agent_catalog()
         rows = composition.db.connection.execute("SELECT * FROM local_agents WHERE enabled=1 ORDER BY kind, display_name").fetchall()
         return envelope([{"id": r["agent_key"], "displayName": r["display_name"], "kind": r["kind"], "availability": r["availability"], "version": r["version"], "message": r["availability_message"]} for r in rows])
 
@@ -315,13 +331,9 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
         return envelope([{"modelKey": config["model"], "displayName": config["model"], "isEnabled": bool(config["api_key"])}])
 
     @app.get("/api/agents")
-    async def agents(page: int = 1, pageSize: int = 20):
-        codex = detect_codex()
-        with composition.db._lock, composition.db.connection:
-            composition.db.connection.execute(
-                "INSERT INTO local_agents(agent_key, display_name, version, model, kind, availability, executable, availability_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(agent_key) DO UPDATE SET version=excluded.version, availability=excluded.availability, executable=excluded.executable, availability_message=excluded.availability_message",
-                (codex.agent_id, codex.display_name, codex.version or "unknown", "", codex.kind, codex.availability, codex.executable, codex.message),
-            )
+    async def agents(page: int = 1, pageSize: int = 20, refresh: bool = False):
+        if refresh:
+            composition.refresh_agent_catalog()
         row = composition.db.connection.execute("SELECT * FROM local_agents WHERE enabled=1").fetchall()
         items = [{"agentKey": r["agent_key"], "displayName": r["display_name"], "description": "Desktop local agent", "publishedVersionNumber": int(r["version"]) if str(r["version"]).isdigit() else None, "isEnabled": r["availability"] == "ready", "kind": r["kind"], "availability": r["availability"], "availabilityMessage": r["availability_message"]} for r in row]
         return envelope({"items": items, "totalCount": len(items), "page": page, "pageSize": pageSize})
@@ -368,9 +380,12 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
 
     @app.post("/api/desktop/replay")
     async def replay_external(body: ReplayBody):
-        if body.agentId != "codex":
-            raise HTTPException(400, "Only Codex is supported by Desktop v0.3")
-        availability = detect_codex()
+        target = await composition.agents.resolve(body.agentId)
+        if target.kind != "external":
+            raise HTTPException(400, "Replay target must be an external agent")
+        if target.agent_key != "codex":
+            raise HTTPException(422, f"unsupported external agent: {target.agent_key}")
+        availability = composition._external_availability
         if availability.availability != "ready":
             raise HTTPException(409, availability.message or "Codex CLI is not installed")
         source = await composition.runs.get_run(body.sourceRunId)
@@ -383,12 +398,14 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
         }
         try:
             result = await ReplayExternalRun(composition.runs, composition.external_runner).execute(
-                ReplayExternalRunCommand(source_run_id=body.sourceRunId, agent_id=body.agentId, working_directory=body.workingDirectory, metadata=metadata),
+                ReplayExternalRunCommand(source_run_id=body.sourceRunId, agent_id=body.agentId, agent_kind=target.kind, metadata=metadata),
             )
         except ExternalReplaySourceNotFound as error:
             raise HTTPException(404, "Source Run not found") from error
         except ExternalReplayInputUnavailable as error:
             raise HTTPException(422, "Source Run has no replayable input") from error
+        except ExternalReplayWorkspaceUnavailable as error:
+            raise HTTPException(409, str(error)) from error
         run = result.run
         await composition.runs.finalize(run)
         return envelope(run_view(await composition.runs.get_run(run.run_id)))

@@ -253,11 +253,11 @@ class LocalAgentReader:
     async def resolve(self, agent_key: str, version: str | None = None) -> Any:
         from agent_runtime.contracts.run import RunTarget
         row = self.db.connection.execute(
-            "SELECT agent_key, version FROM local_agents WHERE agent_key = ? AND enabled = 1", (agent_key,)
+            "SELECT agent_key, version, kind FROM local_agents WHERE agent_key = ? AND enabled = 1", (agent_key,)
         ).fetchone()
         if row is None:
             raise LookupError(f"agent {agent_key} not found or not published")
-        return RunTarget(type="agent", agent_key=row["agent_key"], agent_version=row["version"])
+        return RunTarget(type="agent", kind=row["kind"], agent_key=row["agent_key"], agent_version=row["version"])
 
     def __init__(self, db: LocalDatabase) -> None:
         self.db = db

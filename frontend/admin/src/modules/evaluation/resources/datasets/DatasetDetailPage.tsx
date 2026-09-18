@@ -29,7 +29,6 @@ export function DatasetDetailPage() {
   const replayMutation = useReplayCase();
   const { data: desktopAgents } = useDesktopAgents(isLocalDesktopMode());
   const [replayCaseId, setReplayCaseId] = useState<string | null>(null);
-  const [replayWorkspace, setReplayWorkspace] = useState('');
   const [input, setInput] = useState('');
   const [expected, setExpected] = useState('');
 
@@ -56,8 +55,8 @@ export function DatasetDetailPage() {
   const replayCase = cases?.find((item) => item.id === replayCaseId);
   const codex = desktopAgents?.find((agent) => agent.id === 'codex');
   const handleReplay = async () => {
-    if (!replayCase?.sourceRunId || !replayWorkspace.trim()) return;
-    const result = await replayMutation.mutateAsync({ sourceRunId: replayCase.sourceRunId, agentId: 'codex', workingDirectory: replayWorkspace.trim() });
+    if (!replayCase?.sourceRunId) return;
+    const result = await replayMutation.mutateAsync({ sourceRunId: replayCase.sourceRunId, agentId: 'codex' });
     setReplayCaseId(null);
     navigate(`/runs/${encodeURIComponent(result.runId)}`);
   };
@@ -127,12 +126,10 @@ export function DatasetDetailPage() {
             <h2 className="text-base font-semibold text-text">Replay Case</h2>
             <p className="mt-2 text-sm text-text-secondary">Run this case with an external agent. Source Run #{replayCase.sourceRunId} remains immutable.</p>
             <div className="mt-4 rounded-[2px] border border-border-subtle bg-background px-3 py-2 text-sm"><span className="font-medium">Codex</span><span className="ml-2 text-text-muted">{codex?.availability === 'ready' ? 'Ready' : codex?.availability === 'not_installed' ? 'Not installed' : 'Unavailable'}</span></div>
-            <label className="mt-4 block text-sm text-text-secondary">Workspace
-              <input autoFocus value={replayWorkspace} onChange={(event) => setReplayWorkspace(event.target.value)} placeholder="/path/to/workspace" className="mt-1 w-full rounded-[2px] border border-border bg-background px-3 py-2 text-sm" />
-            </label>
+            <p className="mt-3 text-xs text-text-muted">Replay uses the workspace recorded by the source Run.</p>
             {codex?.availability !== 'ready' && <p className="mt-2 text-xs text-error">{codex?.message ?? 'Install and authenticate Codex CLI first.'}</p>}
             {replayMutation.error && <p className="mt-2 text-xs text-error">Replay failed. Check the CLI and workspace.</p>}
-            <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setReplayCaseId(null)} className="border border-border px-3 py-2 text-sm">Cancel</button><button type="button" onClick={handleReplay} disabled={replayMutation.isPending || codex?.availability !== 'ready' || !replayWorkspace.trim()} className="bg-primary px-3 py-2 text-sm text-background disabled:opacity-40">{replayMutation.isPending ? 'Starting…' : 'Replay'}</button></div>
+            <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setReplayCaseId(null)} className="border border-border px-3 py-2 text-sm">Cancel</button><button type="button" onClick={handleReplay} disabled={replayMutation.isPending || codex?.availability !== 'ready'} className="bg-primary px-3 py-2 text-sm text-background disabled:opacity-40">{replayMutation.isPending ? 'Starting…' : 'Replay'}</button></div>
           </div>
         </div>
       )}
