@@ -35,6 +35,9 @@ export const runs = {
     noCost: '此运行的成本数据不可用',
     noEvaluation: '尚未进行评估',
     runEvaluation: '运行评估',
+    sessionId: '会话 ID', executionFacts: '执行事实', ended: '已结束', unavailable: '不可用', available: '可用', noTraceIdentity: '此 Run 没有关联的 Trace ID。',
+    saveAsCase: '保存为案例', saveAsCaseAria: 'Add to Dataset', addedToDataset: '已添加到 {{name}}。下一步：使用 Agent 评估此数据集。', evaluateDataset: '评估数据集', openDataset: '打开数据集', captureFailed: '保存失败，请重试。', toastAdded: '已添加到数据集',
+    captureTitle: '添加运行到数据集', captureDescription: '将此已完成的 Run 保存为数据集案例。期望输出可选，不填写则保持为空。', dataset: '数据集', selectDataset: '选择数据集', noDatasets: '暂无数据集。创建一个即可将此 Run 作为第一个案例保存。', newDatasetName: '新数据集名称', datasetName: '数据集名称', createDataset: '创建数据集', creating: '创建中…', created: '已创建“{{name}}”。此 Run 将添加到该数据集。', expectedOutput: '期望输出', optional: '可选', expectedOutputPlaceholder: '留空以保持未设置', add: '添加到数据集', addAria: 'Add to Dataset', adding: '添加中…',
   },
   tabs: {
     overview: '概览',

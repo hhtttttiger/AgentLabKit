@@ -35,6 +35,9 @@ export const runs = {
     noCost: 'Cost data not available for this run',
     noEvaluation: 'No evaluation yet',
     runEvaluation: 'Run Evaluation',
+    sessionId: 'Session ID', executionFacts: 'Execution facts', ended: 'Ended', unavailable: 'Unavailable', available: 'Available', noTraceIdentity: 'This Run has no trace identity.',
+    saveAsCase: 'Save as Case', saveAsCaseAria: 'Add to Dataset', addedToDataset: 'Added to {{name}}. Next: evaluate this dataset against an agent.', evaluateDataset: 'Evaluate Dataset', openDataset: 'Open Dataset', captureFailed: 'Capture failed. Please try again.', toastAdded: 'Added to dataset',
+    captureTitle: 'Add run to dataset', captureDescription: 'Save this completed Run as a dataset case. Expected output is optional and remains empty unless you provide it.', dataset: 'Dataset', selectDataset: 'Select a dataset', noDatasets: 'No datasets yet. Create one to save this run as its first case.', newDatasetName: 'New dataset name', datasetName: 'Dataset name', createDataset: 'Create Dataset', creating: 'Creating…', created: 'Created “{{name}}”. This run will be added to it.', expectedOutput: 'Expected output', optional: 'optional', expectedOutputPlaceholder: 'Leave empty to keep this unset', add: 'Add to Dataset', addAria: 'Add to Dataset', adding: 'Adding…',
   },
   tabs: {
     overview: 'Overview',

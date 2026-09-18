@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithQueryClient } from '@/shared/test/render';
 import { RunDetailPage } from './RunDetailPage';
 import type { RunDetail } from '../types';
+import i18n from '@/shared/i18n';
 
 // Snowflake-scale ids: every assertion below proves identity stays a string.
 const RUN_ID = '9007199254740993'; // > Number.MAX_SAFE_INTEGER
@@ -80,6 +81,10 @@ function renderPage() {
   );
 }
 
+function tr(key: string, options?: Record<string, unknown>) {
+  return i18n.t(key, options);
+}
+
 describe('RunDetailPage capture continuity', () => {
   let captureMutateAsync: ReturnType<typeof vi.fn>;
   let createDatasetMutateAsync: ReturnType<typeof vi.fn>;
@@ -111,26 +116,26 @@ describe('RunDetailPage capture continuity', () => {
 
   const openCaptureModal = async () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Add to Dataset' }));
+    fireEvent.click(screen.getByRole('button', { name: tr('runs:detail.saveAsCaseAria') }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByRole('combobox'), { target: { value: DATASET_ID } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Add to Dataset' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: tr('runs:detail.addAria') }));
     return screen.findByRole('status');
   };
 
   it('JC-01: capture success names the dataset and offers the exact Open Dataset target', async () => {
     const banner = await openCaptureModal();
-    await waitFor(() => expect(banner).toHaveTextContent('Added to Regression Set.'));
+    await waitFor(() => expect(banner).toHaveTextContent(tr('runs:detail.addedToDataset', { name: 'Regression Set' })));
 
-    fireEvent.click(within(banner).getByRole('button', { name: 'Open Dataset' }));
+    fireEvent.click(within(banner).getByRole('button', { name: tr('runs:detail.openDataset') }));
     expect(screen.getByTestId('location')).toHaveTextContent(`/evaluation/dataset/${DATASET_ID}`);
   });
 
   it('JC-01: capture success offers Evaluate Dataset with the evaluate deep link', async () => {
     const banner = await openCaptureModal();
-    await waitFor(() => expect(banner).toHaveTextContent('Added to Regression Set.'));
+    await waitFor(() => expect(banner).toHaveTextContent(tr('runs:detail.addedToDataset', { name: 'Regression Set' })));
 
-    fireEvent.click(within(banner).getByRole('button', { name: 'Evaluate Dataset' }));
+    fireEvent.click(within(banner).getByRole('button', { name: tr('runs:detail.evaluateDataset') }));
     expect(screen.getByTestId('location')).toHaveTextContent(`/evaluation/dataset/${DATASET_ID}?evaluate=1`);
   });
 
@@ -151,22 +156,22 @@ describe('RunDetailPage capture continuity', () => {
     useDatasetListMock.mockReturnValue({ data: { items: [], total: 0 } });
 
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Add to Dataset' }));
+    fireEvent.click(screen.getByRole('button', { name: tr('runs:detail.saveAsCaseAria') }));
     const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent('No datasets yet.');
+    expect(dialog).toHaveTextContent(tr('runs:detail.noDatasets'));
 
-    fireEvent.change(within(dialog).getByLabelText('New dataset name'), { target: { value: 'Fresh Set' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create Dataset' }));
+    fireEvent.change(within(dialog).getByLabelText(tr('runs:detail.newDatasetName')), { target: { value: 'Fresh Set' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: tr('runs:detail.createDataset') }));
     await waitFor(() => expect(createDatasetMutateAsync).toHaveBeenCalledWith({ name: 'Fresh Set' }));
-    expect(await within(dialog).findByText('Created “Fresh Set”. This run will be added to it.')).toBeInTheDocument();
+    expect(await within(dialog).findByText(tr('runs:detail.created', { name: 'Fresh Set' }))).toBeInTheDocument();
 
-    const submit = within(dialog).getByRole('button', { name: 'Add to Dataset' });
+    const submit = within(dialog).getByRole('button', { name: tr('runs:detail.addAria') });
     expect(submit).toBeEnabled();
     fireEvent.click(submit);
 
     // The modal also renders a role="status" line after inline creation, so
     // anchor on the banner text: the modal and banner never coexist.
-    const bannerText = await screen.findByText('Added to Fresh Set.', { exact: false });
+    const bannerText = await screen.findByText(tr('runs:detail.addedToDataset', { name: 'Fresh Set' }), { exact: false });
     expect(bannerText.closest('[role="status"]')).not.toBeNull();
     expect(captureMutateAsync).toHaveBeenCalledWith({ runId: RUN_ID, request: { datasetId: DATASET_ID } });
   });
