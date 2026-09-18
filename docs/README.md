@@ -9,6 +9,7 @@
 ## 当前权威入口
 
 - 产品定位：[`PRODUCT.md`](../PRODUCT.md)
+- Future product ideas：[`product/future-ideas.md`](product/future-ideas.md)（未承诺的产品假设，不是 roadmap 或实现规范）
 - Application use cases：[`packages/application/README.md`](../packages/application/README.md)
 - Runtime 与 identity：[`architecture/execution-model-v2.md`](architecture/execution-model-v2.md)
 - FastAPI adapter boundary：[`architecture/fastapi-adapter-boundary.md`](architecture/fastapi-adapter-boundary.md)
