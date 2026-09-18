@@ -2,7 +2,9 @@
 
 这是一份平台使用指南，不是 AgentLabKit 的内部架构规范。它说明业务产品如何使用 AgentLabKit 的公开平台能力，并明确记录当前 `main` 已验证的支持范围与缺口。
 
-> 验证基线：`main`，commit `214010a`。公开 surface 的结论以当前 FastAPI routes、schemas 和 application contracts 为准；未来能力不能按本指南提前假设为已支持。
+> 验证基线：`main`，commit `264df56f`（2026-09-18）。公开 surface 的结论以当前
+> FastAPI routes、schemas 和 application contracts 为准；未来能力不能按本指南提前
+> 假设为已支持。代码或公共 contract 变化后应重新验证本指南。
 
 ## 1. 核心边界
 

@@ -1,10 +1,15 @@
-# Desktop App Plan
+# Desktop App Plan (Deprecated PySide6 Client)
 
-> 状态：**Phase 0-3 完成**，Phase 4 待开始
+> **Deprecated:** this document describes the old PySide6 Desktop client. The
+> current Desktop product is the Tauri client under `frontend/admin` and its
+> Python Local Mode runtime under `desktop/local`. Do not use this plan as the
+> implementation or acceptance baseline.
+
+> 状态：**Historical：旧 PySide6 client 的阶段快照，不作为当前进度或验收基线**
 > 创建日期：2026-07-11
 > 最后更新：2026-07-11
 
-## 当前进度
+## 历史进度（仅供参考）
 
 | Phase | 状态 | 产物 |
 |-------|------|------|

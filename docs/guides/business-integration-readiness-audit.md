@@ -2,7 +2,7 @@
 
 ## Audit scope
 
-- 基线：`main`，commit `214010a`（2026-09-11）。
+- 基线：`main`，commit `264df56f`（2026-09-18）。
 - 检查对象：业务应用只依赖 Platform API / Application boundary 的典型路径。
 - 证据：[`backend/src/main.py`](../../backend/src/main.py) 的 router mounting、各模块 router/schema、[`packages/application`](../../packages/application) contracts，以及 Runtime/Knowledge adapter。Run identity 的既有边界也见 [`docs/public-execution-api.md`](../public-execution-api.md)。
 

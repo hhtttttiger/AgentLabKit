@@ -1,8 +1,11 @@
 # Provider 抽象化 Review 修复计划
 
-> 状态：**待实施**
+> 状态：**Historical：已完成并收敛，不再是待实施清单**
 > 创建时间：2026-08-22
 > 来源：evaluation + memory provider abstraction code review
+
+> 本文保留当时的 review 问题、方案和验证标准。当前实现与测试是事实来源；
+> 不要根据本文的旧行号、旧问题描述或“待修复”措辞判断当前 provider 状态。
 
 ## 背景
 

@@ -1,26 +1,36 @@
-# Desktop client
+# Desktop Python components
+
+> Product status: the old PySide6 Desktop shell is deprecated. The current
+> Desktop product is `frontend/admin` + `frontend/admin/src-tauri`.
+>
+> This directory still contains the active Python Local Mode API and tools used
+> by Tauri. Do not remove or rename `local/` or `tools/` as part of the legacy
+> client deprecation.
 
 ## 职责
 
-`desktop` 是 standalone PySide6 client。它直接调用可复用的 package layer，不依赖 FastAPI backend、frontend、Redis 或 PostgreSQL。
+`desktop/local` 是 Tauri Local Mode 启动的 Python API；旧的 PySide6 shell
+（`main.py`、`app/`、`ui/`、`capture/`、`storage/`、`utils/`）仅保留作历史参考，已废弃。
+
+Desktop 产品按 Work Objects 和 Work Actions 组织，不按底层 Module 组织；
+详细的 Product Projection 原则见
+[`docs/architecture/desktop-product-projection.md`](../docs/architecture/desktop-product-projection.md)。
 
 ## 边界
 
-- `app/` 是 composition root：创建 components、连接 signals，并负责 shutdown。
-- `core/` 负责 desktop configuration、package assembly，以及 Qt/asyncio bridge。
-- `ui/` 发出 Qt signals，不得直接调用 LLM、storage 或 capture services。
-- `tools/` 包含 desktop-specific tools；通过其 registry 注册新 tools，并将 filesystem access 保持在文档规定的 safety boundary 内。
-- `capture/` 负责 screenshot selection 和 image analysis；与 UI composition 分离。
-- `storage/` 负责 local SQLite persistence；不是 server memory/database layer。
+- `local/` 是 Tauri Local Mode 的 API、composition 和 SQLite persistence。
+- `tools/` 包含 Tauri Local Mode 使用的 desktop-specific tools；通过其 registry 注册新 tools，并将 filesystem access 保持在文档规定的 safety boundary 内。
+- `app/`、`core/`、`ui/`、`capture/`、`storage/`、`utils/` 属于已废弃的 PySide6 shell，不得作为新 Desktop 功能的 ownership boundary。
 
 不要让 desktop code 依赖 backend internals。对于 text-agent behavior，优先使用 `agent_runtime` 和 `llm_gateway` package protocols，并保留 local configuration/data paths。
 
 ## 关键路径
 
-- `main.py` — desktop entrypoint。
-- `app/desktop_app.py` — composition 和 lifecycle。
-- `core/` — configuration 和 runtime assembly。
-- `tools/`、`capture/`、`storage/`、`ui/`、`utils/` — local subsystems。
+- `local/server.py` — Tauri 启动的 Local API entrypoint。
+- `local/composition.py` — Local Mode composition 和 API routes。
+- `local/store.py` — Local SQLite persistence。
+- `tools/` — Local Mode tools。
+- `main.py`、`app/`、`core/`、`capture/`、`storage/`、`ui/`、`utils/` — deprecated PySide6 client。
 
 ## 验证
 
@@ -31,3 +41,4 @@
 - [根目录 instructions](../AGENTS.md)
 - [Agent Runtime](../packages/agent_runtime/AGENTS.md)
 - [LLM Gateway](../packages/llm_gateway/AGENTS.md)
+- [Desktop Product Projection](../docs/architecture/desktop-product-projection.md)

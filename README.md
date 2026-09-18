@@ -25,7 +25,7 @@ Prepare Knowledge → Test Retrieval → Use in Agent → Test Agent → Inspect
 - **LLM Gateway** — model catalog、provider adapters、routing/failover、credentials、retries、rate limiting 和 usage extraction。
 - **Knowledge / RAG** — prepare and search knowledge；将 Knowledge 组合进 versioned Agents；观测真实 Runs 中的 retrieval；检查有界历史证据，并区分 no retrieval、zero results 和 failure；诊断 Retrieval 方向或 Agent 方向。
 - **Platform services** — observability、cost analysis、evaluation 和 cross-session memory。
-- **Clients** — FastAPI HTTP/SSE API、React administration console，以及 standalone PySide6 desktop client。
+- **Clients** — FastAPI HTTP/SSE API、React administration console，以及 current Tauri Desktop client。旧 PySide6 desktop client 已废弃。
 
 ## 架构
 
@@ -34,7 +34,7 @@ Prepare Knowledge → Test Retrieval → Use in Agent → Test Agent → Inspect
 ```text
 客户端
   ├── React 管理后台
-  ├── PySide6 桌面端
+  ├── Tauri Desktop（current）
   └── 其他客户端
           │
           ▼
@@ -142,18 +142,29 @@ npm run dev
 
 基础设施和故障排查详情见 [`docs/operations/local-debug.md`](docs/operations/local-debug.md) 和 [`docs/operations/docker-debug.md`](docs/operations/docker-debug.md)。
 
-### Desktop client
+### Tauri Desktop client
 
-Desktop client 使用 local SQLite 和 package APIs，不依赖 backend：
+当前 Desktop 是 Tauri shell + React admin frontend。Local Mode 使用 local SQLite 和
+package APIs，不依赖 backend：
+
+产品定位是 local-first personal Agent Engineering workbench，而不是 Server
+管理界面的本地副本。完整的 Product Projection 原则见
+[`docs/architecture/desktop-product-projection.md`](docs/architecture/desktop-product-projection.md)。
+
+当前 Local Mode 的 Tauri process 会直接启动系统 `python3`。由于 active
+`desktop.tools.registry` 仍会加载依赖 PySide6 的 clipboard/screen tool，运行
+Local Mode 的 Python 环境暂时还必须提供 PySide6 及所需 package 依赖；仓库目前
+没有独立的 Desktop installer/requirements 文件。这是过渡性开发限制，旧 PySide6
+外壳本身仍已废弃。详见 [`docs/desktop-modes.md`](docs/desktop-modes.md)。
 
 ```bash
-pip install PySide6
-pip install -e packages/llm_gateway -e packages/agent_runtime
-cd desktop
-python main.py
+cd frontend/admin
+npm install
+npm run desktop:dev
 ```
 
-Desktop 配置保存在 `~/.config/agentlabkit/desktop.toml`。参见 [`docs/desktop-app-plan.md`](docs/desktop-app-plan.md)。
+Tauri runtime mode 参见 [`docs/desktop-modes.md`](docs/desktop-modes.md)。旧 PySide6
+实现及其历史计划见 [`desktop/DEPRECATED.md`](desktop/DEPRECATED.md)，不再作为产品入口。
 
 ## 仓库布局
 
@@ -175,7 +186,8 @@ backend/
   src/modules/runs/  Run reads, replay, and capture adapters
   src/worker.py      indexing worker
 frontend/admin/      React administration console
- desktop/            standalone PySide6 client
+desktop/            Tauri Local Mode Python runtime、tools，以及已废弃的 PySide6 代码
+frontend/admin/     React frontend and Tauri Desktop shell
 docs/architecture/  authoritative architecture decisions
 ```
 
@@ -191,8 +203,10 @@ docs/architecture/  authoritative architecture decisions
 - [`AGENTS.md`](AGENTS.md) — 简明的仓库级 coding constraints。
 - [`PRODUCT.md`](PRODUCT.md) — product purpose, journeys and UX principles。
 - [`packages/application/README.md`](packages/application/README.md) — application use-case package boundary。
-- [`docs/architecture/`](docs/architecture/) — Execution Model、FastAPI adapter 和 streaming contracts：[`execution-model-v2.md`](docs/architecture/execution-model-v2.md)、[`fastapi-adapter-boundary.md`](docs/architecture/fastapi-adapter-boundary.md)、[`agent-turn-streaming.md`](docs/architecture/agent-turn-streaming.md)。
+- [`docs/architecture/`](docs/architecture/) — Execution Model、FastAPI adapter、streaming contracts 和 Desktop Product Projection：[`execution-model-v2.md`](docs/architecture/execution-model-v2.md)、[`fastapi-adapter-boundary.md`](docs/architecture/fastapi-adapter-boundary.md)、[`agent-turn-streaming.md`](docs/architecture/agent-turn-streaming.md)、[`desktop-product-projection.md`](docs/architecture/desktop-product-projection.md)。
 - [`docs/operations/`](docs/operations/) — 本地与 Docker 开发操作。
+- [`docs/README.md`](docs/README.md) — 文档状态约定与当前权威入口。
+- [`docs/guides/building-agents-with-packages.md`](docs/guides/building-agents-with-packages.md) — library-first Agent 开发入口。
 - [`.env.example`](.env.example) — environment configuration template。
 
 ## 许可证

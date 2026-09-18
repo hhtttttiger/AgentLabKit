@@ -1,7 +1,9 @@
 # Public Execution API and Run Resource Audit
 
-**Scope:** durable Run projection slice, canonical Run read adapter, and Run replay action.
-`GET /api/runs/{run_id}` and `POST /api/runs/{run_id}/replay` are implemented; no frontend contract was changed.
+**Scope:** durable Run projection slice, canonical Run read/list adapters, replay and capture actions.
+`GET /api/runs`, `GET /api/runs/{run_id}`, `POST /api/runs/{run_id}/replay`, and
+`POST /api/runs/{run_id}/capture` are implemented. The frontend uses the canonical
+Run client for list, read, replay, and capture operations.
 
 **Sources inspected:** `backend/src/main.py`, the `ai_invoke`, `agent`, `observability`, `evaluation`, and `chat` modules, plus `packages/application`, `packages/agent_runtime`, `packages/observability`, and `packages/evaluation`. Source code, rather than historical plans, is authoritative for this report.
 
@@ -20,7 +22,7 @@ The Runtime contract is sufficiently clear to define a public `Run` resource. Th
 - `agent_execution_audits` is an agent-specific, best-effort audit/request summary written by the streaming adapter. It is not written by the current `POST /api/ai/invoke/agents/{agent_key}/turn` path and is not a complete Runtime Run projection.
 - `eval_runs` is an evaluation orchestration record, not an `AgentRun`; its numeric `id` belongs to the EvaluationRun namespace.
 
-Therefore, reconstructing a public Run from Trace or treating an audit row as a Run would violate the v2 ownership model. The next implementation step is a durable Run projection/read model fed by Runtime facts, not a new endpoint over an existing unrelated table.
+Therefore, reconstructing a public Run from Trace or treating an audit row as a Run would violate the v2 ownership model. The current implementation uses a durable Run projection/read model fed by Runtime facts, not an endpoint over an existing unrelated table.
 
 ## Current public execution-related surfaces
 
@@ -33,6 +35,10 @@ Therefore, reconstructing a public Run from Trace or treating an audit row as a 
 | `GET /api/traces` | Cursor-paginated observability records | `trace_id` | Trace projection (`TraceRecord`) |
 | `GET /api/traces/{trace_id}` | Trace summary and all spans | `trace_id` | Trace plus `Span` projection |
 | `GET /api/traces/stats` | Aggregate observability statistics | none | Trace statistics |
+| `GET /api/runs` | List durable Runs owned by the authenticated user | `run_id` | Run projection (`RunRecord`) |
+| `GET /api/runs/{run_id}` | Read one durable Run owned by the authenticated user | `run_id` | Run projection (`RunRecord`) |
+| `POST /api/runs/{run_id}/replay` | Re-execute an owned Run using its stored target version | new Runtime `runId` | New Run linked to source Run |
+| `POST /api/runs/{run_id}/capture` | Capture an owned Run into a Dataset | Dataset `example_id` | DatasetExample with source Run provenance |
 | `POST /api/eval/run-configs/{config_id}/run` | Start an evaluation orchestration job | EvaluationRun numeric `id` | `EvaluationRun` |
 | `GET /api/eval/runs` | List evaluation orchestration runs | EvaluationRun numeric `id` | `EvaluationRun`, not AgentRun |
 | `GET /api/eval/runs/{run_id}` | Get an evaluation run and its per-case results | EvaluationRun numeric `id` | `EvaluationRun` plus `EvaluationRunResult` |
@@ -89,7 +95,7 @@ Guardrail blocking is explicitly a valid business outcome. The input guard path 
 
 Handoff and delegation are execution semantics/summary fields, not additional terminal statuses. `paused`/`checkpointed` are not present in the current Run status contract. Resume must wait for a real workflow checkpoint capability and its actual identity model.
 
-## Proposed public boundary (not implemented)
+## Canonical public boundary
 
 Recommended terminology:
 
@@ -97,7 +103,7 @@ Recommended terminology:
 - **Run** is the durable/public record of one execution boundary.
 - Use `Run` in the public API; do not introduce parallel names such as `ExecutionRecord` or `InvocationRun`.
 
-A future `RunSummary` should contain only fields available from the durable projection, likely:
+The current `RunResponse` contains only fields available from the durable projection:
 
 ```text
 runId, traceId, status, outcome,
@@ -106,7 +112,7 @@ sessionId/user relation when authorized,
 usage summary, tool summary, error summary, metadata/related links
 ```
 
-A future `RunDetail` may add input/output and related identifiers, subject to privacy and payload policy. Missing facts remain null/omitted; they must not be synthesized from database timestamps, Trace data, or fallback IDs. Neither summary nor detail should contain full spans, the event timeline, retrieval chunks, every tool span, or LLM internals. Those remain under Trace/Observability APIs.
+Input/output and related identifiers remain subject to privacy and payload policy. Missing facts remain null/omitted; they must not be synthesized from database timestamps, Trace data, or fallback IDs. The Run response does not contain full spans, the event timeline, retrieval chunks, every tool span, or LLM internals. Those remain under Trace/Observability APIs.
 
 ## Capability classification
 
@@ -114,7 +120,7 @@ A future `RunDetail` may add input/output and related identifiers, subject to pr
 |---|---|---|---|---|
 | Execute Agent | Run | `ExecuteAgent` | — | Existing via `/api/ai/invoke`; compatibility facade |
 | Get Run | Run | — | `RunReader` / durable Run read model | Implemented: `GET /api/runs/{run_id}` |
-| List Runs | Run | — | Not in current `RunReader` contract | Deferred until list contract is defined |
+| List Runs | Run | — | `RunReader.list_runs/count_runs` | Implemented: `GET /api/runs`, scoped to authenticated owner |
 | Get Trace | Trace | — | `TraceStore` | Existing |
 | List Traces | Trace | — | `TraceStore` | Existing |
 | Execute Dataset Evaluation | EvaluationRun + AgentRuns | `EvaluateDataset` | Evaluation adapter/store | Existing for agent target |
@@ -122,7 +128,7 @@ A future `RunDetail` may add input/output and related identifiers, subject to pr
 | Capture Run as Dataset Example | DatasetExample | `CaptureRunAsDatasetExample` | — | Implemented through `POST /api/runs/{run_id}/capture`; the deprecated scaffold has been removed |
 | Cancel Run | Run | Future capability, likely UC | Runtime cancellation/active registry | Deferred; HTTP reliability not established |
 | Resume | Workflow/checkpoint (not assumed Run) | Future UC | Workflow runtime | Deferred; current identity/capability not established |
-| Compare Evaluation Runs | Evaluation comparison | `CompareEvaluationRuns` (future) | Evaluation | Deferred |
+| Compare Evaluation Runs | Evaluation comparison | `CompareEvaluationRuns` | Evaluation | Implemented in application and `POST /api/eval/runs/compare` |
 
 Resource CRUD for agents, datasets, examples, budgets, chats, and memories remains outside the Application layer. Knowledge ingestion/reindexing is a separate follow-up audit.
 
@@ -143,9 +149,9 @@ No current public/domain checkpoint contract was found that establishes whether 
 ## Compatibility and migration strategy
 
 1. Keep `/api/ai/invoke/agents/{agent_key}/turn` and `/stream` unchanged. Preserve request, response, SSE framing, and current `runId`/`traceId` fields.
-2. Add a durable Runtime-event-fed Run projection/read model first, with explicit retention, authorization, privacy, and idempotency rules.
-3. Add canonical Run reads/actions only after that store is authoritative. Prefer `/api/runs` over `/api/agent-runs` because Runtime targets already include agents, workflows, and evaluation targets.
-4. Gradually migrate frontend reads/actions to the canonical surface. Existing invoke routes remain compatibility aliases/facades; no deprecation is proposed in this audit.
+2. Keep the durable Runtime-event-fed Run projection authoritative, with explicit ownership, privacy, and idempotency rules.
+3. Keep `/api/runs` as the canonical AgentRun surface. Runtime targets already include agents, workflows, and evaluation targets.
+4. Keep the legacy invoke routes as compatibility facades; the frontend may use canonical Run reads/actions after invocation.
 5. Keep `/api/traces` independent: `GET Run` is an execution summary and `GET Trace` is diagnostic detail. Run projection is durably stored in `run_records` and is not reconstructed from Trace.
 6. Keep `/api/eval/runs` explicitly in the EvaluationRun namespace; do not overload it with AgentRun.
 
@@ -173,11 +179,9 @@ persisted `run_records.user_id` fact only. Trace and AgentAudit are never
 queried for authorization. `userId` remains an internal ownership field and is
 not exposed in `RunResponse`.
 
-## Deferred work
+## Remaining gaps
 
-- user-scoped Run listing;
-- `CompareEvaluationRuns`;
 - `CancelRun`;
 - `ResumeExecution`;
 - RAG/knowledge ingestion and reindexing audit;
-- frontend migration to canonical Run reads/actions.
+- retention/redaction policy beyond the current application database lifecycle.

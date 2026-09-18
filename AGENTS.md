@@ -28,7 +28,9 @@
 - `packages/db` / `packages/infra` — 共享数据库与基础设施 primitives。
 - `backend` — FastAPI transport、composition root、module services 和 worker。
 - `frontend/admin` — public HTTP/SSE contract 的 React client。
-- `desktop` — standalone PySide6 client。
+- `frontend/admin/src-tauri` — current Tauri Desktop client。
+- `desktop/local`、`desktop/tools` — Tauri Local Mode 使用的 Python runtime/工具；不要与旧 PySide6 外壳混淆。
+- `desktop/main.py`、`desktop/app`、`desktop/ui`、`desktop/capture`、`desktop/storage`、`desktop/utils` — 旧 PySide6 桌面端，已废弃，不再作为产品入口。
 - `docs/architecture` — 长篇架构决策。
 
 ## 修改规则
@@ -47,3 +49,4 @@
 - [Execution Model v2](docs/architecture/execution-model-v2.md)
 - [FastAPI adapter boundary](docs/architecture/fastapi-adapter-boundary.md)
 - [Streaming contract](docs/architecture/agent-turn-streaming.md)
+- [Desktop Product Projection](docs/architecture/desktop-product-projection.md)

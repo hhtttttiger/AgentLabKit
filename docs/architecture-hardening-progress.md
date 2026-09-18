@@ -1,6 +1,11 @@
 # Architecture Hardening Progress
 
-Branch: `refactor/execution-model-v2`
+> **Historical：架构加固完成快照。** 下方 branch/context 属于历史工作记录，
+> 不代表当前 checkout 或新的实施计划。当前规则以
+> [`docs/architecture/execution-model-v2.md`](architecture/execution-model-v2.md)
+> 和 source 为准。
+
+Historical branch: `refactor/execution-model-v2`
 
 ## Phase Status
 

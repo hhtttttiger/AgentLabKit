@@ -1,9 +1,10 @@
 # Durable Run Projection Boundary
 
-**Status: durable persistence, production wiring, and the public read adapter are
-complete.** `GET /api/runs/{run_id}` consumes `RunReader` directly. This document is
-based on the current source. This slice does not add an HTTP route, alter Trace
-storage, or make `AgentExecutionAudit` authoritative.
+**Status: durable persistence, production wiring, public read/list adapters, and
+Run actions are complete for the current v1 scope.** `GET /api/runs` and
+`GET /api/runs/{run_id}` consume `RunReader` directly. This document is
+based on the current source. This slice adds only the thin Run read/list/action
+adapters; it does not alter Trace storage or make `AgentExecutionAudit` authoritative.
 
 ## Ownership
 
@@ -13,8 +14,10 @@ read-side capability, not Runtime semantics and not Observability semantics.
 The module provides the small `RunRecord`, `RunReader`, `RunWriter`,
 `RunProjector`, and reference `InMemoryRunStore` contracts. The SQLAlchemy
 implementation is in `backend/src/modules/run_projection/` (`RunRecordModel`,
-`RunProjectionEventModel`, and `SqlAlchemyRunStore`). Migration `0020` creates
-`run_records` and the durable event-id ledger `run_projection_events`.
+`RunProjectionEventModel`, and `SqlAlchemyRunStore`). The current database history
+is represented by `backend/alembic/versions/0001_current_baseline.py` and
+subsequent `0002`/`0003` migrations; do not use historical migration numbers from
+old branch notes as current upgrade instructions.
 
 Runtime remains the only owner of execution facts and identity. The projector
 never generates `run_id`, `trace_id`, span IDs, status, timestamps, or terminal
@@ -181,7 +184,7 @@ policy; no additional redaction or TTL subsystem exists yet.
 | Identity | `run_id` | `trace_id` (+ reference to run) | legacy `run_id` string |
 | Cardinality | one per Run | one trace with spans | historically one audit row per turn |
 | Facts | lifecycle/final Runtime facts | detailed spans/events | incomplete legacy summary |
-| Public API role | future Run API | observability API | not authoritative |
+| Public API role | current Run API | observability API | not authoritative |
 
 A Run is never constructed from Trace, and `run_id` is never replaced with
 `trace_id`. `AgentExecutionAudit` is not used by this boundary.
@@ -215,8 +218,10 @@ mapper; Runtime results use the separate `agent_run_to_response()` mapper. The
 mappers do not read Trace, AgentExecutionAudit, or Runtime state. The endpoint
 authorizes against persisted `RunRecord.user_id` only: the owner may read,
 while missing or mismatched ownership returns 404. Legacy null-owner rows remain
-inaccessible. List Runs remains deferred; Replay applies the same source-run
-check before execution.
+inaccessible. `GET /api/runs` lists only durable Runs owned by the authenticated
+user and uses `RunReader.list_runs/count_runs`; Replay applies the same source-run
+check before execution. Capture uses `CaptureRunAsDatasetExample` and creates a
+Dataset-owned `example_id`.
 
 ## Historical Runs and readiness
 

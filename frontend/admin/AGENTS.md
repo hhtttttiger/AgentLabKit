@@ -4,6 +4,13 @@
 
 `frontend/admin` 是 public FastAPI HTTP/SSE contract 的 React 19 + TypeScript client。它拥有 presentation、client state、routing 和 API-to-view-model mapping；不拥有 backend execution semantics。
 
+对于 Tauri Desktop，UI 是 AgentLabKit 平台能力面向个人 Agent Engineering
+工作的产品化投影，不是 Server 管理界面的本地副本。按 Work Objects 和 Work
+Actions 组织 Desktop surface；`Module != Product Page`。Platform Capabilities
+优先投影到 Settings、Execution Configuration、Run Inspector 或具体工程
+Journey。完整原则见
+[`Desktop Product Projection`](../../docs/architecture/desktop-product-projection.md)。
+
 ## Contract rules
 
 - 将 HTTP calls 和 response mapping 保持在 `src/shared/api` 或 module API layer；不要在 views 中散布 raw requests。

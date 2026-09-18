@@ -16,6 +16,15 @@ bounded timeout before publishing the frontend runtime configuration. The
 frontend sends `X-AgentLab-Local-Token` on every `/api/*` request. `/health` is
 intentionally available without the token for readiness checks.
 
+### 当前开发限制
+
+Tauri 目前直接启动系统 `python3`，仓库还没有独立的 Desktop installer 或
+Desktop requirements lock。Local Mode 使用的 active desktop tools 仍会从
+`desktop.tools.registry` 加载 clipboard/screen 工具，而这些模块当前依赖
+PySide6；因此运行 Local Mode 的 Python 环境必须同时具备 package 依赖和
+PySide6。这个依赖是旧桌面工具尚未完全解耦的过渡性限制，不代表旧 PySide6
+外壳仍是产品入口。Server Mode 不启动这套本地 Python 进程。
+
 Each Local Mode execution with a selected workspace canonicalizes that
 directory once and passes it to the Runtime as `metadata.working_directory`.
 Desktop file tools and shell cwd validation resolve paths before checking

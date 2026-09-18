@@ -1,5 +1,9 @@
 # Observability V2 迁移 — 进度与待办
 
+> **Historical：迁移记录，不是当前实施计划。** 本文的分支名、commit、测试数字和
+> migration 文件名属于当时的工作上下文。当前 source、`backend/alembic/versions/`
+> 和 [`docs/architecture/`](../architecture/) 才是权威依据。
+
 ## 已完成（5 commits on `feature/observability-v2`）
 
 ### Commit 1: `0a06c7a` — Infra Queue 改进
@@ -103,13 +107,13 @@
 | Trace ingestion | `backend/src/modules/observability/worker_task.py` |
 | Observability models | `backend/src/modules/observability/models.py` |
 | Observability router | `backend/src/modules/observability/router.py` |
-| DB migration | `backend/alembic/versions/0019_observability_v2.py` |
+| DB migration | `backend/alembic/versions/0001_current_baseline.py`（当前基线；旧 `0019` 路径仅为历史记录） |
 | Frontend contracts | `frontend/admin/src/modules/observability/lib/contracts.ts` |
 | Frontend pages | `frontend/admin/src/modules/observability/resources/traces/` |
 | Config | `backend/src/config.py`（新增 WorkerSettings） |
 | Web modules | `backend/src/runtime/web_modules.py` |
 
-## 分支状态
+## 历史分支状态
 
 - 分支：`feature/observability-v2`
 - 已 push 到 `origin/feature/observability-v2`
