@@ -6,6 +6,7 @@ import { Button } from '@/shared/ui/Button';
 import { SelectField, TextField } from '@/shared/ui/FormFields';
 import { InlineMessage } from '@/shared/ui/InlineMessage';
 import type { DatasetData } from '../../lib/contracts';
+import { isLocalDesktopMode } from '@/shared/runtime/config';
 
 interface RunConfigFormModalProps {
   open: boolean;
@@ -15,7 +16,7 @@ interface RunConfigFormModalProps {
   onClose: () => void;
   onSubmit: (model: CreateRunConfigDraft) => Promise<void>;
   initialDatasetId?: string;
-  agents?: Array<{ agentKey: string; displayName: string }>;
+  agents?: Array<{ agentKey: string; displayName: string; isEnabled?: boolean; availability?: string }>;
 }
 
 export interface CreateRunConfigDraft {
@@ -25,6 +26,7 @@ export interface CreateRunConfigDraft {
   targetKey: string;
   metricConfigs: string[];
   judgeModelKey: string;
+  workingDirectory: string;
 }
 
 const DEFAULT_METRICS = ['answer_relevance', 'faithfulness', 'context_relevance'] as const;
@@ -36,6 +38,7 @@ const emptyDraft: CreateRunConfigDraft = {
   targetKey: '',
   metricConfigs: [...DEFAULT_METRICS],
   judgeModelKey: '',
+  workingDirectory: '',
 };
 
 export function RunConfigFormModal({
@@ -120,9 +123,11 @@ export function RunConfigFormModal({
             onChange={(e) => setDraft((p) => ({ ...p, targetKey: e.target.value }))}
           >
             <option value="">{t('evaluation:runs.selectAgent')}</option>
-            {agents.map((agent) => <option key={agent.agentKey} value={agent.agentKey}>{agent.displayName} ({agent.agentKey})</option>)}
+            {agents.map((agent) => <option key={agent.agentKey} value={agent.agentKey} disabled={agent.isEnabled === false}>{agent.displayName} ({agent.agentKey}){agent.isEnabled === false ? ' · Not installed' : ''}</option>)}
           </SelectField>
         )}
+
+        {isLocalDesktopMode() && draft.targetKey === 'codex' && <TextField label="Workspace" value={draft.workingDirectory} onChange={(e) => setDraft((p) => ({ ...p, workingDirectory: e.target.value }))} placeholder="/path/to/workspace" hint="Codex runs in this selected workspace." />}
 
         <div>
           <label className="mb-1 block text-xs font-medium text-text-muted">

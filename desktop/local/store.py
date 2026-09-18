@@ -50,7 +50,11 @@ class LocalDatabase:
                     display_name TEXT NOT NULL,
                     version TEXT NOT NULL,
                     model TEXT NOT NULL,
-                    enabled INTEGER NOT NULL DEFAULT 1
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    kind TEXT NOT NULL DEFAULT 'native',
+                    availability TEXT NOT NULL DEFAULT 'ready',
+                    executable TEXT,
+                    availability_message TEXT
                 );
                 CREATE TABLE IF NOT EXISTS local_runs (
                     run_id TEXT PRIMARY KEY,
@@ -100,7 +104,8 @@ class LocalDatabase:
                     target_type TEXT NOT NULL DEFAULT 'agent',
                     target_key TEXT NOT NULL,
                     metric_configs_json TEXT NOT NULL DEFAULT '[]',
-                    judge_model_key TEXT NOT NULL DEFAULT ''
+                    judge_model_key TEXT NOT NULL DEFAULT '',
+                    working_directory TEXT
                 );
                 CREATE TABLE IF NOT EXISTS local_eval_runs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,9 +141,23 @@ class LocalDatabase:
                 );
                 """
             )
+            # Local Mode databases from v0.2 predate the agent catalog fields.
+            # Keep the migration deliberately explicit and idempotent.
+            columns = {row[1] for row in self.connection.execute("PRAGMA table_info(local_agents)").fetchall()}
+            for name, definition in (
+                ("kind", "TEXT NOT NULL DEFAULT 'native'"),
+                ("availability", "TEXT NOT NULL DEFAULT 'ready'"),
+                ("executable", "TEXT"),
+                ("availability_message", "TEXT"),
+            ):
+                if name not in columns:
+                    self.connection.execute(f"ALTER TABLE local_agents ADD COLUMN {name} {definition}")
+            config_columns = {row[1] for row in self.connection.execute("PRAGMA table_info(local_eval_configs)").fetchall()}
+            if "working_directory" not in config_columns:
+                self.connection.execute("ALTER TABLE local_eval_configs ADD COLUMN working_directory TEXT")
             self.connection.execute(
-                "INSERT OR IGNORE INTO local_agents(agent_key, display_name, version, model) VALUES (?, ?, ?, ?)",
-                ("local-agent", "Local Agent", "1", "configured"),
+                "INSERT OR IGNORE INTO local_agents(agent_key, display_name, version, model, kind, availability) VALUES (?, ?, ?, ?, ?, ?)",
+                ("local-agent", "Local Agent", "1", "configured", "native", "ready"),
             )
 
     def close(self) -> None:
@@ -269,7 +288,15 @@ class LocalDatasetStore(DatasetReader, DatasetExampleWriter):
 
     async def cases(self, dataset_id: str) -> list[dict[str, Any]]:
         rows = self.db.connection.execute("SELECT * FROM local_cases WHERE dataset_id=? ORDER BY case_index", (int(dataset_id),)).fetchall()
-        return [{"id": str(row["id"]), "datasetId": str(row["dataset_id"]), "caseIndex": row["case_index"], "inputText": row["input_text"], "expectedOutput": row["expected_output"], "context": self.db.value(row["context_json"], []), "tags": self.db.value(row["tags_json"], [])} for row in rows]
+        return [{"id": str(row["id"]), "datasetId": str(row["dataset_id"]), "caseIndex": row["case_index"], "inputText": row["input_text"], "expectedOutput": row["expected_output"], "context": self.db.value(row["context_json"], []), "tags": self.db.value(row["tags_json"], []), "sourceRunId": self.db.value(row["metadata_json"], {}).get("source_run_id")} for row in rows]
+
+    async def case_for_source_run(self, run_id: str) -> dict[str, Any] | None:
+        rows = self.db.connection.execute("SELECT * FROM local_cases ORDER BY id").fetchall()
+        for row in rows:
+            metadata = self.db.value(row["metadata_json"], {})
+            if metadata.get("source_run_id") == run_id:
+                return {"id": str(row["id"]), "datasetId": str(row["dataset_id"]), "inputText": row["input_text"]}
+        return None
 
     async def get_examples(self, dataset_id: str) -> list[DatasetExample]:
         rows = self.db.connection.execute("SELECT * FROM local_cases WHERE dataset_id=? ORDER BY case_index", (int(dataset_id),)).fetchall()

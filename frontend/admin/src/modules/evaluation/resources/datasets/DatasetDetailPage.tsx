@@ -1,11 +1,12 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
-import { useCaseList, useCreateCases, useDeleteCase, useDatasetList } from './hooks';
+import { useCaseList, useCreateCases, useDeleteCase, useDatasetList, useDesktopAgents, useReplayCase } from './hooks';
 import { useAgentList } from '@/modules/agent-management/resources/agents/hooks';
 import { useCreateRunConfig, useTriggerRun } from '../configs/hooks';
 import { RunConfigFormModal, type CreateRunConfigDraft } from '../configs/RunConfigFormModal';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/shared/ui/Toast';
+import { isLocalDesktopMode } from '@/shared/runtime/config';
 
 export function DatasetDetailPage() {
   const { t } = useTranslation(['common', 'evaluation']);
@@ -25,6 +26,10 @@ export function DatasetDetailPage() {
   const [evaluateOpen, setEvaluateOpen] = useState(() => searchParams.get('evaluate') === '1');
   const createCasesMutation = useCreateCases(id);
   const deleteCaseMutation = useDeleteCase();
+  const replayMutation = useReplayCase();
+  const { data: desktopAgents } = useDesktopAgents(isLocalDesktopMode());
+  const [replayCaseId, setReplayCaseId] = useState<string | null>(null);
+  const [replayWorkspace, setReplayWorkspace] = useState('');
   const [input, setInput] = useState('');
   const [expected, setExpected] = useState('');
 
@@ -36,7 +41,7 @@ export function DatasetDetailPage() {
   };
 
   const handleEvaluate = async (draft: CreateRunConfigDraft) => {
-    const config = await createConfigMutation.mutateAsync({ name: draft.name, datasetId: draft.datasetId, targetType: draft.targetType, targetKey: draft.targetKey, metricConfigs: draft.metricConfigs.map((name) => ({ name })), judgeModelKey: draft.judgeModelKey });
+    const config = await createConfigMutation.mutateAsync({ name: draft.name, datasetId: draft.datasetId, targetType: draft.targetType, targetKey: draft.targetKey, metricConfigs: draft.metricConfigs.map((name) => ({ name })), judgeModelKey: draft.judgeModelKey, workingDirectory: draft.workingDirectory || undefined });
     const run = await triggerMutation.mutateAsync(config.id);
     setEvaluateOpen(false);
     navigate(`/evaluation/runs/${run.id}`);
@@ -46,6 +51,15 @@ export function DatasetDetailPage() {
     if (!id) return;
     await deleteCaseMutation.mutateAsync({ datasetId: id, caseId });
     toast(t('toast.deleted'));
+  };
+
+  const replayCase = cases?.find((item) => item.id === replayCaseId);
+  const codex = desktopAgents?.find((agent) => agent.id === 'codex');
+  const handleReplay = async () => {
+    if (!replayCase?.sourceRunId || !replayWorkspace.trim()) return;
+    const result = await replayMutation.mutateAsync({ sourceRunId: replayCase.sourceRunId, agentId: 'codex', workingDirectory: replayWorkspace.trim() });
+    setReplayCaseId(null);
+    navigate(`/runs/${encodeURIComponent(result.runId)}`);
   };
 
   return (
@@ -93,6 +107,7 @@ export function DatasetDetailPage() {
                 <td className="py-2 text-text">{c.inputText.slice(0, 100)}{c.inputText.length > 100 ? '…' : ''}</td>
                 <td className="py-2 text-text-secondary">{(c.expectedOutput || '—').slice(0, 80)}</td>
                 <td className="py-2 text-right">
+                  {isLocalDesktopMode() && c.sourceRunId && <button onClick={() => setReplayCaseId(c.id)} className="mr-3 text-xs text-primary hover:underline">Replay with…</button>}
                   <button
                     onClick={() => handleDeleteCase(c.id)}
                     disabled={deleteCaseMutation.isPending}
@@ -105,6 +120,21 @@ export function DatasetDetailPage() {
             ))}
           </tbody>
         </table>
+      )}
+      {replayCase && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-[2px] border border-border bg-surface p-5 shadow-xl">
+            <h2 className="text-base font-semibold text-text">Replay Case</h2>
+            <p className="mt-2 text-sm text-text-secondary">Run this case with an external agent. Source Run #{replayCase.sourceRunId} remains immutable.</p>
+            <div className="mt-4 rounded-[2px] border border-border-subtle bg-background px-3 py-2 text-sm"><span className="font-medium">Codex</span><span className="ml-2 text-text-muted">{codex?.availability === 'ready' ? 'Ready' : codex?.availability === 'not_installed' ? 'Not installed' : 'Unavailable'}</span></div>
+            <label className="mt-4 block text-sm text-text-secondary">Workspace
+              <input autoFocus value={replayWorkspace} onChange={(event) => setReplayWorkspace(event.target.value)} placeholder="/path/to/workspace" className="mt-1 w-full rounded-[2px] border border-border bg-background px-3 py-2 text-sm" />
+            </label>
+            {codex?.availability !== 'ready' && <p className="mt-2 text-xs text-error">{codex?.message ?? 'Install and authenticate Codex CLI first.'}</p>}
+            {replayMutation.error && <p className="mt-2 text-xs text-error">Replay failed. Check the CLI and workspace.</p>}
+            <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setReplayCaseId(null)} className="border border-border px-3 py-2 text-sm">Cancel</button><button type="button" onClick={handleReplay} disabled={replayMutation.isPending || codex?.availability !== 'ready' || !replayWorkspace.trim()} className="bg-primary px-3 py-2 text-sm text-background disabled:opacity-40">{replayMutation.isPending ? 'Starting…' : 'Replay'}</button></div>
+          </div>
+        </div>
       )}
       <RunConfigFormModal
         open={evaluateOpen}

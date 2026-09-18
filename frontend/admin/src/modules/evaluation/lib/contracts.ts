@@ -17,6 +17,7 @@ export interface CaseData {
   expectedOutput: string | null;
   context: string[];
   tags: string[];
+  sourceRunId?: string | null;
 }
 
 export interface RunConfigData {
@@ -27,6 +28,7 @@ export interface RunConfigData {
   targetKey: string;
   metricConfigs: Record<string, unknown>[];
   judgeModelKey: string;
+  workingDirectory?: string | null;
   createdAtUtc: string;
 }
 

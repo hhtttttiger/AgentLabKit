@@ -10,6 +10,7 @@ class EvaluationConfiguration:
     target_key: str
     metric_configs: tuple[Mapping[str, object], ...] = ()
     judge_model_key: str = ""
+    working_directory: str | None = None
 
 @dataclass(frozen=True)
 class EvaluateDatasetCommand:

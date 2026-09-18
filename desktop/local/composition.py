@@ -35,12 +35,26 @@ from application import (
 )
 from application.execution.contracts import ExecuteAgentCommand
 from application.execution.execute_agent import ExecuteAgent
+from application.execution.replay_external import (
+    ExternalReplayInputUnavailable,
+    ExternalReplaySourceNotFound,
+    ReplayExternalRun,
+    ReplayExternalRunCommand,
+)
+from application.evaluation.compare import (
+    CompareEvaluationRuns,
+    CompareEvaluationRunsCommand,
+    InvalidEvaluationResultSet,
+    EvaluationRunNotFound,
+    EvaluationRunsNotComparable,
+)
 from evaluation.contracts_v2 import EvaluationResult
 from llm_gateway import Capability, ProviderId
 
 from tools.registry import create_desktop_tool_registry
 
 from .store import LocalAgentReader, LocalDatabase, LocalDatasetStore, LocalEvaluationStore, LocalRunStore, parse_dt, utc_iso
+from .external_agent import ExternalAgentRunner, detect_codex
 
 
 class TurnBody(BaseModel):
@@ -70,6 +84,13 @@ class ConfigBody(BaseModel):
     targetKey: str = "local-agent"
     metricConfigs: list[dict[str, Any]] = []
     judgeModelKey: str = ""
+    workingDirectory: str | None = None
+
+
+class ReplayBody(BaseModel):
+    sourceRunId: str
+    agentId: str = "codex"
+    workingDirectory: str
 
 
 class LocalTraceFinalization:
@@ -98,12 +119,18 @@ class LocalEvaluator:
 
 
 class LocalExecutor:
-    def __init__(self, runtime: Any) -> None:
+    def __init__(self, runtime: Any, external_runner: ExternalAgentRunner | None = None) -> None:
         self.runtime = runtime
+        self.external_runner = external_runner
 
     async def execute(self, *, input: str, target: Any, session_id: str | None,
                       user_id: str | None, history: tuple[AgentMessage, ...],
                       metadata: dict[str, object]) -> Any:
+        if target.agent_key == "codex":
+            workspace = metadata.get("working_directory")
+            if self.external_runner is None or not workspace:
+                raise ValueError("working_directory is required for Codex evaluation")
+            return await self.external_runner.execute(input=input, target=target, working_directory=str(workspace), metadata=metadata)
         return await self.runtime.run(AgentTurnRequest(
             session_id=session_id or "local-evaluation",
             user_message=input, history=list(history), user_id=user_id,
@@ -138,6 +165,7 @@ class LocalEvaluationConfigurationReader:
             target_type=row["target_type"], target_key=row["target_key"],
             metric_configs=tuple(self.db.value(row["metric_configs_json"], [])),
             judge_model_key=row["judge_model_key"],
+            working_directory=row["working_directory"],
         )
 
 
@@ -148,6 +176,7 @@ class LocalComposition:
         self.datasets = LocalDatasetStore(self.db)
         self.evaluations = LocalEvaluationStore(self.db)
         self.agents = LocalAgentReader(self.db)
+        self.external_runner = ExternalAgentRunner()
         self._runtime = None
         self._gateway = None
 
@@ -212,6 +241,19 @@ def run_view(record: Any) -> dict[str, Any]:
     }
 
 
+def _evaluation_result_view(result: EvaluationResult | None) -> dict[str, Any] | None:
+    if result is None:
+        return None
+    return {
+        "exampleId": result.example_id,
+        "score": result.score,
+        "passed": result.passed,
+        "message": result.message,
+        "details": dict(result.details),
+        "durationMs": result.duration_ms,
+    }
+
+
 def create_local_app(db_path: Path | None = None) -> FastAPI:
     data_dir = Path(os.environ.get("AGENTLAB_DATA_DIR", _default_data_dir()))
     composition = LocalComposition(db_path or data_dir / "agentlab.db")
@@ -254,7 +296,18 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     @app.get("/api/ai/invoke/agents/options")
     async def agent_options():
         row = composition.db.connection.execute("SELECT * FROM local_agents WHERE enabled=1 ORDER BY display_name").fetchall()
-        return envelope([{"agentKey": r["agent_key"], "displayName": r["display_name"], "publishedVersionNumber": int(r["version"])} for r in row])
+        return envelope([{"agentKey": r["agent_key"], "displayName": r["display_name"], "publishedVersionNumber": int(r["version"]), "id": r["agent_key"], "kind": r["kind"], "availability": r["availability"], "availabilityMessage": r["availability_message"]} for r in row])
+
+    @app.get("/api/desktop/agents")
+    async def desktop_agents():
+        codex = detect_codex()
+        with composition.db._lock, composition.db.connection:
+            composition.db.connection.execute(
+                "INSERT INTO local_agents(agent_key, display_name, version, model, kind, availability, executable, availability_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(agent_key) DO UPDATE SET version=excluded.version, availability=excluded.availability, executable=excluded.executable, availability_message=excluded.availability_message",
+                (codex.agent_id, codex.display_name, codex.version or "unknown", "", codex.kind, codex.availability, codex.executable, codex.message),
+            )
+        rows = composition.db.connection.execute("SELECT * FROM local_agents WHERE enabled=1 ORDER BY kind, display_name").fetchall()
+        return envelope([{"id": r["agent_key"], "displayName": r["display_name"], "kind": r["kind"], "availability": r["availability"], "version": r["version"], "message": r["availability_message"]} for r in rows])
 
     @app.get("/api/llm-catalog/options/models")
     async def model_options():
@@ -263,8 +316,14 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
 
     @app.get("/api/agents")
     async def agents(page: int = 1, pageSize: int = 20):
+        codex = detect_codex()
+        with composition.db._lock, composition.db.connection:
+            composition.db.connection.execute(
+                "INSERT INTO local_agents(agent_key, display_name, version, model, kind, availability, executable, availability_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(agent_key) DO UPDATE SET version=excluded.version, availability=excluded.availability, executable=excluded.executable, availability_message=excluded.availability_message",
+                (codex.agent_id, codex.display_name, codex.version or "unknown", "", codex.kind, codex.availability, codex.executable, codex.message),
+            )
         row = composition.db.connection.execute("SELECT * FROM local_agents WHERE enabled=1").fetchall()
-        items = [{"agentKey": r["agent_key"], "displayName": r["display_name"], "description": "Desktop local agent", "publishedVersionNumber": int(r["version"]), "isEnabled": True} for r in row]
+        items = [{"agentKey": r["agent_key"], "displayName": r["display_name"], "description": "Desktop local agent", "publishedVersionNumber": int(r["version"]) if str(r["version"]).isdigit() else None, "isEnabled": r["availability"] == "ready", "kind": r["kind"], "availability": r["availability"], "availabilityMessage": r["availability_message"]} for r in row]
         return envelope({"items": items, "totalCount": len(items), "page": page, "pageSize": pageSize})
 
     @app.post("/api/ai/invoke/agents/{agent_key}/turn/stream")
@@ -307,6 +366,33 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
             raise HTTPException(404, "Run not found")
         return envelope(run_view(record))
 
+    @app.post("/api/desktop/replay")
+    async def replay_external(body: ReplayBody):
+        if body.agentId != "codex":
+            raise HTTPException(400, "Only Codex is supported by Desktop v0.3")
+        availability = detect_codex()
+        if availability.availability != "ready":
+            raise HTTPException(409, availability.message or "Codex CLI is not installed")
+        source = await composition.runs.get_run(body.sourceRunId)
+        if source is None:
+            raise HTTPException(404, "Source Run not found")
+        source_case = await composition.datasets.case_for_source_run(source.run_id)
+        metadata = {
+            "source_case_id": source_case["id"] if source_case else None,
+            "source_dataset_id": source_case["datasetId"] if source_case else None,
+        }
+        try:
+            result = await ReplayExternalRun(composition.runs, composition.external_runner).execute(
+                ReplayExternalRunCommand(source_run_id=body.sourceRunId, agent_id=body.agentId, working_directory=body.workingDirectory, metadata=metadata),
+            )
+        except ExternalReplaySourceNotFound as error:
+            raise HTTPException(404, "Source Run not found") from error
+        except ExternalReplayInputUnavailable as error:
+            raise HTTPException(422, "Source Run has no replayable input") from error
+        run = result.run
+        await composition.runs.finalize(run)
+        return envelope(run_view(await composition.runs.get_run(run.run_id)))
+
     @app.get("/api/traces/{trace_id}")
     async def get_trace(trace_id: str):
         row = composition.db.connection.execute("SELECT * FROM local_traces WHERE trace_id=?", (trace_id,)).fetchone()
@@ -340,19 +426,20 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     @app.get("/api/eval/run-configs")
     async def list_configs():
         rows = composition.db.connection.execute("SELECT * FROM local_eval_configs ORDER BY id DESC").fetchall()
-        return envelope([{"id": str(r["id"]), "name": r["name"], "datasetId": str(r["dataset_id"]), "targetType": r["target_type"], "targetKey": r["target_key"], "metricConfigs": composition.db.value(r["metric_configs_json"], []), "judgeModelKey": r["judge_model_key"]} for r in rows])
+        return envelope([{"id": str(r["id"]), "name": r["name"], "datasetId": str(r["dataset_id"]), "targetType": r["target_type"], "targetKey": r["target_key"], "metricConfigs": composition.db.value(r["metric_configs_json"], []), "judgeModelKey": r["judge_model_key"], "workingDirectory": r["working_directory"]} for r in rows])
 
     @app.post("/api/eval/run-configs")
     async def create_config(body: ConfigBody):
         with composition.db._lock, composition.db.connection:
-            cur = composition.db.connection.execute("INSERT INTO local_eval_configs(name, dataset_id, target_type, target_key, metric_configs_json, judge_model_key) VALUES (?, ?, ?, ?, ?, ?)", (body.name, int(body.datasetId), body.targetType, body.targetKey, composition.db.json(body.metricConfigs), body.judgeModelKey))
+            cur = composition.db.connection.execute("INSERT INTO local_eval_configs(name, dataset_id, target_type, target_key, metric_configs_json, judge_model_key, working_directory) VALUES (?, ?, ?, ?, ?, ?, ?)", (body.name, int(body.datasetId), body.targetType, body.targetKey, composition.db.json(body.metricConfigs), body.judgeModelKey, body.workingDirectory))
         return envelope({"id": str(cur.lastrowid), **body.model_dump()})
 
     @app.post("/api/eval/run-configs/{config_id}/run")
     async def evaluate_config(config_id: str):
         config = await LocalEvaluationConfigurationReader(composition.db).get_configuration(config_id)
-        use_case = EvaluateDataset(composition.datasets, composition.agents, LocalExecutor(composition.runtime), LocalEvaluator(), composition.evaluations, finalization=LocalTraceFinalization(), configurations=LocalEvaluationConfigurationReader(composition.db))
-        result = await use_case.execute(EvaluateDatasetCommand(dataset_id=config.dataset_id, agent_key=config.target_key, evaluation_config_id=config.config_id))
+        use_case = EvaluateDataset(composition.datasets, composition.agents, LocalExecutor(composition.runtime, composition.external_runner), LocalEvaluator(), composition.evaluations, finalization=LocalTraceFinalization(), configurations=LocalEvaluationConfigurationReader(composition.db))
+        metadata = {"working_directory": config.working_directory} if config.working_directory else {}
+        result = await use_case.execute(EvaluateDatasetCommand(dataset_id=config.dataset_id, agent_key=config.target_key, evaluation_config_id=config.config_id, metadata=metadata))
         run = result.evaluation_run
         return envelope({"id": str(run["id"]), "configId": config_id, "datasetId": config.dataset_id, "status": run.get("status", "completed"), "summary": run.get("summary", {})})
 
@@ -360,6 +447,21 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     async def list_eval_runs(limit: int = 20):
         rows = composition.db.connection.execute("SELECT * FROM local_eval_runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return envelope([{"id": str(r["id"]), "configId": str(r["config_id"]), "datasetId": str(r["dataset_id"]), "agentKey": r["agent_key"], "status": r["status"], "summary": composition.db.value(r["summary_json"], {})} for r in rows])
+
+    @app.post("/api/eval/runs/compare")
+    async def compare_eval_runs(body: dict[str, str]):
+        try:
+            result = await CompareEvaluationRuns(composition.evaluations).execute(CompareEvaluationRunsCommand(left_run_id=body["leftRunId"], right_run_id=body["rightRunId"]))
+        except (KeyError, EvaluationRunNotFound) as error:
+            raise HTTPException(404, "Evaluation run not found") from error
+        except (EvaluationRunsNotComparable, InvalidEvaluationResultSet) as error:
+            raise HTTPException(422, str(error)) from error
+        return envelope({
+            "leftRunId": result.left_run_id, "rightRunId": result.right_run_id, "datasetId": result.dataset_id,
+            "matchedCount": result.matched_count, "leftOnlyCount": result.left_only_count, "rightOnlyCount": result.right_only_count,
+            "examples": [{"exampleId": item.example_id, "classification": item.classification,
+                          "left": _evaluation_result_view(item.left), "right": _evaluation_result_view(item.right)} for item in result.examples],
+        })
 
     @app.get("/api/eval/runs/{run_id}")
     async def eval_run_detail(run_id: str):

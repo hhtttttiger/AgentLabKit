@@ -24,3 +24,17 @@ __all__ = [
     "RunRecord", "RunWriter", "ReplayRunError", "ReplaySourceNotFound",
     "ReplayTargetUnavailable", "ReplayTargetUnsupported", "ReplayInputUnavailable",
 ]
+from .replay_external import (
+    ExternalReplayInputUnavailable,
+    ExternalReplaySourceNotFound,
+    ReplayExternalRun,
+    ReplayExternalRunCommand,
+    ReplayExternalRunError,
+    ReplayExternalRunResult,
+)
+
+__all__ = [
+    "ExternalReplayInputUnavailable", "ExternalReplaySourceNotFound",
+    "ReplayExternalRun", "ReplayExternalRunCommand", "ReplayExternalRunError",
+    "ReplayExternalRunResult",
+]

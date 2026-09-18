@@ -12,6 +12,8 @@ const DATASET_ID = '9223372036854775807'; // > Number.MAX_SAFE_INTEGER
 const {
   useCaseListMock,
   useDatasetListMock,
+  useDesktopAgentsMock,
+  useReplayCaseMock,
   useCreateCasesMock,
   useDeleteCaseMock,
   useAgentListMock,
@@ -21,6 +23,8 @@ const {
 } = vi.hoisted(() => ({
   useCaseListMock: vi.fn(),
   useDatasetListMock: vi.fn(),
+  useDesktopAgentsMock: vi.fn(),
+  useReplayCaseMock: vi.fn(),
   useCreateCasesMock: vi.fn(),
   useDeleteCaseMock: vi.fn(),
   useAgentListMock: vi.fn(),
@@ -35,6 +39,8 @@ vi.mock('./hooks', () => ({
   useCreateCases: useCreateCasesMock,
   useDeleteCase: useDeleteCaseMock,
   useDatasetList: useDatasetListMock,
+  useDesktopAgents: useDesktopAgentsMock,
+  useReplayCase: useReplayCaseMock,
 }));
 
 vi.mock('../configs/hooks', () => ({
@@ -87,6 +93,8 @@ describe('DatasetDetailPage evaluate continuity', () => {
     useToastMock.mockReturnValue({ toast: vi.fn() });
     useCaseListMock.mockReturnValue({ data: [], isLoading: false });
     useDatasetListMock.mockReturnValue({ data: { items: [dataset], total: 1 } });
+    useDesktopAgentsMock.mockReturnValue({ data: [] });
+    useReplayCaseMock.mockReturnValue({ mutateAsync: vi.fn(), isPending: false, error: null });
     useCreateCasesMock.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     useDeleteCaseMock.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
     useAgentListMock.mockReturnValue({ data: { items: [{ agentKey: 'agent.docs', displayName: 'Docs Agent' }] } });

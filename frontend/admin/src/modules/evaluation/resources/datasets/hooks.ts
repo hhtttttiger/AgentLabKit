@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { evaluationQueryKeys } from '../../lib/queryKeys';
-import { listDatasets, createDataset, deleteDataset, listCases, createCases, deleteCase } from './api';
+import { listDatasets, createDataset, deleteDataset, listCases, createCases, deleteCase, listDesktopAgents, replayCase } from './api';
 
 export function useDatasetList() {
   return useQuery({ queryKey: evaluationQueryKeys.datasets(), queryFn: listDatasets });
@@ -38,4 +38,12 @@ export function useDeleteCase() {
       qc.invalidateQueries({ queryKey: evaluationQueryKeys.cases(variables.datasetId) });
     },
   });
+}
+
+export function useDesktopAgents(enabled = true) {
+  return useQuery({ queryKey: ['desktop', 'agents'], queryFn: listDesktopAgents, enabled });
+}
+
+export function useReplayCase() {
+  return useMutation({ mutationFn: replayCase });
 }

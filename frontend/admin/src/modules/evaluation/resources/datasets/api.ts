@@ -24,3 +24,20 @@ export function createCases(datasetId: string, cases: Array<{ inputText: string;
 export function deleteCase(datasetId: string, caseId: string) {
   return apiRequest<void>(`/api/eval/datasets/${datasetId}/cases/${caseId}`, { method: 'DELETE' });
 }
+
+export interface DesktopAgentData {
+  id: string;
+  displayName: string;
+  kind: 'native' | 'external' | string;
+  availability: 'ready' | 'not_installed' | string;
+  version: string | null;
+  message: string | null;
+}
+
+export function listDesktopAgents() {
+  return apiRequest<DesktopAgentData[]>('/api/desktop/agents');
+}
+
+export function replayCase(body: { sourceRunId: string; agentId: string; workingDirectory: string }) {
+  return apiRequest<{ runId: string; status: string; targetKey: string; metadata: Record<string, unknown> }>('/api/desktop/replay', { method: 'POST', body });
+}
