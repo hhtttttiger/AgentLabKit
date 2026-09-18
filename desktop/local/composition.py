@@ -5,7 +5,6 @@ import json
 import os
 import platform
 import sys
-import tomllib
 from hmac import compare_digest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,7 +32,14 @@ from application import (
     EvaluateDataset,
     EvaluateDatasetCommand,
 )
-from application.execution.contracts import ExecuteAgentCommand
+from application.execution.contracts import ExecuteAgentCommand, ReplayRunCommand
+from application.execution.replay_run import (
+    ReplayInputUnavailable,
+    ReplayRun,
+    ReplaySourceNotFound,
+    ReplayTargetUnavailable,
+    ReplayTargetUnsupported,
+)
 from application.execution.execute_agent import ExecuteAgent
 from application.execution.replay_external import (
     ExternalReplayInputUnavailable,
@@ -50,9 +56,10 @@ from application.evaluation.compare import (
     EvaluationRunsNotComparable,
 )
 from evaluation.contracts_v2 import EvaluationResult
-from llm_gateway import Capability, ProviderId
+from llm_gateway import Capability, ProviderId, TextGenerateRequest
 
 from tools.registry import create_desktop_tool_registry
+from desktop.core.config import AppConfig, LLMConfig, apply_environment_overrides
 
 from .store import LocalAgentReader, LocalDatabase, LocalDatasetStore, LocalEvaluationStore, LocalRunStore, parse_dt, utc_iso
 from .external_agent import ExternalAgentRunner, detect_codex
@@ -64,6 +71,12 @@ class TurnBody(BaseModel):
     UserId: str | None = None
     History: list[dict[str, Any]] = []
     WorkingDirectory: str | None = None
+
+
+class ModelTextBody(BaseModel):
+    Message: str
+    SystemPrompt: str | None = None
+    InvocationContext: dict[str, Any] | None = None
 
 
 class DatasetBody(BaseModel):
@@ -91,6 +104,14 @@ class ConfigBody(BaseModel):
 class ReplayBody(BaseModel):
     sourceRunId: str
     agentId: str = "codex"
+
+
+class ModelSettingsBody(BaseModel):
+    provider: str
+    baseUrl: str
+    model: str
+    apiKey: str | None = None
+    clearApiKey: bool = False
 
 
 class LocalTraceFinalization:
@@ -186,6 +207,7 @@ class LocalComposition:
         self._sync_external_agent(self._external_availability)
         self._runtime = None
         self._gateway = None
+        self._active_executions = 0
 
     def _sync_external_agent(self, availability: Any) -> None:
         with self.db._lock, self.db.connection:
@@ -201,26 +223,39 @@ class LocalComposition:
         return self._external_availability
 
     def start_runtime(self) -> None:
-        config = _load_llm_config()
-        provider_id = ProviderId.OPENAI if config["provider"] == "openai" else ProviderId.ANTHROPIC
+        self._gateway, self._runtime = self._build_runtime(AppConfig.load_effective().llm)
+
+    def _build_runtime(self, config: LLMConfig):
+        config.validate()
+        provider_id = ProviderId.OPENAI if config.provider == "openai" else ProviderId.ANTHROPIC
         from llm_gateway.config import GatewaySettings, ModelDefinition, ProviderConfig
         from llm_gateway.bootstrap import create_gateway_service
-        provider = ProviderConfig(api_key=config["api_key"] or "not-set", base_url=config["base_url"] or None)
-        model = ModelDefinition(model_key=config["model"], provider=provider_id, provider_model_name=config["model"], capabilities={Capability.TEXT})
+        provider = ProviderConfig(api_key=config.api_key or "not-set", base_url=config.base_url or None)
+        model = ModelDefinition(model_key=config.model, provider=provider_id, provider_model_name=config.model, capabilities={Capability.TEXT})
         gateway_kwargs: dict[str, Any] = {"catalog": {"enable_static_fallback": True}, "models": [model]}
         gateway_kwargs["openai" if provider_id is ProviderId.OPENAI else "anthropic"] = provider
         settings = GatewaySettings(**gateway_kwargs)
-        self._gateway = create_gateway_service(settings)
+        gateway = create_gateway_service(settings)
         try:
             tools = create_desktop_tool_registry()
         except Exception:
             tools = ToolRegistry()
-        self._runtime = create_agent_runtime(
-            settings=AgentSettings(default_model=config["model"], enable_mcp=False),
-            gateway=self._gateway,
+        runtime = create_agent_runtime(
+            settings=AgentSettings(default_model=config.model, enable_mcp=False),
+            gateway=gateway,
             tool_registry=tools,
             completion_sink=self.runs.finalize,
         )
+        return gateway, runtime
+
+    async def reload_model_config(self) -> None:
+        if self._active_executions:
+            raise RuntimeError("Model settings cannot be changed while an Agent execution is active")
+        gateway, runtime = self._build_runtime(AppConfig.load_effective().llm)
+        old_runtime = self._runtime
+        self._gateway, self._runtime = gateway, runtime
+        if old_runtime is not None:
+            await old_runtime.stop()
 
     @property
     def runtime(self) -> Any:
@@ -228,21 +263,16 @@ class LocalComposition:
             self.start_runtime()
         return self._runtime
 
+    @property
+    def gateway(self) -> Any:
+        if self._gateway is None:
+            self.start_runtime()
+        return self._gateway
+
 
 def _load_llm_config() -> dict[str, str]:
-    """Read the Desktop TOML without requiring the optional writer package."""
-    path = Path.home() / ".config" / "agentlabkit" / "desktop.toml"
-    data: dict[str, Any] = {}
-    if path.exists():
-        with path.open("rb") as handle:
-            data = tomllib.load(handle)
-    llm = data.get("llm", {})
-    return {
-        "provider": str(os.environ.get("AGENTLAB_LLM_PROVIDER", llm.get("provider", "openai"))),
-        "base_url": str(os.environ.get("AGENTLAB_LLM_BASE_URL", llm.get("base_url", "https://api.openai.com/v1"))),
-        "api_key": str(os.environ.get("AGENTLAB_LLM_API_KEY", llm.get("api_key", ""))),
-        "model": str(os.environ.get("AGENTLAB_LLM_MODEL", llm.get("model", "gpt-4o-mini"))),
-    }
+    llm = AppConfig.load_effective().llm
+    return {"provider": llm.provider, "base_url": llm.base_url, "api_key": llm.api_key, "model": llm.model}
 
 
 def envelope(data: Any) -> dict[str, Any]:
@@ -330,6 +360,75 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
         config = _load_llm_config()
         return envelope([{"modelKey": config["model"], "displayName": config["model"], "isEnabled": bool(config["api_key"])}])
 
+    def model_settings_view() -> dict[str, Any]:
+        config = AppConfig.load_effective().llm
+        overrides = AppConfig.environment_overrides()
+        return {
+            "provider": config.provider,
+            "baseUrl": config.base_url,
+            "model": config.model,
+            "apiKeyConfigured": bool(config.api_key),
+            "providerOverridden": "provider" in overrides,
+            "baseUrlOverridden": "base_url" in overrides,
+            "apiKeyOverridden": "api_key" in overrides,
+            "modelOverridden": "model" in overrides,
+            "overrideEnvironment": overrides,
+        }
+
+    @app.get("/api/desktop/settings/models")
+    async def get_model_settings():
+        return envelope(model_settings_view())
+
+    def draft_model_config(body: ModelSettingsBody, *, current: LLMConfig) -> LLMConfig:
+        api_key = current.api_key if body.apiKey is None else body.apiKey
+        if body.clearApiKey:
+            api_key = ""
+        config = LLMConfig(provider=body.provider, base_url=body.baseUrl, api_key=api_key or "", model=body.model)
+        config.validate()
+        return config
+
+    async def test_model_config(config: LLMConfig) -> None:
+        gateway, _runtime = composition._build_runtime(config)
+        try:
+            await gateway.generate_text(TextGenerateRequest(model=config.model, prompt="Reply with OK."))
+        except Exception as error:
+            message = str(error).lower()
+            if "401" in message or "auth" in message or "api key" in message:
+                raise HTTPException(502, "Authentication failed. Check your API key.") from error
+            if "model" in message:
+                raise HTTPException(502, "The configured model could not be used.") from error
+            raise HTTPException(502, "Could not connect to provider endpoint.") from error
+
+    @app.post("/api/desktop/settings/models/test")
+    async def test_model_settings(body: ModelSettingsBody):
+        try:
+            config = draft_model_config(body, current=AppConfig.load_effective().llm)
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+        await test_model_config(config)
+        return envelope({"status": "connected"})
+
+    @app.put("/api/desktop/settings/models")
+    async def update_model_settings(body: ModelSettingsBody):
+        if composition._active_executions:
+            raise HTTPException(409, "Model settings cannot be changed while an Agent execution is active")
+        previous = AppConfig.load()
+        try:
+            config = draft_model_config(body, current=previous.llm)
+            candidate_gateway, candidate_runtime = composition._build_runtime(apply_environment_overrides(config))
+            config.validate()
+            AppConfig(llm=config).save()
+            old_runtime = composition._runtime
+            composition._gateway, composition._runtime = candidate_gateway, candidate_runtime
+            if old_runtime is not None:
+                await old_runtime.stop()
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+        except Exception as error:
+            previous.save()
+            raise HTTPException(500, "Could not apply model settings. Previous configuration is still active.") from error
+        return envelope(model_settings_view())
+
     @app.get("/api/agents")
     async def agents(page: int = 1, pageSize: int = 20, refresh: bool = False):
         if refresh:
@@ -340,6 +439,10 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
 
     @app.post("/api/ai/invoke/agents/{agent_key}/turn/stream")
     async def stream_turn(agent_key: str, body: TurnBody):
+        if composition._active_executions:
+            # Multiple sessions may still run; this counter only protects the
+            # settings reload boundary from swapping a live runtime.
+            pass
         target = await composition.agents.resolve(agent_key)
         history = tuple(AgentMessage(role=AgentRole(item.get("Role", "user").lower()), content=item.get("Content", ""), name=item.get("Name"), metadata=item.get("Metadata", {})) for item in body.History)
         metadata = {}
@@ -352,18 +455,45 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
         request = AgentTurnRequest(session_id=body.SessionId or "desktop", user_message=body.Message, history=list(history), user_id=body.UserId or "local", agent_key=target.agent_key, agent_version=int(target.agent_version or 1), metadata=metadata)
 
         async def events():
-            async for event in composition.runtime.stream(request):
-                payload = {
-                    "type": {"turn_context": "context", "reply_delta": "reply_delta", "reply_completed": "completed", "tool_call": "tool_call", "tool_result": "tool_result", "delegation_delta": "delegation_delta", "handoff": "handoff", "error": "error"}.get(event.event_type, event.event_type),
-                    "runId": event.run_id, "sessionId": event.session_id, "traceId": event.trace_id,
-                    "agentKey": event.agent_key, "agentVersion": event.agent_version,
-                    "delta": event.delta, "replyText": event.reply_text,
-                    "toolName": event.tool_name, "toolEvent": event.tool_event.model_dump() if event.tool_event else None,
-                    "errorCode": event.error.code if event.error else None,
-                    "errorMessage": event.error.message if event.error else None,
-                }
-                yield f"data: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
-            yield "data: [DONE]\n\n"
+            composition._active_executions += 1
+            try:
+                async for event in composition.runtime.stream(request):
+                    payload = {
+                        "type": {"turn_context": "context", "reply_delta": "reply_delta", "reply_completed": "completed", "tool_call": "tool_call", "tool_result": "tool_result", "delegation_delta": "delegation_delta", "handoff": "handoff", "error": "error"}.get(event.event_type, event.event_type),
+                        "runId": event.run_id, "sessionId": event.session_id, "traceId": event.trace_id,
+                        "agentKey": event.agent_key, "agentVersion": event.agent_version,
+                        "delta": event.delta, "replyText": event.reply_text,
+                        "toolName": event.tool_name, "toolEvent": event.tool_event.model_dump() if event.tool_event else None,
+                        "errorCode": event.error.code if event.error else None,
+                        "errorMessage": event.error.message if event.error else None,
+                    }
+                    yield f"data: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
+                yield "data: [DONE]\n\n"
+            finally:
+                composition._active_executions = max(0, composition._active_executions - 1)
+        return StreamingResponse(events(), media_type="text/event-stream")
+
+    @app.post("/api/ai/invoke/{model_id}/text/stream")
+    async def stream_model(model_id: str, body: ModelTextBody):
+        config = AppConfig.load_effective().llm
+        if model_id != config.model:
+            raise HTTPException(404, "Model not found")
+        session_id = str((body.InvocationContext or {}).get("SessionId") or "desktop-model")
+
+        async def events():
+            composition._active_executions += 1
+            try:
+                prompt = body.Message
+                if body.SystemPrompt:
+                    prompt = f"System instructions:\n{body.SystemPrompt}\n\nUser message:\n{body.Message}"
+                async for event in composition.gateway.generate_text_stream(TextGenerateRequest(model=model_id, prompt=prompt)):
+                    if event.delta or event.text:
+                        yield f"data: {json.dumps({'content': event.delta or event.text or '', 'done': False}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'content': '', 'done': True}, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+            finally:
+                composition._active_executions = max(0, composition._active_executions - 1)
+
         return StreamingResponse(events(), media_type="text/event-stream")
 
     @app.get("/api/runs")
@@ -377,6 +507,29 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
         if record is None:
             raise HTTPException(404, "Run not found")
         return envelope(run_view(record))
+
+    @app.post("/api/runs/{run_id}/replay")
+    async def replay_run(run_id: str):
+        if composition._active_executions:
+            raise HTTPException(409, "Replay cannot start while an Agent execution is active")
+        try:
+            use_case = ReplayRun(
+                composition.runs,
+                LocalExecutor(composition.runtime, composition.external_runner),
+                composition.agents,
+            )
+            result = await use_case.execute(ReplayRunCommand(source_run_id=run_id, user_id="local"))
+        except ReplaySourceNotFound as error:
+            raise HTTPException(404, "Source Run not found") from error
+        except ReplayTargetUnavailable as error:
+            raise HTTPException(409, str(error)) from error
+        except ReplayTargetUnsupported as error:
+            raise HTTPException(422, str(error)) from error
+        except ReplayInputUnavailable as error:
+            raise HTTPException(422, "Source Run has no replayable input") from error
+        await composition.runs.finalize(result.run)
+        stored = await composition.runs.get_run(result.run.run_id)
+        return envelope({"sourceRunId": result.source_run_id, "run": run_view(stored or result.run)})
 
     @app.post("/api/desktop/replay")
     async def replay_external(body: ReplayBody):

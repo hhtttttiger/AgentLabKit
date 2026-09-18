@@ -1,4 +1,4 @@
-import { BookOpen, ClipboardList, Database, FlaskConical, Home, Timer, type LucideIcon } from 'lucide-react';
+import { BookOpen, ClipboardList, Database, FlaskConical, Home, Settings, Timer, type LucideIcon } from 'lucide-react';
 import { agentManagementRoutes } from '@/modules/agent-management/routes';
 import { modelManagementRoutes } from '@/modules/model-management/routes';
 import { modelMonitoringRoutes } from '@/modules/model-monitoring/routes';
@@ -14,8 +14,9 @@ import { overviewRoutes } from '@/modules/overview/routes';
 import { runsRoutes } from '@/modules/runs/routes';
 import { capabilitiesRoutes } from '@/modules/capabilities/routes';
 import { sessionsRoutes } from '@/modules/sessions/routes';
+import { settingsRoutes } from '@/modules/settings/routes';
 
-export type ModuleKey = 'home' | 'sessions' | 'runs' | 'datasets' | 'evaluation' | 'knowledge-base';
+export type ModuleKey = 'home' | 'sessions' | 'runs' | 'datasets' | 'evaluation' | 'knowledge-base' | 'settings';
 
 export type ModuleGroup = 'build' | 'run' | 'improve' | 'platform';
 
@@ -34,6 +35,7 @@ export const appModules: ModuleDefinition[] = [
   { key: 'datasets', icon: Database, basePath: '/evaluation/datasets', group: 'improve', order: 1 },
   { key: 'evaluation', icon: FlaskConical, basePath: '/evaluation', group: 'improve', order: 2 },
   { key: 'knowledge-base', icon: BookOpen, basePath: '/knowledge', group: 'platform', order: 1 },
+  { key: 'settings', icon: Settings, basePath: '/settings', group: 'platform', order: 2 },
 ];
 
 export const moduleRoutes = [
@@ -45,6 +47,7 @@ export const moduleRoutes = [
   ...runsRoutes,
   ...sessionsRoutes,
   ...capabilitiesRoutes,
+  ...settingsRoutes,
 ];
 
 // Group labels for sidebar rendering

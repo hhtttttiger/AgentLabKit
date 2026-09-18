@@ -1,0 +1,13 @@
+.settings-input {
+  width: 100%;
+  border: 1px solid rgb(var(--color-border-default));
+  background: rgb(var(--color-surface-default));
+  color: rgb(var(--color-text-default));
+  border-radius: 2px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+}
+.settings-input:focus { border-color: rgb(var(--color-primary)); box-shadow: 0 0 0 2px rgb(var(--color-primary) / 0.12); }
+.settings-input:disabled { background: rgb(var(--color-surface-subtle)); color: rgb(var(--color-text-muted)); cursor: not-allowed; }
+.desktop-primary-action:disabled, .desktop-secondary-action:disabled { opacity: 0.55; cursor: not-allowed; }
