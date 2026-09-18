@@ -6,6 +6,7 @@ import os
 import platform
 import sys
 import tomllib
+from hmac import compare_digest
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -215,7 +216,25 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     data_dir = Path(os.environ.get("AGENTLAB_DATA_DIR", _default_data_dir()))
     composition = LocalComposition(db_path or data_dir / "agentlab.db")
     app = FastAPI(title="AgentLab Desktop Local Mode", version="0.1")
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["tauri://localhost", "http://tauri.localhost", "http://127.0.0.1:5173", "http://localhost:5173"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "X-AgentLab-Local-Token"],
+    )
+    local_token = os.environ.get("AGENTLAB_LOCAL_TOKEN", "")
+
+    @app.middleware("http")
+    async def require_local_token(request: Request, call_next):
+        # Browser CORS preflight cannot include the private request header;
+        # the actual API request is still checked below.
+        if request.url.path.startswith("/api/") and request.method != "OPTIONS":
+            supplied = request.headers.get("X-AgentLab-Local-Token", "")
+            if not local_token or not compare_digest(supplied, local_token):
+                from fastapi.responses import JSONResponse
+                return JSONResponse({"success": False, "msg": "Local API token required", "data": None}, status_code=401)
+        return await call_next(request)
+
     app.state.local = composition
 
     @app.on_event("startup")
@@ -252,7 +271,13 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     async def stream_turn(agent_key: str, body: TurnBody):
         target = await composition.agents.resolve(agent_key)
         history = tuple(AgentMessage(role=AgentRole(item.get("Role", "user").lower()), content=item.get("Content", ""), name=item.get("Name"), metadata=item.get("Metadata", {})) for item in body.History)
-        metadata = {"working_directory": body.WorkingDirectory} if body.WorkingDirectory else {}
+        metadata = {}
+        if body.WorkingDirectory:
+            from tools.filesystem import canonicalize_workspace
+            try:
+                metadata["working_directory"] = str(canonicalize_workspace(body.WorkingDirectory))
+            except ValueError as error:
+                raise HTTPException(status_code=400, detail=str(error)) from error
         request = AgentTurnRequest(session_id=body.SessionId or "desktop", user_message=body.Message, history=list(history), user_id=body.UserId or "local", agent_key=target.agent_key, agent_version=int(target.agent_version or 1), metadata=metadata)
 
         async def events():

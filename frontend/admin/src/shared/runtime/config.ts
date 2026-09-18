@@ -5,6 +5,7 @@ export type DesktopMode = 'local' | 'server';
 export type RuntimeConfig = {
   mode: DesktopMode;
   apiBaseUrl: string;
+  localApiToken?: string;
 };
 
 const browserConfig: RuntimeConfig = {
@@ -34,4 +35,11 @@ export function getRuntimeConfig(): RuntimeConfig {
 
 export function isLocalDesktopMode(): boolean {
   return import.meta.env.VITE_DESKTOP_MODE === 'true' && runtimeConfig.mode === 'local';
+}
+
+export function getLocalApiHeaders(): Record<string, string> {
+  if (!isLocalDesktopMode() || !runtimeConfig.localApiToken) {
+    return {};
+  }
+  return { 'X-AgentLab-Local-Token': runtimeConfig.localApiToken };
 }

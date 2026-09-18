@@ -5,7 +5,7 @@
  * 三类 SSE 事件。自建精简 SSE reader（不跨模块依赖 ai-chat 的私有 streamSse）。
  */
 
-import { buildApiUrl, handleUnauthorized } from '@/shared/api/client';
+import { buildApiUrl, getApiHeaders, handleUnauthorized } from '@/shared/api/client';
 import { ApiError } from '@/shared/api/errors';
 import i18n from '@/shared/i18n';
 import { getStoredToken } from '@/shared/auth/storage';
@@ -35,10 +35,10 @@ export function streamModelTest(
 
   fetch(buildApiUrl(`/api/ai/invoke/${modelId}/text/test-stream`), {
     method: 'POST',
-    headers: {
+    headers: getApiHeaders({
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
-    },
+    }),
     body: JSON.stringify({
       Message: request.message,
       SystemPrompt: request.systemPrompt,
@@ -172,10 +172,10 @@ export async function testEmbedding(
 
   const response = await fetch(buildApiUrl(`/api/ai/invoke/${modelId}/embedding/test`), {
     method: 'POST',
-    headers: {
+    headers: getApiHeaders({
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
-    },
+    }),
     body: JSON.stringify({
       Text: request.text,
       Dimensions: request.dimensions,

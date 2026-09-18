@@ -3,7 +3,7 @@ import { ApiError } from './errors';
 import type { ApiEnvelope, RequestOptions } from './contracts';
 import { clearStoredToken, getStoredToken } from '@/shared/auth/storage';
 import { DEV_MODE } from '@/shared/auth/AuthProvider';
-import { getRuntimeConfig, isLocalDesktopMode } from '@/shared/runtime/config';
+import { getLocalApiHeaders, getRuntimeConfig, isLocalDesktopMode } from '@/shared/runtime/config';
 
 function getApiBaseUrl() {
   const configuredApiBaseUrl = getRuntimeConfig().apiBaseUrl;
@@ -25,6 +25,10 @@ export function buildApiUrl(path: string, query?: RequestOptions['query']) {
   }
 
   return apiBaseUrl ? url.toString() : `${url.pathname}${url.search}`;
+}
+
+export function getApiHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return { ...getLocalApiHeaders(), ...extra };
 }
 
 async function parseError(response: Response) {
@@ -78,7 +82,7 @@ export function handleUnauthorized(response: Response): boolean {
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = getApiHeaders();
 
   if (!options.formBody) {
     headers['Content-Type'] = 'application/json';

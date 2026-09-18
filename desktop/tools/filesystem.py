@@ -1,6 +1,7 @@
 """文件系统工具 — 读文件、列目录、搜索文件内容。
 
-所有操作限制在用户 home 目录内（安全边界）。
+Desktop Local Mode 将 selected workspace 作为一次执行的文件系统边界。
+这会减少意外的路径逃逸，但不是 OS security sandbox。
 """
 from __future__ import annotations
 
@@ -10,26 +11,41 @@ from typing import Any
 
 from agent_runtime import ToolSpec, ToolHandler, ToolResult, ToolExecutionContext
 
-_HOME = Path.home()
-
 # ── 辅助 ───────────────────────────────────────────────────────
 
-def _safe_path(path_str: str, working_directory: str | None = None) -> Path:
-    """解析路径，确保在 home 目录内。"""
+def canonicalize_workspace(working_directory: str | None) -> Path:
+    """Resolve the selected workspace once before tools consume it."""
+    if not working_directory:
+        raise ValueError("未选择 workspace，无法执行文件操作")
+    workspace = Path(working_directory).expanduser().resolve()
+    if not workspace.exists() or not workspace.is_dir():
+        raise ValueError(f"workspace 不存在或不是目录: {workspace}")
+    return workspace
+
+
+def resolve_workspace_path(path_str: str, workspace_root: Path | str) -> Path:
+    """Resolve a requested path and reject symlink/path escapes."""
+    root = Path(workspace_root).expanduser().resolve()
     raw = Path(path_str).expanduser()
-    if not raw.is_absolute() and working_directory:
-        raw = Path(working_directory).expanduser() / raw
-    p = raw.resolve()
-    if not str(p).startswith(str(_HOME)):
-        raise ValueError(f"路径 {p} 超出允许范围（仅限 {_HOME} 内）")
-    return p
+    candidate = raw if raw.is_absolute() else root / raw
+    resolved = candidate.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as error:
+        raise ValueError(f"路径 {resolved} 超出 workspace 范围（workspace: {root}）") from error
+    return resolved
+
+
+def _safe_path(path_str: str, working_directory: str | None = None) -> Path:
+    """Resolve a path inside the canonical workspace, including symlink checks."""
+    return resolve_workspace_path(path_str, canonicalize_workspace(working_directory))
 
 
 # ── read_file ──────────────────────────────────────────────────
 
 READ_FILE_SPEC = ToolSpec(
     name="read_file",
-    description="读取文件的文本内容。限制在用户 home 目录内。",
+    description="读取 workspace 内文件的文本内容。",
     parameters_schema={
         "type": "object",
         "properties": {
@@ -81,7 +97,7 @@ class ReadFileTool:
 
 LIST_DIR_SPEC = ToolSpec(
     name="list_dir",
-    description="列出目录下的文件和子目录。限制在用户 home 目录内。",
+    description="列出 workspace 内目录下的文件和子目录。",
     parameters_schema={
         "type": "object",
         "properties": {
@@ -133,7 +149,7 @@ class ListDirTool:
 
 SEARCH_FILES_SPEC = ToolSpec(
     name="search_files",
-    description="在目录中搜索包含指定文本的文件（类似 grep）。限制在用户 home 目录内。",
+    description="在 workspace 内搜索包含指定文本的文件（类似 grep）。",
     parameters_schema={
         "type": "object",
         "properties": {
@@ -176,6 +192,10 @@ class SearchFilesTool:
                 dirs[:] = [d for d in dirs if not d.startswith(".") and d not in {"node_modules", "__pycache__", ".git", "venv"}]
                 for fname in files:
                     fpath = Path(root) / fname
+                    try:
+                        fpath = resolve_workspace_path(str(fpath), p)
+                    except ValueError:
+                        continue
                     if fpath.stat().st_size > 1_000_000:  # 跳过 >1MB 文件
                         continue
                     try:

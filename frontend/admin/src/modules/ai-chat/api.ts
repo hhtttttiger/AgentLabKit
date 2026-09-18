@@ -2,7 +2,7 @@
  * AI Chat Module - API Layer
  */
 
-import { apiRequest, buildApiUrl, handleUnauthorized } from '@/shared/api/client';
+import { apiRequest, buildApiUrl, getApiHeaders, handleUnauthorized } from '@/shared/api/client';
 import { ApiError } from '@/shared/api/errors';
 import i18n from '@/shared/i18n';
 import { getStoredToken } from '@/shared/auth/storage';
@@ -66,10 +66,10 @@ export async function sendChatMessage(
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
+    headers: getApiHeaders({
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
-    },
+    }),
     body: JSON.stringify({
       Message: request.message,
       SystemPrompt: request.systemPrompt,
@@ -152,10 +152,10 @@ function streamSse(
 
   fetch(url, {
     method: 'POST',
-    headers: {
+    headers: getApiHeaders({
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
-    },
+    }),
     body: JSON.stringify(body),
     signal: controller.signal,
   })

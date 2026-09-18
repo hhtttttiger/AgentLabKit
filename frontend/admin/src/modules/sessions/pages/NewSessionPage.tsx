@@ -47,7 +47,7 @@ export function NewSessionPage() {
     if (event.type === 'tool_result') addTimeline({ id: `${Date.now()}-${event.toolName}-result`, title: 'Tool completed', detail: event.toolName ?? 'Unknown tool', tone: 'done' });
     if (event.type === 'reply_delta' && event.delta) setOutput((current) => current + event.delta);
     if (event.type === 'completed') {
-      setOutput(event.replyText ?? output);
+      setOutput((current) => event.replyText ?? current);
       setTimeline((current) => [...current, { id: `${Date.now()}-complete`, title: 'Completed', detail: 'Run finished successfully', tone: 'done' }]);
     }
     if (event.type === 'error') {

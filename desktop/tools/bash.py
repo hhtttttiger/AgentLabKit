@@ -6,14 +6,17 @@ from typing import Any
 
 from agent_runtime import ToolSpec, ToolHandler, ToolResult, ToolExecutionContext
 
+from .filesystem import canonicalize_workspace, resolve_workspace_path
+
 BASH_SPEC = ToolSpec(
     name="bash",
-    description="在用户 home 目录下执行 shell 命令，返回 stdout 和 stderr。谨慎使用。",
+    description="在 selected workspace 内执行 shell 命令，返回 stdout 和 stderr。谨慎使用。",
     parameters_schema={
         "type": "object",
         "properties": {
             "command": {"type": "string", "description": "要执行的 shell 命令。"},
             "timeout": {"type": "integer", "description": "超时秒数，默认 30。"},
+            "working_directory": {"type": "string", "description": "workspace 内的相对 cwd，默认 workspace 根目录。"},
         },
         "required": ["command"],
         "additionalProperties": False,
@@ -40,11 +43,18 @@ class BashTool:
             return ToolResult(output="命令不能为空", status="error", error_message="Empty command")
 
         try:
+            workspace_root = canonicalize_workspace(context.metadata.get("working_directory"))
+            requested_cwd = arguments.get("working_directory", ".")
+            cwd = resolve_workspace_path(requested_cwd, workspace_root)
+        except ValueError as error:
+            return ToolResult(output=str(error), status="error", error_message=str(error))
+
+        try:
             proc = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd=arguments.get("working_directory") or context.metadata.get("working_directory") or str(__import__("pathlib").Path.home()),
+                cwd=str(cwd),
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
 

@@ -9,6 +9,24 @@ Local mode is the default. Tauri starts `desktop.local.server`, which uses the
 user's SQLite database and in-process queue/event primitives. It does not need
 PostgreSQL, Redis, Docker, or an external worker.
 
+Tauri owns the Local API lifecycle. At startup it allocates an available
+`127.0.0.1` port, creates an ephemeral process token, starts Python with
+`AGENTLAB_LOCAL_PORT` and `AGENTLAB_LOCAL_TOKEN`, then polls `/health` with a
+bounded timeout before publishing the frontend runtime configuration. The
+frontend sends `X-AgentLab-Local-Token` on every `/api/*` request. `/health` is
+intentionally available without the token for readiness checks.
+
+Each Local Mode execution with a selected workspace canonicalizes that
+directory once and passes it to the Runtime as `metadata.working_directory`.
+Desktop file tools and shell cwd validation resolve paths before checking
+containment, so `..`, absolute outside paths, and symlink escapes are rejected.
+Workspace containment reduces accidental filesystem escape; it is not an OS
+security sandbox and does not restrict command contents.
+
+The Local Mode lifecycle is deliberately bounded to `start → ready → use →
+shutdown`. It does not provide auto-restart, a watchdog, a daemon, persistent
+authentication, or a permission framework. Server mode remains unchanged.
+
 ## Server mode
 
 Server mode does not start the embedded Python process. The client sends API
