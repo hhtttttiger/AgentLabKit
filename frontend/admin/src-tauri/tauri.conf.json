@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AgentLab",
+  "version": "0.1.0",
+  "identifier": "com.agentlabkit.desktop",
+  "build": {
+    "beforeDevCommand": "VITE_DEV_MODE=true npm run dev -- --host 127.0.0.1",
+    "beforeBuildCommand": "VITE_DEV_MODE=true VITE_DESKTOP_MODE=true npm run build",
+    "devUrl": "http://127.0.0.1:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "AgentLab",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true
+      }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": { "active": false, "icon": [] }
+}
