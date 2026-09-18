@@ -15,17 +15,21 @@ AgentLab 未来可能将真实 Agent 工作中、经过 Replay / Evaluation 验�
 潜在生命周期：
 
 ```text
-Session / Run
+Enterprise Work
+     ↓
+    Run
      ↓
    Case
      ↓
-  Dataset
+ Dataset
      ↓
 Replay / Evaluation
      ↓
-   Skill
+Validated Experience
      ↓
-Future Execution
+   Skill?
+     ↓
+Enterprise Agent
      ↓
    New Run
      ↓
@@ -131,14 +135,18 @@ Skill
 
 ### Cross-Agent 的潜在意义
 
-AgentLab 已经开始支持不同的 Agent executor。未来，Evidence-backed Skills 可能与 Cross-Agent Replay 形成关系：
+AgentLab 已经支持在适用的边界内让不同的 Agent executor 消费工程资产。
+Cross-Agent Replay 仍是当前有效的 engineering interoperability 能力；未来
+Evidence-backed Skills 可能与它形成关系：
 
 - 同一个 Case 可以在不同 Agent executor、Model 或 Config 上 Replay；
 - Evaluation 可以帮助判断一条经验是特定于某个 Agent，还是能够跨 executor 迁移；
 - 经过多个执行环境验证的经验，未来可能更适合作为可复用 Skill；
 - 新的 Agent executor 也可能通过应用已有 Skill 产生新的 Run 和 evidence。
 
-这仍然只是潜在方向，不意味着 Skill 必须跨 Agent，也不意味着当前 Replay / Evaluation contract 需要改变。
+这仍然只是潜在方向，不意味着 Skill 必须跨 Agent，也不意味着当前 Replay /
+Evaluation contract 需要改变。它同样不意味着 AgentLab 需要托管每个外部
+Agent 的 interactive session UX。
 
 ### 当前边界与非目标
 

@@ -3,8 +3,10 @@
 Date: 2026-09-18
 
 This audit compares the locally available command-line agents for the first
-Desktop cross-agent replay adapter. It intentionally does not rank agents or
-define a provider abstraction.
+Desktop External Agent integration. It intentionally does not rank agents or
+define a provider abstraction. The current contract is Level 2 Capture /
+Import and Replay / Evaluation interoperability; it is not an interactive
+External Agent hosting contract.
 
 ## Codex CLI
 
@@ -53,11 +55,18 @@ The `opencode` executable was not installed on the audit machine, so no local
 CLI contract was available to validate. AgentLab will not install it or infer
 its runtime behavior.
 
-## v0.3 selection
+## v0.3 selection and boundary
 
-Codex is the single external agent for v0.3. The choice is based on the least
+Codex is the single external executor for v0.3 Replay / Evaluation. The choice
+is based on the least
 engineering resistance in this environment: it is installed, has an explicit
 non-interactive command, accepts a canonical working directory, and exposes a
 JSONL stream. The first adapter records output, status, exit code, and raw
 external event summaries only. It leaves unavailable token/cost/model facts
 unset rather than estimating them.
+
+Codex does not appear as an interactive New Session executor. AgentLab Desktop
+does not reproduce Codex conversation/session, resume, approval, permission,
+sandbox, or provider-specific model UX. Cross-Agent Replay remains a supported
+engineering capability because Cases, Datasets, Runs, Evaluation, and Compare
+assets must remain useful when an execution component changes.

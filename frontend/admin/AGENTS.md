@@ -20,6 +20,10 @@ Journey。完整原则见
 - Retrieval UI consumes Observability Trace facts; do not infer retrieval from `knowledge_search` tool names or reconstruct provenance from current Knowledge resources.
 - Preserve distinct states: no Trace, no Retrieval, zero retrieval results, retrieval failure, and unavailable fields.
 - 消费 public SSE contract（`type`、`data`、`runId`、terminal events、`[DONE]`）；不要暴露或依赖内部 RuntimeEvent taxonomy。
+- Desktop interactive selectors, including New Session, may list only executors
+  that implement the corresponding interactive streaming contract. External
+  Agent integrations belong in supported Replay, Evaluation, or capture/import
+  surfaces; never route an external option into the Native streaming endpoint.
 - 保持 `app / shared / modules` layout。通过 `src/app/modules.tsx` 注册 modules；将 resource-specific API、hooks、types 和 UI 放在一起。
 
 ## 关键路径
