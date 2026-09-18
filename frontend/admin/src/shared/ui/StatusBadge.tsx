@@ -4,6 +4,8 @@
  * Maps common status strings to appropriate visual tones.
  */
 
+import { useTranslation } from 'react-i18next';
+
 type StatusTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
 interface StatusBadgeProps {
@@ -31,8 +33,9 @@ const STATUS_MAP: Record<string, { tone: StatusTone; defaultLabel: string }> = {
 };
 
 export function StatusBadge({ status, label, size = 'sm' }: StatusBadgeProps) {
+  const { t } = useTranslation('runs');
   const config = STATUS_MAP[status] ?? { tone: 'neutral' as StatusTone, defaultLabel: status };
-  const displayLabel = label ?? config.defaultLabel;
+  const displayLabel = label ?? t(`status.${status}`, { defaultValue: config.defaultLabel });
 
   return (
     <span

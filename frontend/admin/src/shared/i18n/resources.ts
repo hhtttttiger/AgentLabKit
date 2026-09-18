@@ -27,6 +27,7 @@ import { userManagement as zhCNUser } from './locales/zh-CN/userManagement';
 import { overview as zhCNOverview } from './locales/zh-CN/overview';
 import { runs as zhCNRuns } from './locales/zh-CN/runs';
 import { capabilities as zhCNCapabilities } from './locales/zh-CN/capabilities';
+import { desktop as zhCNDesktop } from './locales/zh-CN/desktop';
 
 import { common as enUSCommon } from './locales/en-US/common';
 import { aiChat as enUSAiChat } from './locales/en-US/aiChat';
@@ -43,6 +44,7 @@ import { userManagement as enUSUser } from './locales/en-US/userManagement';
 import { overview as enUSOverview } from './locales/en-US/overview';
 import { runs as enUSRuns } from './locales/en-US/runs';
 import { capabilities as enUSCapabilities } from './locales/en-US/capabilities';
+import { desktop as enUSDesktop } from './locales/en-US/desktop';
 
 export const ALL_NAMESPACES = [
   'common',
@@ -60,6 +62,7 @@ export const ALL_NAMESPACES = [
   'overview',
   'runs',
   'capabilities',
+  'desktop',
 ] as const;
 
 export type Namespace = (typeof ALL_NAMESPACES)[number];
@@ -81,6 +84,7 @@ export const adminI18nResources = {
     overview: zhCNOverview,
     runs: zhCNRuns,
     capabilities: zhCNCapabilities,
+    desktop: zhCNDesktop,
   },
   'en-US': {
     common: enUSCommon,
@@ -98,5 +102,6 @@ export const adminI18nResources = {
     overview: enUSOverview,
     runs: enUSRuns,
     capabilities: enUSCapabilities,
+    desktop: enUSDesktop,
   },
 } as const;

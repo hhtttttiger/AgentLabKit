@@ -49,6 +49,7 @@ export const runs = {
     openPlayground: '打开 Playground',
   },
   status: {
+    completed: '已完成',
     success: '成功',
     failed: '失败',
     running: '运行中',

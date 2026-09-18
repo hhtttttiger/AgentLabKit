@@ -2,8 +2,9 @@ import { NavLink } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { UserMenu } from '@/shared/ui/UserMenu';
-import { getModulesByGroup, moduleGroupLabels, type ModuleGroup } from '../modules';
+import { getModulesByGroup, type ModuleGroup } from '../modules';
 import type { ModuleKey } from '../modules';
+import { isLocalDesktopMode } from '@/shared/runtime/config';
 import './AppSidebar.css';
 
 interface AppSidebarProps {
@@ -15,16 +16,11 @@ interface AppSidebarProps {
 }
 
 const NAV_LABELS: Record<ModuleKey, string> = {
-  home: 'Home',
-  sessions: 'Sessions',
-  runs: 'Runs',
-  datasets: 'Datasets',
-  evaluation: 'Evaluations',
-  'knowledge-base': 'Knowledge',
+  home: 'desktop:nav.home', sessions: 'desktop:nav.sessions', runs: 'desktop:nav.runs', datasets: 'desktop:nav.datasets', evaluation: 'desktop:nav.evaluations', 'knowledge-base': 'desktop:nav.knowledge', settings: 'desktop:nav.settings',
 } as const;
 
 export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, displayName, onLogout }: AppSidebarProps) {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'desktop']);
   const groupedModules = getModulesByGroup();
 
   // Render groups in defined order
@@ -36,7 +32,7 @@ export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, disp
         <div className="admin-sidebar__brand-mark">A</div>
         <div className="admin-sidebar__brand-text">
           <div className="admin-sidebar__brand-title">AgentLab</div>
-          <div className="admin-sidebar__brand-subtitle">Engineering workbench</div>
+          <div className="admin-sidebar__brand-subtitle">{t('desktop:brandSubtitle')}</div>
         </div>
       </div>
 
@@ -51,10 +47,10 @@ export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, disp
 
           return (
             <div key={group} className="admin-sidebar__group">
-              {!collapsed && <div className="admin-sidebar__group-label">{moduleGroupLabels[group]}</div>}
-              {modules.map((module) => {
+              {!collapsed && <div className="admin-sidebar__group-label">{t(`desktop:groups.${group === 'build' ? 'workspace' : group === 'run' ? 'work' : group === 'improve' ? 'engineering' : 'context'}`)}</div>}
+              {modules.filter((module) => module.key !== 'settings' || isLocalDesktopMode()).map((module) => {
                 const Icon = module.icon;
-                const label = NAV_LABELS[module.key];
+                const label = t(NAV_LABELS[module.key]);
                 return (
                   <NavLink
                     key={module.key}
