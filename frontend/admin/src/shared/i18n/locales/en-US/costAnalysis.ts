@@ -1,5 +1,7 @@
 // Auto-generated — do not edit manually
 export const costAnalysis = {
+  empty: 'No data',
+  trend: { insufficientData: 'At least two time points are required' },
   label: 'Cost analysis',
   summary: 'Analyze model invocation costs, budgets, and alerts.',
   eyebrow: 'Cost analysis',

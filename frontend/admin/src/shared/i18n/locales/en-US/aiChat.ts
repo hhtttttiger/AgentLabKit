@@ -42,6 +42,7 @@ export const aiChat = {
     newConversation: 'Start a new conversation',
     startTyping: 'Type a message below to start the conversation',
     copy: 'Copy',
+    copied: 'Copied',
     regenerate: 'Regenerate'
   },
   sessionList: {
@@ -87,6 +88,7 @@ export const aiChat = {
     noRunId: 'No run ID available. Send a message to create a run.',
     runAvailable: 'Run created successfully',
     openRunDetail: 'Open Run Detail',
+    loading: 'Loading…', dataUnavailable: 'Run data is unavailable.', status: 'Status', runId: 'Run ID', agent: 'Agent', version: 'Version', duration: 'Duration', noRunSelected: 'No run is selected.', costUnavailable: 'Cost data is not available for this run.', noEvaluation: 'No evaluation is available for this run.', total: 'Total', inputTokens: 'Input tokens', outputTokens: 'Output tokens', overall: 'Overall',
   },
   loading: 'Loading...'
 } as const;

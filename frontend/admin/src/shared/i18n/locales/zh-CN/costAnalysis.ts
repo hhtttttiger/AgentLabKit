@@ -1,5 +1,7 @@
 // Auto-generated — do not edit manually
 export const costAnalysis = {
+      empty: '暂无数据',
+      trend: { insufficientData: '数据不足，至少需要两个时间点' },
       label: '成本分析',
       summary: '分析模型调用成本、预算和告警。',
       eyebrow: '成本分析',

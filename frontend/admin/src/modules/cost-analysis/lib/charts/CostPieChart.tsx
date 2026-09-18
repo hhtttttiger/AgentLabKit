@@ -1,6 +1,7 @@
 import { DonutSegment } from '@/shared/ui/charts';
 import type { CostBreakdownItem } from '../../lib/contracts';
 import { formatCost } from '../../lib/formatters';
+import { useTranslation } from 'react-i18next';
 
 const COLORS = [
   'rgb(59 130 246)',   // blue
@@ -18,8 +19,9 @@ const SVG_PADDING = 2;
 const DONUT_INNER_RADIUS_RATIO = 0.55;
 
 export function CostPieChart({ data, size = DEFAULT_SIZE }: { data: CostBreakdownItem[]; size?: number }) {
+  const { t } = useTranslation('costAnalysis');
   if (!data.length) {
-    return <div className="flex h-[160px] items-center justify-center text-sm text-text-muted">暂无数据</div>;
+    return <div className="flex h-[160px] items-center justify-center text-sm text-text-muted">{t('empty')}</div>;
   }
 
   const total = data.reduce((s, d) => s + d.totalEstimatedCost, 0) || 1;
@@ -57,7 +59,7 @@ export function CostPieChart({ data, size = DEFAULT_SIZE }: { data: CostBreakdow
           {formatCost(total)}
         </text>
         <text x={cx} y={cy + 10} textAnchor="middle" dominantBaseline="middle" className="fill-text-muted text-[10px]">
-          总花费
+          {t('overview.totalSpend')}
         </text>
       </svg>
       {/* legend */}

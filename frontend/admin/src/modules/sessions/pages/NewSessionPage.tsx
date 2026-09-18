@@ -49,9 +49,9 @@ export function NewSessionPage() {
 
   function handleEvent(event: AgentStreamEvent) {
     if (event.runId) setRunId(event.runId);
-    if (event.type === 'context') addTimeline({ id: `${Date.now()}-context`, title: 'Started', detail: 'Agent runtime is ready', tone: 'active' });
-    if (event.type === 'tool_call') addTimeline({ id: `${Date.now()}-${event.toolName}`, title: 'Tool', detail: event.toolName ?? 'Unknown tool', tone: 'active' });
-    if (event.type === 'tool_result') addTimeline({ id: `${Date.now()}-${event.toolName}-result`, title: 'Tool completed', detail: event.toolName ?? 'Unknown tool', tone: 'done' });
+    if (event.type === 'context') addTimeline({ id: `${Date.now()}-context`, title: t('session.started'), detail: t('session.runtimeReady'), tone: 'active' });
+    if (event.type === 'tool_call') addTimeline({ id: `${Date.now()}-${event.toolName}`, title: t('session.tool'), detail: event.toolName ?? t('session.unknownTool'), tone: 'active' });
+    if (event.type === 'tool_result') addTimeline({ id: `${Date.now()}-${event.toolName}-result`, title: t('session.toolCompleted'), detail: event.toolName ?? t('session.unknownTool'), tone: 'done' });
     if (event.type === 'reply_delta' && event.delta) setOutput((current) => current + event.delta);
     if (event.type === 'completed') {
       setOutput((current) => event.replyText ?? current);
@@ -85,7 +85,7 @@ export function NewSessionPage() {
     <div className="desktop-page new-session-page">
       <header className="desktop-page__header">
         <div>
-          <button type="button" className="desktop-back-action" onClick={() => navigate('/overview')}><ArrowLeft size={15} /> Workspace</button>
+          <button type="button" className="desktop-back-action" onClick={() => navigate('/overview')}><ArrowLeft size={15} /> {t('home.workspace')}</button>
           <p className="desktop-kicker">{t('session.runWork')}</p><h1>{t('session.newSession')}</h1><p>{t('session.description')}</p>
         </div>
         <span className={`session-status session-status--${running ? 'running' : runId ? 'completed' : 'ready'}`}>{running && <LoaderCircle size={14} className="spin" />}{statusLabel}</span>

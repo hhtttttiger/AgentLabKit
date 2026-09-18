@@ -235,17 +235,17 @@ function RunInspectorTab({
     );
   }
 
-  if (isLoading) return <div className="p-4 text-sm text-text-muted">Loading…</div>;
-  if (error || !run) return <div className="p-4 text-sm text-error">Run data is unavailable.</div>;
+  if (isLoading) return <div className="p-4 text-sm text-text-muted">{t('aiChat:inspector.loading')}</div>;
+  if (error || !run) return <div className="p-4 text-sm text-error">{t('aiChat:inspector.dataUnavailable')}</div>;
 
   return (
     <div className="flex flex-col gap-4 px-4 py-8">
       <div className="space-y-2">
-        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">Status</span><StatusBadge status={run.status} /></div>
-        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">Run ID</span><span className="font-mono text-xs text-text">{run.id.slice(0, 12)}…</span></div>
-        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">Agent</span><span className="text-xs text-text">{run.agentKey}</span></div>
-        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">Version</span><span className="text-xs text-text">{run.agentVersion ? `v${run.agentVersion}` : '—'}</span></div>
-        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">Duration</span><span className="text-xs text-text">{run.durationMs != null ? `${run.durationMs}ms` : '—'}</span></div>
+        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">{t('aiChat:inspector.status')}</span><StatusBadge status={run.status} /></div>
+        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">{t('aiChat:inspector.runId')}</span><span className="font-mono text-xs text-text">{run.id.slice(0, 12)}…</span></div>
+        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">{t('aiChat:inspector.agent')}</span><span className="text-xs text-text">{run.agentKey}</span></div>
+        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">{t('aiChat:inspector.version')}</span><span className="text-xs text-text">{run.agentVersion ? `v${run.agentVersion}` : '—'}</span></div>
+        <div className="flex items-center justify-between"><span className="text-xs text-text-muted">{t('aiChat:inspector.duration')}</span><span className="text-xs text-text">{run.durationMs != null ? `${run.durationMs}ms` : '—'}</span></div>
       </div>
       <button
         type="button"
@@ -260,19 +260,21 @@ function RunInspectorTab({
 }
 
 function InspectorCostTab({ runId }: { runId: string | null }) {
+  const { t } = useTranslation('aiChat');
   const { data, isLoading, error } = useRunCost(runId ?? '');
-  if (!runId) return <InspectorUnavailable text="No run is selected." />;
-  if (isLoading) return <InspectorUnavailable text="Loading…" />;
-  if (error || !data) return <InspectorUnavailable text="Cost data is not available for this run." />;
-  return <div className="space-y-2 p-4 text-sm"><div className="flex justify-between"><span>Total</span><strong>{data.totalUsd != null ? `$${data.totalUsd.toFixed(4)}` : '—'}</strong></div><div className="flex justify-between"><span>Input tokens</span><span>{data.inputTokens ?? '—'}</span></div><div className="flex justify-between"><span>Output tokens</span><span>{data.outputTokens ?? '—'}</span></div></div>;
+  if (!runId) return <InspectorUnavailable text={t('inspector.noRunSelected')} />;
+  if (isLoading) return <InspectorUnavailable text={t('inspector.loading')} />;
+  if (error || !data) return <InspectorUnavailable text={t('inspector.costUnavailable')} />;
+  return <div className="space-y-2 p-4 text-sm"><div className="flex justify-between"><span>{t('inspector.total')}</span><strong>{data.totalUsd != null ? `$${data.totalUsd.toFixed(4)}` : '—'}</strong></div><div className="flex justify-between"><span>{t('inspector.inputTokens')}</span><span>{data.inputTokens ?? '—'}</span></div><div className="flex justify-between"><span>{t('inspector.outputTokens')}</span><span>{data.outputTokens ?? '—'}</span></div></div>;
 }
 
 function InspectorEvaluationTab({ runId }: { runId: string | null }) {
+  const { t } = useTranslation('aiChat');
   const { data, isLoading, error } = useRunEvaluation(runId ?? '');
-  if (!runId) return <InspectorUnavailable text="No run is selected." />;
-  if (isLoading) return <InspectorUnavailable text="Loading…" />;
-  if (error || !data || data.overallScore == null) return <InspectorUnavailable text="No evaluation is available for this run." />;
-  return <div className="p-4 text-sm"><div className="flex justify-between"><span>Overall</span><strong>{(data.overallScore * 100).toFixed(1)}%</strong></div></div>;
+  if (!runId) return <InspectorUnavailable text={t('inspector.noRunSelected')} />;
+  if (isLoading) return <InspectorUnavailable text={t('inspector.loading')} />;
+  if (error || !data || data.overallScore == null) return <InspectorUnavailable text={t('inspector.noEvaluation')} />;
+  return <div className="p-4 text-sm"><div className="flex justify-between"><span>{t('inspector.overall')}</span><strong>{(data.overallScore * 100).toFixed(1)}%</strong></div></div>;
 }
 
 function InspectorUnavailable({ text }: { text: string }) { return <div className="p-4 text-center text-sm text-text-muted">{text}</div>; }

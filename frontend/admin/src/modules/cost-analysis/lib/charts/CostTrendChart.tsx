@@ -1,6 +1,7 @@
 import { SvgChart, AreaPath } from '@/shared/ui/charts';
 import type { CostTrendPoint } from '../../lib/contracts';
 import { formatCost } from '../../lib/formatters';
+import { useTranslation } from 'react-i18next';
 
 const Y_PADDING_FACTOR = 1.15;
 const MAX_X_TICKS = 15;
@@ -17,8 +18,9 @@ function formatPeriodLabel(period: string): string {
 }
 
 export function CostTrendChart({ data, height = DEFAULT_HEIGHT }: { data: CostTrendPoint[]; height?: number }) {
+  const { t } = useTranslation('costAnalysis');
   if (data.length < 2) {
-    return <div className="flex h-[180px] items-center justify-center text-sm text-text-muted">数据不足，至少需要两个时间点</div>;
+    return <div className="flex h-[180px] items-center justify-center text-sm text-text-muted">{t('trend.insufficientData')}</div>;
   }
 
   const costs = data.map((d) => d.totalCost);

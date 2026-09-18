@@ -43,7 +43,7 @@ export function OverviewPage() {
         <section className="desktop-section desktop-section--wide" aria-labelledby="recent-runs-title">
           <div className="desktop-section__heading"><div><p className="desktop-kicker">{t('home.activity')}</p><h2 id="recent-runs-title">{t('home.recentRuns')}</h2></div><button type="button" className="desktop-text-action" onClick={() => navigate('/runs')}>{t('home.viewAll')} <ArrowUpRight size={15} /></button></div>
           <div className="run-preview-list">
-            {runsLoading && <div className="desktop-empty desktop-empty--compact">Loading runs…</div>}
+            {runsLoading && <div className="desktop-empty desktop-empty--compact">{t('home.loadingRuns')}</div>}
             {!runsLoading && recentRuns.length === 0 && <div className="desktop-empty desktop-empty--compact">{t('home.noRuns')}</div>}
             {recentRuns.map((run) => <button type="button" className="run-preview-row" key={run.id} onClick={() => navigate(`/runs/${encodeURIComponent(run.id)}`)}><span className="run-preview-row__dot" /><span className="run-preview-row__main"><strong>{run.agentKey || t('home.nativeAgent')}</strong><span>{run.id.slice(0, 12)} · {run.startedAt ? new Date(run.startedAt).toLocaleString() : t('home.timeUnavailable')}</span></span><StatusBadge status={run.status} /><span className="run-preview-row__duration">{run.durationMs == null ? '—' : formatDuration(run.durationMs)}</span></button>)}
           </div>

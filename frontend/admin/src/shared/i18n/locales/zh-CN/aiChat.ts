@@ -42,6 +42,7 @@ export const aiChat = {
         newConversation: '开始一段新对话',
         startTyping: '在下方输入消息开始对话',
         copy: '复制',
+        copied: '已复制',
         regenerate: '重新生成'
       },
       sessionList: {
@@ -87,6 +88,7 @@ export const aiChat = {
         noRunId: '没有可用的运行 ID。发送消息以创建运行。',
         runAvailable: '运行创建成功',
         openRunDetail: '打开运行详情',
+        loading: '加载中…', dataUnavailable: '运行数据不可用。', status: '状态', runId: '运行 ID', agent: 'Agent', version: '版本', duration: '耗时', noRunSelected: '未选择运行。', costUnavailable: '当前运行暂无成本数据。', noEvaluation: '当前运行暂无评估结果。', total: '总计', inputTokens: '输入 Token', outputTokens: '输出 Token', overall: '总体',
       },
       loading: '加载中...'
     } as const;
