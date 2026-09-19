@@ -60,6 +60,8 @@ class UpdateProject:
     def __init__(self, reader: ProjectReader, writer: ProjectWriter): self.reader, self.writer = reader, writer
     async def execute(self, project_id: str, *, name: str | None = None, workspace: str | None = None) -> Project:
         current = await GetProject(self.reader).execute(project_id)
+        if name is not None and not name.strip():
+            raise ValueError("Project name is required")
         updated = Project(current.project_id, name.strip() if name is not None else current.name,
                           _workspace(workspace) if workspace is not None else current.workspace,
                           current.created_at, now())
@@ -85,6 +87,8 @@ class GetConversation:
 class GetConversationHistory:
     def __init__(self, reader: ConversationReader): self.reader = reader
     async def execute(self, conversation_id: str) -> list[ConversationTurn]:
+        if await self.reader.get_conversation(conversation_id) is None:
+            raise ConversationNotFound(conversation_id)
         return await self.reader.list_turns(conversation_id)
 
 
@@ -96,7 +100,7 @@ class SendConversationMessage:
     async def execute(self, command: SendConversationMessageCommand) -> SendConversationMessageResult:
         prepared = await self._prepare(command)
         conversation, user_turn, history, project = prepared
-        result = await self.execute_agent.execute(ExecuteAgentCommand(command.agent_key, command.message, conversation.conversation_id, command.user_id, history, {"working_directory": project.workspace, "project_id": project.project_id, "conversation_id": conversation.conversation_id}))
+        result = await self.execute_agent.execute(ExecuteAgentCommand("local-agent", command.message, conversation.conversation_id, command.user_id, history, {"working_directory": project.workspace, "project_id": project.project_id, "conversation_id": conversation.conversation_id}))
         return await self._finish(conversation, user_turn, result.run.output_text, result.run.run_id, command.message)
 
     async def _prepare(self, command: SendConversationMessageCommand):
@@ -123,7 +127,7 @@ class SendConversationMessage:
         conversation, user_turn, history, project = await self._prepare(command)
         text = ""
         run_id = ""
-        async for update in self.execute_agent.stream(ExecuteAgentCommand(command.agent_key, command.message, conversation.conversation_id, command.user_id, history, {"working_directory": project.workspace, "project_id": project.project_id, "conversation_id": conversation.conversation_id})):
+        async for update in self.execute_agent.stream(ExecuteAgentCommand("local-agent", command.message, conversation.conversation_id, command.user_id, history, {"working_directory": project.workspace, "project_id": project.project_id, "conversation_id": conversation.conversation_id})):
             run_id = update.run_id
             event = update.event
             if event.delta:

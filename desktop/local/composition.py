@@ -31,7 +31,7 @@ from application import (
     CaptureRunAsDatasetExampleCommand,
     EvaluateDataset,
     EvaluateDatasetCommand,
-    CreateConversation, CreateProject, GetConversation, GetConversationHistory, GetProject,
+    ConversationNotFound, CreateConversation, CreateProject, GetConversation, GetConversationHistory, GetProject,
     InvalidProjectWorkspace, ListProjects,
     ProjectNotFound, SendConversationMessage, SendConversationMessageCommand,
 )
@@ -133,7 +133,6 @@ class ConversationBody(BaseModel):
 
 class ConversationMessageBody(BaseModel):
     message: str
-    agentKey: str = "local-agent"
 
 
 class LocalTraceFinalization:
@@ -194,6 +193,7 @@ class LocalExecutor:
                 user_message=kwargs["input"], history=list(kwargs.get("history", ())),
                 user_id=kwargs.get("user_id"), agent_key=kwargs["target"].agent_key,
                 agent_version=int(kwargs["target"].agent_version) if kwargs["target"].agent_version else None,
+                metadata={str(key): str(value) for key, value in kwargs.get("metadata", {}).items()},
             )):
                 yield event
         return updates()
@@ -375,6 +375,13 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     def turn_view(turn: Any) -> dict[str, Any]:
         return {"turnId": turn.turn_id, "conversationId": turn.conversation_id, "role": turn.role, "content": turn.content, "runId": turn.run_id, "createdAt": utc_iso(turn.created_at)}
 
+    def conversation_use_case() -> SendConversationMessage:
+        return SendConversationMessage(
+            composition.conversations,
+            composition.conversations,
+            ExecuteAgent(LocalExecutor(composition.runtime, composition.external_runner), composition.agents),
+        )
+
     @app.get("/api/projects")
     async def list_projects():
         return envelope([project_view(item) for item in await ListProjects(composition.conversations).execute()])
@@ -398,7 +405,9 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
         try:
             from application import UpdateProject
             project = await UpdateProject(composition.conversations, composition.conversations).execute(project_id, name=body.name, workspace=body.workspace)
-        except (LookupError, InvalidProjectWorkspace, ValueError) as error:
+        except ProjectNotFound as error:
+            raise HTTPException(404, "Project not found") from error
+        except (InvalidProjectWorkspace, ValueError) as error:
             raise HTTPException(422, str(error)) from error
         return envelope(project_view(project))
 
@@ -430,10 +439,40 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     @app.post("/api/conversations/{conversation_id}/messages")
     async def send_conversation_message(conversation_id: str, body: ConversationMessageBody):
         try:
-            result = await SendConversationMessage(composition.conversations, composition.conversations, ExecuteAgent(LocalExecutor(composition.runtime, composition.external_runner), composition.agents)).execute(SendConversationMessageCommand(conversation_id, body.message, agent_key=body.agentKey))
+            result = await conversation_use_case().execute(SendConversationMessageCommand(conversation_id, body.message))
         except LookupError as error: raise HTTPException(404, str(error)) from error
         except (ValueError, InvalidProjectWorkspace) as error: raise HTTPException(422, str(error)) from error
         return envelope({"conversation": conversation_view(result.conversation), "userTurn": turn_view(result.user_turn), "assistantTurn": turn_view(result.assistant_turn)})
+
+    @app.post("/api/conversations/{conversation_id}/messages/stream")
+    async def stream_conversation_message(conversation_id: str, body: ConversationMessageBody):
+        try:
+            await GetConversation(composition.conversations).execute(conversation_id)
+        except ConversationNotFound as error:
+            raise HTTPException(404, "Conversation not found") from error
+
+        async def events():
+            composition._active_executions += 1
+            try:
+                async for update in conversation_use_case().stream(SendConversationMessageCommand(conversation_id, body.message)):
+                    event = update.event
+                    payload = {
+                        "type": {"turn_context": "context", "reply_delta": "reply_delta", "reply_completed": "completed", "tool_call": "tool_call", "tool_result": "tool_result", "delegation_delta": "delegation_delta", "handoff": "handoff", "error": "error"}.get(event.event_type, event.event_type),
+                        "runId": update.run_id, "sessionId": event.session_id, "traceId": event.trace_id,
+                        "delta": event.delta, "replyText": event.reply_text,
+                        "toolName": event.tool_name, "toolEvent": event.tool_event.model_dump() if event.tool_event else None,
+                        "errorCode": event.error.code if event.error else None,
+                        "errorMessage": event.error.message if event.error else None,
+                    }
+                    yield f"data: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
+                yield "data: [DONE]\n\n"
+            except Exception as error:
+                yield f"data: {json.dumps({'type': 'error', 'errorMessage': str(error)}, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+            finally:
+                composition._active_executions = max(0, composition._active_executions - 1)
+
+        return StreamingResponse(events(), media_type="text/event-stream")
 
     @app.get("/api/ai/invoke/agents/options")
     async def agent_options():

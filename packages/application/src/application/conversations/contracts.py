@@ -66,7 +66,6 @@ class SendConversationMessageCommand:
     conversation_id: str
     message: str
     user_id: str = "local"
-    agent_key: str = "local-agent"
     context_limit: int = 20
 
 
@@ -75,4 +74,3 @@ class SendConversationMessageResult:
     conversation: Conversation
     user_turn: ConversationTurn
     assistant_turn: ConversationTurn
-
