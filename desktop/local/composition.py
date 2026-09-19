@@ -188,14 +188,20 @@ class LocalExecutor:
 
     def stream(self, **kwargs: Any):
         async def updates():
-            async for event in self.runtime.stream(AgentTurnRequest(
+            runtime_stream = self.runtime.stream(AgentTurnRequest(
                 session_id=kwargs.get("session_id") or "desktop",
                 user_message=kwargs["input"], history=list(kwargs.get("history", ())),
                 user_id=kwargs.get("user_id"), agent_key=kwargs["target"].agent_key,
                 agent_version=int(kwargs["target"].agent_version) if kwargs["target"].agent_version else None,
                 metadata={str(key): str(value) for key, value in kwargs.get("metadata", {}).items()},
-            )):
-                yield event
+            ))
+            try:
+                async for event in runtime_stream:
+                    yield event
+            finally:
+                close = getattr(runtime_stream, "aclose", None)
+                if close is not None:
+                    await close()
         return updates()
 
 

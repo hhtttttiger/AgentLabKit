@@ -127,15 +127,31 @@ class SendConversationMessage:
         conversation, user_turn, history, project = await self._prepare(command)
         text = ""
         run_id = ""
-        async for update in self.execute_agent.stream(ExecuteAgentCommand("local-agent", command.message, conversation.conversation_id, command.user_id, history, {"working_directory": project.workspace, "project_id": project.project_id, "conversation_id": conversation.conversation_id})):
-            run_id = update.run_id
-            event = update.event
-            if event.delta:
-                text += event.delta
-            if event.reply_text:
-                text = event.reply_text
-            yield update
-            if event.event_type == "error":
-                return
-        if run_id and text:
-            await self._finish(conversation, user_turn, text, run_id, command.message)
+        assistant_persisted = False
+        runtime_stream = self.execute_agent.stream(ExecuteAgentCommand("local-agent", command.message, conversation.conversation_id, command.user_id, history, {"working_directory": project.workspace, "project_id": project.project_id, "conversation_id": conversation.conversation_id}))
+        try:
+            async for update in runtime_stream:
+                run_id = update.run_id
+                event = update.event
+                if event.delta:
+                    text += event.delta
+                if event.reply_text:
+                    text = event.reply_text
+                # Runtime owns execution finalization. Persist the product turn as
+                # soon as Runtime emits a terminal success event, before the
+                # adapter yields it to HTTP. A disconnect after this point cannot
+                # erase a completed assistant turn.
+                if not assistant_persisted and event.event_type in {"reply_completed", "handoff"} and run_id:
+                    await self._finish(conversation, user_turn, text, run_id, command.message)
+                    assistant_persisted = True
+                yield update
+                if event.event_type == "error":
+                    return
+        finally:
+            # An HTTP adapter may close this product generator without
+            # consuming it to completion. Explicitly close the Runtime-owned
+            # iterator so Runtime finalizes the Run as cancelled instead of
+            # leaving execution fate to garbage collection.
+            close = getattr(runtime_stream, "aclose", None)
+            if close is not None:
+                await close()

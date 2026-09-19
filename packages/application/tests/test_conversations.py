@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +18,8 @@ from application.conversations import (
     UpdateProject,
     Project, Conversation, ConversationTurn,
 )
+from application.execution.execute_agent import ExecuteAgent
+from application.execution.contracts import ExecuteAgentCommand
 
 
 class MemoryStore:
@@ -60,6 +63,43 @@ class FakeAgent:
         return updates()
 
 
+class DisconnectingAgent:
+    def __init__(self):
+        self.closed = False
+
+    def stream(self, command):
+        async def updates():
+            try:
+                yield SimpleNamespace(run_id="run-disconnected", event=AgentTurnStreamEvent(event_type="reply_delta", session_id="c", trace_id="t", delta="partial"))
+                await asyncio.Event().wait()
+            finally:
+                self.closed = True
+        return updates()
+
+
+@pytest.mark.asyncio
+async def test_execute_agent_closes_executor_stream_on_disconnect():
+    class Reader:
+        async def resolve(self, agent_key): return SimpleNamespace(agent_key=agent_key, agent_version="1")
+
+    class Executor:
+        def __init__(self): self.closed = False
+        def stream(self, **kwargs):
+            async def updates():
+                try:
+                    yield SimpleNamespace()
+                    await asyncio.Event().wait()
+                finally:
+                    self.closed = True
+            return updates()
+
+    executor = Executor()
+    stream = ExecuteAgent(executor, Reader()).stream(ExecuteAgentCommand("local-agent", "hello"))
+    await stream.__anext__()
+    await stream.aclose()
+    assert executor.closed is True
+
+
 @pytest.mark.asyncio
 async def test_multi_turn_context_and_run_linkage(tmp_path: Path):
     store = MemoryStore()
@@ -91,6 +131,22 @@ async def test_stream_persists_assistant_only_after_success(tmp_path: Path):
     with pytest.raises(RuntimeError):
         [item async for item in SendConversationMessage(store, store, FakeAgent(fail_stream=True)).stream(SendConversationMessageCommand(failed.conversation_id, "retry me"))]
     assert [(turn.role, turn.run_id) for turn in await store.list_turns(failed.conversation_id)] == [("user", None)]
+
+
+@pytest.mark.asyncio
+async def test_client_disconnect_closes_runtime_stream_without_fake_assistant(tmp_path: Path):
+    store = MemoryStore()
+    project = await CreateProject(store).execute(name="P", workspace=str(tmp_path))
+    conversation = await CreateConversation(store, store).execute(project_id=project.project_id)
+    agent = DisconnectingAgent()
+    stream = SendConversationMessage(store, store, agent).stream(SendConversationMessageCommand(conversation.conversation_id, "disconnect me"))
+
+    await stream.__anext__()
+    assert [(turn.role, turn.run_id) for turn in await store.list_turns(conversation.conversation_id)] == [("user", None)]
+    await stream.aclose()
+
+    assert agent.closed is True
+    assert [(turn.role, turn.run_id) for turn in await store.list_turns(conversation.conversation_id)] == [("user", None)]
 
 
 @pytest.mark.asyncio

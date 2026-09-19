@@ -24,12 +24,18 @@ class ExecuteAgent:
 
     async def stream(self, command: ExecuteAgentCommand):
         target = await self._agents.resolve(command.agent_key)
-        async for update in self._executor.stream(
+        executor_stream = self._executor.stream(
             input=command.input,
             target=target,
             session_id=command.session_id,
             user_id=command.user_id,
             history=command.history,
             metadata=command.metadata,
-        ):
-            yield update
+        )
+        try:
+            async for update in executor_stream:
+                yield update
+        finally:
+            close = getattr(executor_stream, "aclose", None)
+            if close is not None:
+                await close()
