@@ -15,8 +15,9 @@ import { runsRoutes } from '@/modules/runs/routes';
 import { capabilitiesRoutes } from '@/modules/capabilities/routes';
 import { sessionsRoutes } from '@/modules/sessions/routes';
 import { settingsRoutes } from '@/modules/settings/routes';
+import { projectRoutes } from '@/modules/projects/routes';
 
-export type ModuleKey = 'home' | 'sessions' | 'runs' | 'datasets' | 'evaluation' | 'knowledge-base' | 'settings';
+export type ModuleKey = 'home' | 'projects' | 'sessions' | 'runs' | 'datasets' | 'evaluation' | 'knowledge-base' | 'settings';
 
 export type ModuleGroup = 'build' | 'run' | 'improve' | 'platform';
 
@@ -30,6 +31,7 @@ export type ModuleDefinition = {
 
 export const appModules: ModuleDefinition[] = [
   { key: 'home', icon: Home, basePath: '/overview', group: 'build', order: 1 },
+  { key: 'projects', icon: ClipboardList, basePath: '/projects', group: 'build', order: 2 },
   { key: 'sessions', icon: ClipboardList, basePath: '/sessions', group: 'run', order: 1 },
   { key: 'runs', icon: Timer, basePath: '/runs', group: 'run', order: 2 },
   { key: 'datasets', icon: Database, basePath: '/evaluation/datasets', group: 'improve', order: 1 },
@@ -48,6 +50,7 @@ export const moduleRoutes = [
   ...sessionsRoutes,
   ...capabilitiesRoutes,
   ...settingsRoutes,
+  ...projectRoutes,
 ];
 
 // Group labels for sidebar rendering

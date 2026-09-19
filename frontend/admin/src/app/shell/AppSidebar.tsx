@@ -16,7 +16,7 @@ interface AppSidebarProps {
 }
 
 const NAV_LABELS: Record<ModuleKey, string> = {
-  home: 'desktop:nav.home', sessions: 'desktop:nav.sessions', runs: 'desktop:nav.runs', datasets: 'desktop:nav.datasets', evaluation: 'desktop:nav.evaluations', 'knowledge-base': 'desktop:nav.knowledge', settings: 'desktop:nav.settings',
+  home: 'desktop:nav.home', projects: 'desktop:nav.projects', sessions: 'desktop:nav.sessions', runs: 'desktop:nav.runs', datasets: 'desktop:nav.datasets', evaluation: 'desktop:nav.evaluations', 'knowledge-base': 'desktop:nav.knowledge', settings: 'desktop:nav.settings',
 } as const;
 
 export function AppSidebar({ currentModuleKey, collapsed, onToggleCollapse, displayName, onLogout }: AppSidebarProps) {

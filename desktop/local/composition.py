@@ -31,6 +31,9 @@ from application import (
     CaptureRunAsDatasetExampleCommand,
     EvaluateDataset,
     EvaluateDatasetCommand,
+    CreateConversation, CreateProject, GetConversation, GetConversationHistory, GetProject,
+    InvalidProjectWorkspace, ListProjects,
+    ProjectNotFound, SendConversationMessage, SendConversationMessageCommand,
 )
 from application.execution.contracts import ExecuteAgentCommand, ReplayRunCommand
 from application.execution.replay_run import (
@@ -61,7 +64,7 @@ from llm_gateway import Capability, ProviderId, TextGenerateRequest
 from tools.registry import create_desktop_tool_registry
 from desktop.core.config import AppConfig, LLMConfig, apply_environment_overrides
 
-from .store import LocalAgentReader, LocalDatabase, LocalDatasetStore, LocalEvaluationStore, LocalRunStore, parse_dt, utc_iso
+from .store import LocalAgentReader, LocalConversationStore, LocalDatabase, LocalDatasetStore, LocalEvaluationStore, LocalRunStore, parse_dt, utc_iso
 from .external_agent import ExternalAgentRunner, detect_codex
 
 
@@ -112,6 +115,25 @@ class ModelSettingsBody(BaseModel):
     model: str
     apiKey: str | None = None
     clearApiKey: bool = False
+
+
+class ProjectBody(BaseModel):
+    name: str
+    workspace: str
+
+
+class ProjectPatchBody(BaseModel):
+    name: str | None = None
+    workspace: str | None = None
+
+
+class ConversationBody(BaseModel):
+    title: str = "New conversation"
+
+
+class ConversationMessageBody(BaseModel):
+    message: str
+    agentKey: str = "local-agent"
 
 
 class LocalTraceFinalization:
@@ -199,6 +221,7 @@ class LocalComposition:
     def __init__(self, db_path: Path) -> None:
         self.db = LocalDatabase(db_path)
         self.runs = LocalRunStore(self.db)
+        self.conversations = LocalConversationStore(self.db)
         self.datasets = LocalDatasetStore(self.db)
         self.evaluations = LocalEvaluationStore(self.db)
         self.agents = LocalAgentReader(self.db)
@@ -342,6 +365,75 @@ def create_local_app(db_path: Path | None = None) -> FastAPI:
     @app.get("/health")
     async def health():
         return envelope({"status": "healthy", "mode": "desktop-local", "database": str(composition.db.path)})
+
+    def project_view(project: Any) -> dict[str, Any]:
+        return {"projectId": project.project_id, "name": project.name, "workspace": project.workspace, "createdAt": utc_iso(project.created_at), "updatedAt": utc_iso(project.updated_at)}
+
+    def conversation_view(conversation: Any) -> dict[str, Any]:
+        return {"conversationId": conversation.conversation_id, "projectId": conversation.project_id, "title": conversation.title, "createdAt": utc_iso(conversation.created_at), "updatedAt": utc_iso(conversation.updated_at), "archivedAt": utc_iso(conversation.archived_at)}
+
+    def turn_view(turn: Any) -> dict[str, Any]:
+        return {"turnId": turn.turn_id, "conversationId": turn.conversation_id, "role": turn.role, "content": turn.content, "runId": turn.run_id, "createdAt": utc_iso(turn.created_at)}
+
+    @app.get("/api/projects")
+    async def list_projects():
+        return envelope([project_view(item) for item in await ListProjects(composition.conversations).execute()])
+
+    @app.post("/api/projects")
+    async def create_project(body: ProjectBody):
+        try:
+            project = await CreateProject(composition.conversations).execute(name=body.name, workspace=body.workspace)
+        except (InvalidProjectWorkspace, ValueError) as error:
+            raise HTTPException(422, str(error)) from error
+        return envelope(project_view(project))
+
+    @app.get("/api/projects/{project_id}")
+    async def get_project(project_id: str):
+        try: project = await GetProject(composition.conversations).execute(project_id)
+        except LookupError as error: raise HTTPException(404, "Project not found") from error
+        return envelope(project_view(project))
+
+    @app.patch("/api/projects/{project_id}")
+    async def update_project(project_id: str, body: ProjectPatchBody):
+        try:
+            from application import UpdateProject
+            project = await UpdateProject(composition.conversations, composition.conversations).execute(project_id, name=body.name, workspace=body.workspace)
+        except (LookupError, InvalidProjectWorkspace, ValueError) as error:
+            raise HTTPException(422, str(error)) from error
+        return envelope(project_view(project))
+
+    @app.get("/api/projects/{project_id}/conversations")
+    async def list_project_conversations(project_id: str):
+        if await composition.conversations.get_project(project_id) is None: raise HTTPException(404, "Project not found")
+        return envelope([conversation_view(item) for item in await composition.conversations.list_project_conversations(project_id)])
+
+    @app.post("/api/projects/{project_id}/conversations")
+    async def create_conversation(project_id: str, body: ConversationBody):
+        try: conversation = await CreateConversation(composition.conversations, composition.conversations).execute(project_id=project_id, title=body.title)
+        except LookupError as error: raise HTTPException(404, "Project not found") from error
+        return envelope(conversation_view(conversation))
+
+    @app.get("/api/conversations/{conversation_id}")
+    async def get_conversation(conversation_id: str):
+        try: conversation = await GetConversation(composition.conversations).execute(conversation_id)
+        except LookupError as error: raise HTTPException(404, "Conversation not found") from error
+        return envelope(conversation_view(conversation))
+
+    @app.get("/api/conversations/{conversation_id}/turns")
+    async def conversation_history(conversation_id: str):
+        try:
+            await GetConversation(composition.conversations).execute(conversation_id)
+            turns = await GetConversationHistory(composition.conversations).execute(conversation_id)
+        except LookupError as error: raise HTTPException(404, "Conversation not found") from error
+        return envelope([turn_view(item) for item in turns])
+
+    @app.post("/api/conversations/{conversation_id}/messages")
+    async def send_conversation_message(conversation_id: str, body: ConversationMessageBody):
+        try:
+            result = await SendConversationMessage(composition.conversations, composition.conversations, ExecuteAgent(LocalExecutor(composition.runtime, composition.external_runner), composition.agents)).execute(SendConversationMessageCommand(conversation_id, body.message, agent_key=body.agentKey))
+        except LookupError as error: raise HTTPException(404, str(error)) from error
+        except (ValueError, InvalidProjectWorkspace) as error: raise HTTPException(422, str(error)) from error
+        return envelope({"conversation": conversation_view(result.conversation), "userTurn": turn_view(result.user_turn), "assistantTurn": turn_view(result.assistant_turn)})
 
     @app.get("/api/ai/invoke/agents/options")
     async def agent_options():

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from application.execution.run_projection import RunRecord, RunReader, RunWriter
+from application.conversations import Conversation, ConversationReader, ConversationTurn, ConversationWriter, Project, ProjectReader, ProjectWriter
 from application.ports.datasets import DatasetExampleWriter, DatasetReader
 from application.ports.evaluation import EvaluationRunReader, EvaluationRunStore
 from evaluation.contracts_v2 import DatasetExample, EvaluationResult, EvaluationRun, EvaluationRunStatus
@@ -139,6 +140,31 @@ class LocalDatabase:
                     started_at TEXT,
                     completed_at TEXT
                 );
+                CREATE TABLE IF NOT EXISTS projects (
+                    project_id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    workspace TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS conversations (
+                    conversation_id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+                    title TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    archived_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS ix_conversations_project ON conversations(project_id, updated_at DESC);
+                CREATE TABLE IF NOT EXISTS conversation_turns (
+                    turn_id TEXT PRIMARY KEY,
+                    conversation_id TEXT NOT NULL REFERENCES conversations(conversation_id) ON DELETE CASCADE,
+                    role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+                    content TEXT NOT NULL,
+                    run_id TEXT,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS ix_conversation_turns_conversation ON conversation_turns(conversation_id, created_at);
                 """
             )
             # Local Mode databases from v0.2 predate the agent catalog fields.
@@ -171,6 +197,68 @@ class LocalDatabase:
         if not value:
             return default
         return json.loads(value)
+
+
+class LocalConversationStore(ProjectReader, ProjectWriter, ConversationReader, ConversationWriter):
+    def __init__(self, db: LocalDatabase) -> None:
+        self.db = db
+
+    def _project(self, row: sqlite3.Row) -> Project:
+        return Project(row["project_id"], row["name"], row["workspace"], parse_dt(row["created_at"]), parse_dt(row["updated_at"]))
+
+    def _conversation(self, row: sqlite3.Row) -> Conversation:
+        return Conversation(row["conversation_id"], row["project_id"], row["title"], parse_dt(row["created_at"]), parse_dt(row["updated_at"]), parse_dt(row["archived_at"]))
+
+    def _turn(self, row: sqlite3.Row) -> ConversationTurn:
+        return ConversationTurn(row["turn_id"], row["conversation_id"], row["role"], row["content"], row["run_id"], parse_dt(row["created_at"]))
+
+    async def get_project(self, project_id: str) -> Project | None:
+        row = self.db.connection.execute("SELECT * FROM projects WHERE project_id=?", (project_id,)).fetchone()
+        return self._project(row) if row else None
+
+    async def list_projects(self) -> list[Project]:
+        return [self._project(row) for row in self.db.connection.execute("SELECT * FROM projects ORDER BY updated_at DESC").fetchall()]
+
+    async def create_project(self, project: Project) -> Project:
+        with self.db._lock, self.db.connection:
+            self.db.connection.execute("INSERT INTO projects VALUES (?, ?, ?, ?, ?)", (project.project_id, project.name, project.workspace, utc_iso(project.created_at), utc_iso(project.updated_at)))
+        return project
+
+    async def update_project(self, project: Project) -> Project:
+        with self.db._lock, self.db.connection:
+            self.db.connection.execute("UPDATE projects SET name=?, workspace=?, updated_at=? WHERE project_id=?", (project.name, project.workspace, utc_iso(project.updated_at), project.project_id))
+        return project
+
+    async def get_conversation(self, conversation_id: str) -> Conversation | None:
+        row = self.db.connection.execute("SELECT * FROM conversations WHERE conversation_id=?", (conversation_id,)).fetchone()
+        return self._conversation(row) if row else None
+
+    async def list_project_conversations(self, project_id: str) -> list[Conversation]:
+        return [self._conversation(row) for row in self.db.connection.execute("SELECT * FROM conversations WHERE project_id=? AND archived_at IS NULL ORDER BY updated_at DESC", (project_id,)).fetchall()]
+
+    async def list_turns(self, conversation_id: str, *, limit: int | None = None) -> list[ConversationTurn]:
+        query = "SELECT * FROM conversation_turns WHERE conversation_id=? ORDER BY created_at"
+        params: tuple[object, ...] = (conversation_id,)
+        if limit is not None:
+            query = "SELECT * FROM (SELECT * FROM conversation_turns WHERE conversation_id=? ORDER BY created_at DESC LIMIT ?) ORDER BY created_at"
+            params = (conversation_id, limit)
+        return [self._turn(row) for row in self.db.connection.execute(query, params).fetchall()]
+
+    async def create_conversation(self, conversation: Conversation) -> Conversation:
+        with self.db._lock, self.db.connection:
+            self.db.connection.execute("INSERT INTO conversations VALUES (?, ?, ?, ?, ?, ?)", (conversation.conversation_id, conversation.project_id, conversation.title, utc_iso(conversation.created_at), utc_iso(conversation.updated_at), utc_iso(conversation.archived_at)))
+        return conversation
+
+    async def update_conversation(self, conversation: Conversation) -> Conversation:
+        with self.db._lock, self.db.connection:
+            self.db.connection.execute("UPDATE conversations SET title=?, updated_at=?, archived_at=? WHERE conversation_id=?", (conversation.title, utc_iso(conversation.updated_at), utc_iso(conversation.archived_at), conversation.conversation_id))
+        return conversation
+
+    async def append_turn(self, turn: ConversationTurn) -> ConversationTurn:
+        with self.db._lock, self.db.connection:
+            self.db.connection.execute("INSERT INTO conversation_turns VALUES (?, ?, ?, ?, ?, ?)", (turn.turn_id, turn.conversation_id, turn.role, turn.content, turn.run_id, utc_iso(turn.created_at)))
+            self.db.connection.execute("UPDATE conversations SET updated_at=? WHERE conversation_id=?", (utc_iso(turn.created_at), turn.conversation_id))
+        return turn
 
 
 class LocalRunStore(RunReader, RunWriter):

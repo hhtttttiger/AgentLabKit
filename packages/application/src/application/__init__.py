@@ -24,6 +24,13 @@ from .evaluation.compare import (
     EvaluationExampleComparison, EvaluationRunNotFound, EvaluationRunsNotComparable,
     InvalidEvaluationResultSet,
 )
+from .conversations import (
+    Conversation, ConversationNotFound, ConversationReader, ConversationTurn, ConversationWriter,
+    CreateConversation, CreateProject, GetConversation, GetConversationHistory, GetProject,
+    InvalidProjectWorkspace, ListProjects, Project, ProjectNotFound, ProjectReader, ProjectWriter,
+    SendConversationMessage, SendConversationMessageCommand, SendConversationMessageResult,
+    UpdateProject,
+)
 
 __all__ = [
     "ExecuteAgent", "ExecuteAgentCommand", "ExecuteAgentResult", "ExecuteAgentUpdate",
@@ -36,4 +43,9 @@ __all__ = [
     "CompareEvaluationRuns", "CompareEvaluationRunsCommand", "CompareEvaluationRunsResult",
     "EvaluationExampleComparison", "EvaluationRunNotFound", "EvaluationRunsNotComparable",
     "InvalidEvaluationResultSet",
+    "Project", "Conversation", "ConversationTurn", "ProjectReader", "ProjectWriter",
+    "ConversationReader", "ConversationWriter", "CreateProject", "ListProjects", "GetProject",
+    "UpdateProject", "CreateConversation", "GetConversation", "GetConversationHistory",
+    "SendConversationMessage", "SendConversationMessageCommand", "SendConversationMessageResult",
+    "ProjectNotFound", "ConversationNotFound", "InvalidProjectWorkspace",
 ]
